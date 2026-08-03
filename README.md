@@ -28,11 +28,9 @@ Presenta una síntesis del proyecto, incluyendo el contexto en el que surge, la 
 
 | Nombre | GitHub |
 |---|---|
-| Nombre Apellido | [@usuario1](https://github.com/usuario1) |
-| Nombre Apellido | [@usuario2](https://github.com/usuario2) |
-| Nombre Apellido | [@usuario3](https://github.com/usuario3) |
+| Carlos Andrés Galvis Pájaro | [@Charlsz](https://github.com/Charlsz) |
+| Zenen Contreras Royero | [@zenencontreras](https://github.com/zenencontreras) |
 
 ## Tutores
 
-- Nombre del tutor 1
-- Nombre del tutor 2
+- Daniel Romero
