@@ -1,0 +1,10 @@
+# MLflow configuration for Terra experiment tracking and model registry.
+#
+# See docs/plan.md — Fase 2: Experiment tracking and model registry.
+
+tracking_uri: ./mlruns
+experiment_name: terra-burn-scars
+registry_uri: ./mlruns
+
+# Model promotion states (see docs/decisions/003-model-promotion.md when implemented)
+# trained -> evaluated -> candidate -> approved
