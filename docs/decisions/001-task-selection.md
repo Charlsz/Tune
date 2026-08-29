@@ -1,55 +1,52 @@
-# ADR 001: Selección de tarea geoespacial principal
+# ADR 001: Selección del caso de estudio
 
-**Estado:** Aceptado  
-**Fecha:** 2026-08-17  
+**Estado:** Actualizado (Tune)  
+**Fecha original:** 2026-08-17  
+**Actualizado:** 2026-08-29  
 **Contexto:** [Primer Informe](../PrimerInforme.md) — secciones 3, 4 y 5
 
 ## Contexto
 
-El primer informe define una arquitectura MLOps para modelos geoespaciales basados en **Prithvi-EO-2.0**, integrando **TerraTorch** para fine-tuning, **MLflow** para experiment tracking y model registry, y una **API REST** para inferencia.
+El primer informe define **Tune**: un laboratorio MLOps para comparar fine-tuning baseline versus optimizado y servir el modelo elegido. El éxito del proyecto **no** depende de un backbone ni de un dominio concretos.
 
-El alcance inicial contempla **una o dos tareas** geoespaciales. La solución propuesta menciona explícitamente:
+Sí hace falta **un** caso de estudio (1 modelo preentrenado + 1 dataset) para validar el flujo. Un segundo caso es opcional y solo se aborda si el mínimo experimental ya está cerrado.
 
-- **Flood Detection** (detección de inundaciones)
-- **Wildfire Scar Detection** (detección de cicatrices de incendio)
-
-Para iniciar la implementación se requiere seleccionar **una tarea principal** que permita validar el flujo completo con el menor riesgo técnico.
+La decisión previa (Terra) fijaba Wildfire Scar Detection + Prithvi-EO-2.0 + TerraTorch como eje. Esa elección se conserva solo como **candidato preferido**, con plan B obligatorio.
 
 ## Opciones consideradas
 
-| Tarea | Dataset | Soporte TerraTorch | Complejidad inicial |
-|-------|---------|--------------------|---------------------|
-| Wildfire Scar Detection | [hls_burn_scars](https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars) | Config YAML + notebook Colab oficial | Baja |
-| Flood Detection | [Sen1Floods11](https://github.com/cloudtostreet/Sen1Floods11) | Config YAML + notebook Colab oficial | Media |
-| Crop Classification | Multi-temporal crop (US) | Notebook disponible | Media-alta |
-| Landslide Detection | Landslide4sense | Config disponible | Media-alta |
+| Caso | Dataset | Notas | Riesgo |
+|------|---------|-------|--------|
+| Geoespacial / cicatrices de incendio | HLS Burn Scars | Reutiliza exploración previa; tooling EO joven | Medio-alto (GPU y ecosistema) |
+| Otro modelo de visión más liviano | Dataset público acotado | Menor costo de entrenamiento | Bajo-medio |
+| Otra tarea con trainer estable (p. ej. Hugging Face) | Dataset académico permitido | Menos acoplado a EO | Bajo-medio |
 
 ## Decisión
 
-**Tarea principal:** Wildfire Scar Detection (Burn Scars)  
-**Modelo:** Prithvi-EO-2.0-300M-TL  
-**Framework:** TerraTorch  
-**Métricas:** IoU, mIoU, F1, precision, recall (segmentación semántica)
+**Caso preferido inicial:** tarea geoespacial de cicatrices de incendio (HLS Burn Scars) con un modelo preentrenado compatible, **si** el cómputo y el tooling lo permiten.
 
-**Tarea secundaria (opcional):** Flood Detection — solo si los recursos y el cronograma lo permiten, para validar extensibilidad (objetivo específico 7 del primer informe).
+**Plan B:** sustituir por un modelo y un dataset más livianos o estables. Tune no se redefine.
+
+**Métricas de calidad:** las de la tarea elegida (en segmentación: IoU, mIoU, F1, precision, recall).  
+**Métricas de eficiencia (siempre):** tiempo de entrenamiento, memoria GPU, GPU-hours o proxy.
+
+**No se declara** una segunda tarea EO (Flood) como extensión por defecto. La extensión, si existe, es un segundo par experimental, no “otra app de satélites”.
 
 ## Justificación
 
-1. **Alineación con el primer informe:** Burn Scars está citada en la sección 5 como ejemplo de tarea downstream de Prithvi-EO-2.0.
-2. **Recursos oficiales:** IBM/NASA publicaron config, notebook Colab y modelo fine-tuned de referencia en Hugging Face.
-3. **Dataset accesible:** El dataset `hls_burn_scars` está en Hugging Face con licencia compatible con uso académico.
-4. **Entorno de desarrollo:** El notebook oficial funciona en Google Colab con GPU T4 (tier gratuito).
-5. **Métricas definidas:** Tarea de segmentación, coherente con la estrategia de validación del informe (sección 7.3).
+1. **Alineación con Tune:** el laboratorio debe poder cambiar de caso sin perder el aporte (comparar estrategias y servir el modelo).
+2. **Continuidad:** si Burn Scars / Prithvi siguen siendo viables, se aprovecha trabajo ya explorado.
+3. **Riesgo de calendario:** un ecosistema joven o una GPU insuficiente no puede tumbar el proyecto.
+4. **Dataset académico:** se usarán datos públicos o de uso permitido, versionados fuera de Git.
 
 ## Consecuencias
 
-- La configuración baseline reside en `configs/training/burn_scars.yaml`.
-- Los datos se almacenan localmente en `data/hls_burn_scars/` (no versionados en Git).
-- La API y el demo inicial expondrán predicciones de cicatrices de incendio.
-- La validación de extensibilidad (segunda tarea) queda diferida a una fase posterior.
+- Las configs viven en `configs/training/` como `baseline` y `optimized`, no como “la config de Prithvi”.
+- Los datos se almacenan en `data/` (no versionados en Git).
+- La API expone el input/output de **la tarea del caso** (p. ej. una imagen → máscara), más la versión del modelo.
+- Si el caso preferido bloquea, se actualiza este ADR con el caso de respaldo; no se reescribe el objetivo general.
 
 ## Referencias
 
 - [Primer Informe — Solución propuesta](../PrimerInforme.md#5-solución-propuesta)
-- [TerraTorch-Examples — Burn Scars notebook](https://github.com/blumenstiel/TerraTorch-Examples/blob/main/prithvi_v2_eo_300_tl_unet_burnscars.ipynb)
-- [Prithvi-EO-2.0 — Downstream tasks](https://github.com/NASA-IMPACT/Prithvi-EO-2.0)
+- [Arquitectura v1](../architecture/v1.md)

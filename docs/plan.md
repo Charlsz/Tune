@@ -1,42 +1,45 @@
-# Terra — Plan de trabajo
+# Tune — Plan de trabajo
 
-**Proyecto:** Arquitectura MLOps para el ciclo de vida y despliegue de modelos geoespaciales basados en Prithvi  
-**Versión:** 1.0  
+**Proyecto:** Arquitectura MLOps para el fine-tuning eficiente de modelos avanzados de IA  
+**Versión:** 1.1  
 **Referencia académica:** [Primer Informe](./PrimerInforme.md)
 
 ---
 
 ## 1. Objetivo del plan
 
-Este documento operacionaliza la metodología y los objetivos definidos en el primer informe. Traduce las **6 iteraciones de desarrollo** (sección 7.2) y el **cronograma de 12 semanas** (sección 7.4) en tareas concretas con entregables, hitos y reglas de prioridad.
+Este documento operacionaliza la metodología y los objetivos del primer informe. Traduce las **7 iteraciones** (sección 7.2) en tareas, entregables e hitos.
 
-**Principio rector:** demostrar el ML primero, construir el sistema MLOps después.
+**Principio rector:** primero un baseline reproducible y comparable; después la estrategia optimizada; al cierre, el modelo servible. La interfaz es opcional.
+
+El plan se organiza por **fases e hitos**, no por un calendario rígido. Las fechas se ajustan según GPU y retroalimentación del tutor.
 
 ---
 
 ## 2. Alineación con el primer informe
 
-| Elemento del informe | Decisión en Terra |
+| Elemento del informe | Decisión en Tune |
 |---------------------|-------------------|
-| Objetivo general (sección 4.1) | Arquitectura MLOps reproducible para Prithvi |
-| Prithvi-EO-2.0 + TerraTorch | Modelo 300M-TL, configs en `configs/training/` |
+| Objetivo general (sección 4.1) | Laboratorio MLOps que compara baseline vs optimizado y sirve el modelo |
+| Modelo + dataset | Un modelo preentrenado + un dataset; el caso es intercambiable |
+| Estrategias | Baseline (full FT o referencia) y optimized (p. ej. LoRA / FP16) |
 | MLflow (tracking + registry) | `configs/mlflow/`, módulo `src/mlops/` |
-| API REST | FastAPI en `src/api/` |
-| Tareas: Flood + Burn Scars (sección 5) | **Burn Scars principal**, Flood opcional |
-| Métricas de segmentación (sección 7.3) | IoU, mIoU, F1, precision, recall |
-| Validación: funcional, reproducibilidad, desempeño, extensibilidad | Fase 7 de este plan |
+| Comparación | Tiempo, memoria GPU, GPU-hours, calidad sobre el mismo test set |
+| API REST o CLI | FastAPI en `src/api/`: `/health`, `/model`, `/predict` |
+| Validación | Funcional, reproducibilidad, eficiencia, calidad, cierre de ciclo |
 | Alcance académico / prototipo | Sin Kubernetes, multi-cloud ni producción enterprise |
 
 ---
 
 ## 3. Reglas del proyecto
 
-1. Una tarea principal bien implementada antes de una segunda.
-2. Reutilizar notebooks y configs oficiales de NASA/IBM.
+1. Cerrar el mínimo experimental (1 modelo + 1 dataset + 2 estrategias) antes de un segundo caso.
+2. El caso de estudio se puede sustituir si el primero bloquea; Tune no se redefine.
 3. Un commit por cambio significativo (convención: `feat`, `docs`, `test`, `fix`, `refactor`, `chore`, `ci`, `experiment`).
 4. No commitear datasets, pesos, `.env` ni artefactos grandes.
 5. Notebooks para exploración; lógica reutilizable en `src/`.
-6. **Prioridad si falta tiempo:** (1) experimento Prithvi → (2) reproducibilidad → (3) MLflow → (4) pipeline → (5) API → (6) evaluación → (7) demo.
+6. No atribuir a la arquitectura un ahorro que produzca LoRA, FP16 u otra técnica.
+7. **Prioridad si falta tiempo o GPU:** (1) baseline reproducible → (2) tracking y registry → (3) optimized + comparación → (4) API/CLI → (5) demo mínima.
 
 ---
 
@@ -44,79 +47,85 @@ Este documento operacionaliza la metodología y los objetivos definidos en el pr
 
 Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 
-### Fase 0 — Análisis y definición (Semana 1)
+### Fase 0 — Arquitectura y acuerdos experimentales
 
-**Iteración 1 del informe:** requerimientos, arquitectura, selección tecnológica.
+**Iteración 1:** diseño Tune y criterios de comparación.
 
 | ID | Tarea | Entregable | Estado |
 |----|-------|------------|--------|
 | 0.1 | Estructura del repositorio | Carpetas, `pyproject.toml`, `.gitignore` | Hecho |
 | 0.2 | README como punto de entrada | `README.md` | Hecho |
-| 0.3 | ADR selección de tarea | `docs/decisions/001-task-selection.md` | Hecho |
-| 0.4 | Arquitectura v1 | `docs/architecture/v1.md` | Hecho |
-| 0.5 | Config baseline Burn Scars | `configs/training/burn_scars.yaml` | Hecho |
-| 0.6 | Smoke test en Colab | Notebook ejecutado, resultados anotados | Pendiente |
-| 0.7 | Cuentas: Hugging Face, Colab, Kaggle | Acceso verificado | Pendiente |
+| 0.3 | ADR de caso de estudio | `docs/decisions/001-task-selection.md` | Actualizado |
+| 0.4 | Arquitectura v1 Tune | `docs/architecture/v1.md` | Actualizado |
+| 0.5 | Acordar métricas de eficiencia y umbral de calidad | Nota con el tutor | Pendiente |
+| 0.6 | Fijar modelo preentrenado, dataset y plan B | ADR 001 | Pendiente |
+| 0.7 | Configs baseline y optimized | `configs/training/` | Pendiente |
 
-**Hito:** repositorio inicializado + smoke test de fine-tuning en Colab.
-
-**Colab de referencia:**  
-https://colab.research.google.com/github/blumenstiel/TerraTorch-Examples/blob/main/prithvi_v2_eo_300_tl_unet_burnscars.ipynb
+**Hito:** arquitectura Tune + criterios baseline / optimizado + caso (y respaldo) documentados.
 
 ---
 
-### Fase 1 — Datos y fine-tuning (Semanas 2–3)
+### Fase 1 — Datos y baseline reproducible
 
-**Iteración 2 del informe:** preparación de datos, TerraTorch, fine-tuning reproducible.
+**Iteración 2:** primera corrida de referencia.
 
 | ID | Tarea | Entregable |
 |----|-------|------------|
-| 1.1 | Descargar dataset HLS Burn Scars | `data/hls_burn_scars/` (local, no en Git) |
-| 1.2 | Notebook exploración del dataset | `notebooks/01_dataset_exploration.ipynb` |
-| 1.3 | Script preparación de datos | `scripts/prepare_data.py` |
-| 1.4 | Fine-tuning completo (Colab o local) | Métricas baseline |
-| 1.5 | Repetir experimento (misma config + seed) | Evidencia reproducibilidad |
-| 1.6 | Documentar metodología y resultados | Sección para Segundo Informe |
+| 1.1 | Preparar y versionar el dataset | `data/` (local, no en Git) + metadatos |
+| 1.2 | Notebook o script de exploración | `notebooks/` o `scripts/prepare_data.py` |
+| 1.3 | Fine-tuning baseline | Métricas de referencia |
+| 1.4 | Registrar parámetros y métricas | Run trazable |
+| 1.5 | Documentar hardware y config | Insumo del informe |
 
-**Hito:** primer modelo fine-tuned + pipeline de entrenamiento reproducible + métricas iniciales.
-
-**Métricas objetivo:** IoU, mIoU, F1 (segmentación).
+**Hito:** dataset versionado + corrida baseline reproducible.
 
 ---
 
-### Fase 2 — Experiment tracking y Model Registry (Semanas 4–5)
+### Fase 2 — Experiment tracking y Model Registry
 
-**Iteración 3 del informe:** MLflow, trazabilidad, versionamiento.
+**Iteración 3:** trazabilidad dataset ↔ corrida ↔ modelo.
 
 | ID | Tarea | Entregable |
 |----|-------|------------|
 | 2.1 | Configurar MLflow local | UI accesible en `./mlruns` |
-| 2.2 | Log automático de params, métricas, artefactos | Integración en entrenamiento |
-| 2.3 | Registrar checkpoints | Artefactos versionados |
-| 2.4 | Model Registry | Versiones + metadatos |
-| 2.5 | Flujo de promoción: `trained → evaluated → candidate → approved` | ADR + implementación |
-| 2.6 | 2–3 experimentos comparables | Tabla comparativa en MLflow |
+| 2.2 | Log de params, métricas, artefactos y recursos | Integración en entrenamiento |
+| 2.3 | Model Registry | Versiones + metadatos |
+| 2.4 | Flujo de promoción: `trained → evaluated → candidate → approved` | Implementación |
 
-**Hito:** experimentos trazables, modelos versionados, relación dataset ↔ experimento ↔ modelo.
+**Hito:** experimentos recuperables y modelos versionados.
 
 ---
 
-### Fase 3 — Evaluación y automatización (Semana 6)
+### Fase 3 — Estrategia optimizada y comparación
 
-**Iteración 4 del informe:** evaluación automática, thresholds, promoción.
+**Iteración 4:** evidencia central del proyecto.
 
 | ID | Tarea | Entregable |
 |----|-------|------------|
-| 3.1 | Definir stages del pipeline | `prepare → train → evaluate → register` |
-| 3.2 | Implementar `scripts/run_pipeline.py` | Pipeline end-to-end |
-| 3.3 | Validación de configs y errores | Manejo de fallos por stage |
-| 3.4 | CI: lint + tests (sin entrenar en cada push) | `.github/workflows/ci.yml` |
-| 3.5 | Ejecutar desde entorno limpio | Evidencia reproducibilidad |
+| 3.1 | Implementar estrategia optimized | Config + código PEFT / FP16 / etc. |
+| 3.2 | Instrumentar tiempo, memoria, GPU-hours | Métricas de eficiencia |
+| 3.3 | Segunda corrida, mismas condiciones | Run comparable |
+| 3.4 | Tabla o gráfico + interpretación | Incluye el caso “no ahorró” si aplica |
+
+**Hito:** par experimental baseline versus optimizado.
+
+---
+
+### Fase 4 — Evaluación, promoción y pipeline
+
+**Iteración 5:** flujo automático.
+
+| ID | Tarea | Entregable |
+|----|-------|------------|
+| 4.1 | Stages del pipeline | `prepare → train → evaluate → register → compare` |
+| 4.2 | `scripts/run_pipeline.py` | Pipeline end-to-end |
+| 4.3 | Thresholds de promoción y rechazo | Criterios explícitos |
+| 4.4 | CI: lint + tests (sin entrenar en cada push) | `.github/workflows/ci.yml` |
 
 **Hito:**
 
 ```text
-Training → Evaluation → Threshold → PASS → Registry
+Training → Evaluation → Threshold → PASS → Registry → Compare
                               └── FAIL → Reject
 ```
 
@@ -124,101 +133,63 @@ Ver [ADR 002](./decisions/002-orchestration.md).
 
 ---
 
-### Fase 4 — Deployment y API (Semanas 7–8)
+### Fase 5 — Inferencia y demo
 
-**Iteración 5 del informe:** empaquetado, inferencia, API REST, contenedores.
-
-| ID | Tarea | Entregable |
-|----|-------|------------|
-| 4.1 | Módulo de inferencia | `src/inference/` |
-| 4.2 | API FastAPI: `/health`, `/predict` | `src/api/` |
-| 4.3 | Metadata en respuesta (versión del modelo) | Schema documentado |
-| 4.4 | Validación de inputs y errores | Tests API |
-| 4.5 | Dockerfile entrenamiento + inferencia | `docker/` |
-| 4.6 | Stack local: cliente → API → modelo | Demo técnica |
-
-**Hito:** modelo desplegado + servicio de inferencia + API funcional.
-
----
-
-### Fase 5 — Demo (Semana 9, opcional)
+**Iteración 6:** cierre experimento → uso.
 
 | ID | Tarea | Entregable |
 |----|-------|------------|
-| 5.1 | Demo mínima conectada al API | `demo/` |
-| 5.2 | Visualización de predicción | Interfaz simple |
-| 5.3 | Mostrar versión del modelo | Trazabilidad en UI |
+| 5.1 | Módulo de inferencia | `src/inference/` |
+| 5.2 | API FastAPI: `/health`, `/model`, `/predict` | `src/api/` |
+| 5.3 | Versión del modelo en la respuesta | Schema documentado |
+| 5.4 | Dockerfile de inferencia (si aporta) | `docker/` |
+| 5.5 | Demo de comparación + predicción | `demo/` o CLI; UI solo si no come experimentos |
 
-**Referencia:** [demo oficial Burn Scars en Hugging Face](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars)
+**Hito:** modelo servible + demo de “¿menos recursos, casi la misma calidad?”.
 
 ---
 
-### Fase 6 — Extensión (Semana 10, opcional)
+### Fase 6 — Validación y cierre
 
-**Iteración 6 del informe:** segunda tarea para validar reutilización.
+**Iteración 7:** evidencia y documentación final.
 
 | ID | Tarea | Entregable |
 |----|-------|------------|
-| 6.1 | Config Flood Detection (Sen1Floods11) | `configs/training/flood.yaml` |
-| 6.2 | Ejecutar mismo pipeline con nueva config | Evidencia extensibilidad |
-| 6.3 | Comparar esfuerzo vs Burn Scars | Documentación |
+| 6.1 | Repetir al menos una corrida | Evidencia de reproducibilidad |
+| 6.2 | Checklist funcional (pipeline, registry, API) | Validación |
+| 6.3 | Segundo caso de estudio | Solo si el mínimo ya está cerrado |
+| 6.4 | Informe Final + Instalación + Desarrollo | `docs/` |
+| 6.5 | README final | Punto de entrada completo |
 
-Solo si Fases 1–4 están estables.
-
----
-
-### Fase 7 — Validación del sistema (Semana 11)
-
-**Sección 7.3 del informe:** cuatro perspectivas de validación.
-
-| Perspectiva | Qué medir | Documento |
-|-------------|-----------|-----------|
-| Funcional | Cada componente cumple su rol | Checklist |
-| Reproducibilidad | Repetir experimento registrado | `docs/evaluation.md` |
-| Desempeño | IoU/mIoU, tiempos de train/inferencia/pipeline | Tablas |
-| Extensibilidad | Segunda tarea sin cambiar núcleo MLOps | Si aplica |
+**Hito:** resultados, limitaciones e informe de cierre.
 
 ---
 
-### Fase 8 — Documentación y cierre (Semana 12)
+## 5. Hitos (sin calendario rígido)
 
-| ID | Tarea | Entregable |
-|----|-------|------------|
-| 8.1 | Informe Final | `docs/InformeFinal.md` |
-| 8.2 | Instalación y desarrollo | `docs/Instalación.md`, `docs/Desarrollo.md` |
-| 8.3 | README final | Punto de entrada completo |
-| 8.4 | Reproducibilidad en entorno limpio | Checklist verificada |
-| 8.5 | Experimento oficial + tag `v1.0.0` | Release |
-
----
-
-## 5. Cronograma resumido
-
-| Semana | Fase | Entregable principal | Informe |
-|--------|------|----------------------|---------|
-| 1 | 0 | Repo + smoke test Colab | Avances Segundo Informe |
-| 2–3 | 1 | Baseline reproducible | Segundo Informe |
-| 4–5 | 2 | MLflow + registry | — |
-| 6 | 3 | Pipeline automatizado | — |
-| 7–8 | 4 | API + Docker | — |
-| 9 | 5 | Demo (opcional) | — |
-| 10 | 6 | Flood (opcional) | — |
-| 11 | 7 | Evaluación del sistema | — |
-| 12 | 8 | Informe Final + v1.0.0 | Informe Final |
+| Fase | Entregable principal |
+|------|----------------------|
+| 0. Arquitectura y acuerdos | Criterios + caso de estudio |
+| 1. Datos y baseline | Corrida baseline reproducible |
+| 2. Tracking y registry | Experimentos trazables |
+| 3. Optimizado y comparación | Tabla baseline versus optimizado |
+| 4. Pipeline | Flujo extremo a extremo |
+| 5. API y demo | Modelo servible |
+| 6. Validación y docs | Informe de cierre |
 
 ---
 
 ## 6. Definition of Done
 
-- [ ] README explica propósito, arquitectura, setup y uso
-- [ ] Dataset preparable con pasos documentados (`data/README.md`)
-- [ ] Fine-tuning desde `configs/training/burn_scars.yaml`
-- [ ] Experimentos trackeados y comparables (MLflow)
+- [ ] README explica propósito Tune, arquitectura, setup y uso
+- [ ] Dataset versionado con pasos documentados
+- [ ] Configs baseline y optimized ejecutables
+- [ ] Dos corridas trackeadas y comparables (MLflow)
+- [ ] Tabla de tiempo, memoria/GPU-hours y calidad
 - [ ] Modelo registrado con promoción documentada
-- [ ] Pipeline `prepare → train → evaluate → register` reproducible
-- [ ] Inferencia vía API REST
-- [ ] Tests automatizados básicos
-- [ ] Experimento final documentado con config y resultados exactos
+- [ ] Pipeline `prepare → train → evaluate → register → compare`
+- [ ] Inferencia vía API o CLI con versión de modelo
+- [ ] Al menos un run repetido
 - [ ] Informe Final describe lo implementado y sus limitaciones
 
 ---
@@ -227,30 +198,17 @@ Solo si Fases 1–4 están estables.
 
 | Carlos (Infra / MLOps) | Zenen (ML / Datos) |
 |------------------------|---------------------|
-| Repo, CI, Docker | Colab, fine-tuning, métricas |
-| MLflow, pipeline, API | Dataset, notebooks, evaluación |
-| Docs técnicas | Informes y resultados |
+| Repo, CI, Docker | Fine-tuning, métricas de tarea |
+| MLflow, pipeline, API | Dataset, notebooks, instrumentación GPU |
+| Docs técnicas | Informes y análisis baseline vs optimized |
 
-Revisión conjunta semanal: ¿el entrenamiento funciona? ¿qué bloquea?
-
----
-
-## 8. Acción inmediata (esta semana)
-
-1. Abrir notebook Colab de Burn Scars con GPU T4.
-2. Ejecutar smoke test (1–2 epochs).
-3. Documentar resultados en Segundo Informe.
-4. Descargar dataset a `data/hls_burn_scars/` cuando el smoke test pase.
-
-**No iniciar aún:** MLflow, Docker, API, segunda tarea.
+Revisión conjunta: ¿el baseline corre? ¿la comparación es defendible? ¿qué bloquea?
 
 ---
 
-## 9. Referencias
+## 8. Referencias
 
 - [Primer Informe](./PrimerInforme.md)
 - [Arquitectura v1](./architecture/v1.md)
-- [ADR 001 — Tarea](./decisions/001-task-selection.md)
+- [ADR 001 — Caso de estudio](./decisions/001-task-selection.md)
 - [ADR 002 — Orquestación](./decisions/002-orchestration.md)
-- [NASA-IMPACT/Prithvi-EO-2.0](https://github.com/NASA-IMPACT/Prithvi-EO-2.0)
-- [TerraTorch-Examples](https://github.com/blumenstiel/TerraTorch-Examples)

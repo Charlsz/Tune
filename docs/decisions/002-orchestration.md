@@ -1,12 +1,15 @@
 # ADR 002: Orquestación del pipeline MLOps
 
-**Estado:** Aceptado  
-**Fecha:** 2026-08-17  
-**Contexto:** [Primer Informe](../PrimerInforme.md) — sección 5 (diagrama de arquitectura)
+**Estado:** Actualizado (Tune)  
+**Fecha original:** 2026-08-17  
+**Actualizado:** 2026-08-29  
+**Contexto:** [Primer Informe](../PrimerInforme.md) — sección 5
 
 ## Contexto
 
-El primer informe incluye un componente **Orchestrator** en el diagrama de arquitectura. Para un prototipo académico de grado, se debe elegir un mecanismo de orquestación proporcional al alcance del proyecto, evitando infraestructura innecesaria (Kubernetes, Airflow, Prefect) salvo que aporte valor demostrable.
+El primer informe incluye un **Orchestrator / Pipeline** en la arquitectura de Tune. Para un prototipo académico se elige un mecanismo proporcional al alcance, evitando Kubernetes, Airflow o Prefect salvo que aporten valor demostrable.
+
+El pipeline debe poder ejecutar **dos estrategias** (baseline y optimized) y **compararlas**, no solo entrenar una vez.
 
 ## Opciones consideradas
 
@@ -14,7 +17,7 @@ El primer informe incluye un componente **Orchestrator** en el diagrama de arqui
 |--------|------|---------|
 | Script Python + CLI (`scripts/run_pipeline.py`) | Simple, reproducible, fácil de documentar | Sin UI de orquestación |
 | Makefile | Comandos claros por stage | Menos flexible para lógica condicional |
-| Prefect / Airflow | Orquestación enterprise | Complejidad alta para 2 personas / 12 semanas |
+| Prefect / Airflow | Orquestación enterprise | Complejidad alta para un prototipo de grado |
 | Kubernetes / Argo | Escalable en producción | Fuera del alcance académico declarado |
 
 ## Decisión
@@ -22,25 +25,25 @@ El primer informe incluye un componente **Orchestrator** en el diagrama de arqui
 Utilizar un **pipeline script en Python** con stages explícitos:
 
 ```text
-prepare → train → evaluate → register
+prepare → train → evaluate → register → compare
 ```
 
-Invocable desde la línea de comandos. Las configuraciones se externalizan en YAML (`configs/`). MLflow registra metadatos de cada ejecución.
+`train` recibe la estrategia (`baseline` | `optimized`). `compare` confronta dos runs ya registrados. Invocable desde la línea de comandos. Configuraciones en YAML (`configs/`). MLflow registra metadatos de cada ejecución.
 
 ## Justificación
 
-1. Cumple el objetivo específico 5 del primer informe: *automatizar la evaluación y establecer criterios de promoción*.
+1. Cumple los objetivos específicos 2, 5 y 8 del primer informe: flujo reproducible, par experimental y validación del pipeline.
 2. Es reproducible: mismo script + misma config = mismo flujo.
-3. No contradice el diagrama del informe: el orchestrator es lógico; la implementación es un script, no un cluster.
-4. Permite evolucionar a Prefect/Airflow en el futuro sin rediseñar los stages.
+3. No contradice el diagrama: el orchestrator es lógico; la implementación es un script, no un cluster.
+4. Permite evolucionar a Prefect/Airflow más adelante sin rediseñar los stages.
 
 ## Consecuencias
 
-- El pipeline vive en `scripts/run_pipeline.py` (implementación pendiente — Fase 3).
+- El pipeline vive en `scripts/run_pipeline.py` (implementación en la fase de automatización).
 - Cada stage es una función o subcomando independiente y testeable.
-- La documentación de arquitectura reflejará esta decisión.
+- La arquitectura v1 refleja esta decisión.
 
 ## Referencias
 
 - [Primer Informe — Restricciones](../PrimerInforme.md#23-restricciones-y-supuestos-iniciales)
-- [Plan de trabajo — Fase 3](../plan.md#fase-3--pipeline-automatizado-semana-6)
+- [Plan de trabajo — Fase 4](../plan.md#fase-4--evaluación-promoción-y-pipeline)

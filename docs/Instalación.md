@@ -1,6 +1,10 @@
 # Instalación y despliegue
 
+**Proyecto:** Tune — laboratorio MLOps de fine-tuning eficiente.
+
 ## 1. Descripción general de la solución
+
+Tune ejecuta fine-tuning baseline y optimizado, registra corridas (MLflow), compara eficiencia y calidad, y sirve el modelo seleccionado por API o CLI.
 
 ### 1.1 Lenguajes y tecnologías utilizadas
 
