@@ -1,0 +1,9 @@
+# Criterios explícitos de promoción/rechazo (plan.md, Fase 4.3).
+# Valores PROVISIONALES: acordar con el tutor en Fase 0.5 y actualizar aquí.
+
+# La métrica primaria (definida por el Evaluator de la tarea) debe alcanzar al menos:
+min_primary_metric: 0.60
+
+# Para `optimized`: caída máxima permitida frente al baseline (absoluta).
+# null = no aplica.
+max_quality_drop_vs_baseline: 0.02

@@ -1,0 +1,33 @@
+# Estrategia OPTIMIZED: misma tarea, menos recursos.
+# Solo cambia lo que explica el ahorro (LoRA + mixed precision). Todo lo demás
+# se mantiene idéntico al baseline para que la comparación sea defendible.
+strategy: optimized
+
+dataset:
+  name: hls_burn_scars
+  version: "1.0"
+  root: hls_burn_scars/1.0
+  splits: [train, val, test]
+
+model:
+  name: prithvi-eo-2.0-300m
+  source: ibm-nasa-geospatial/Prithvi-EO-2.0-300M
+  task: segmentation
+
+training:
+  seed: 42
+  epochs: 20
+  batch_size: 8
+  learning_rate: 1.0e-4
+  precision: "16-mixed"
+
+peft:
+  method: lora
+  r: 8
+  alpha: 16
+  dropout: 0.05
+  target_modules: [qkv, proj]
+
+extra:
+  early_stopping_patience: 5
+  num_workers: 4

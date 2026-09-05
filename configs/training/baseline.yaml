@@ -1,0 +1,28 @@
+# Estrategia BASELINE: fine-tuning de referencia (full FT, FP32).
+# Es la vara contra la que se mide `optimized`. Mismo dataset, mismo modelo,
+# mismo test set, mismo seed.
+strategy: baseline
+
+dataset:
+  name: hls_burn_scars          # caso preferido (ADR 001); intercambiable
+  version: "1.0"
+  root: hls_burn_scars/1.0      # relativo a TUNE_DATA_DIR
+  splits: [train, val, test]
+
+model:
+  name: prithvi-eo-2.0-300m
+  source: ibm-nasa-geospatial/Prithvi-EO-2.0-300M
+  task: segmentation
+
+training:
+  seed: 42
+  epochs: 20
+  batch_size: 8
+  learning_rate: 1.0e-4
+  precision: "32"
+
+peft: null                      # null = entrenar todos los parámetros
+
+extra:
+  early_stopping_patience: 5
+  num_workers: 4
