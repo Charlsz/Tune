@@ -1,0 +1,79 @@
+# Tune — entorno local dockerizado.
+#
+#   docker compose up -d mlflow api            # tracking + inferencia
+#   docker compose --profile training run --rm training tune train -s baseline
+#
+# Los datos, pesos y runs viven en volúmenes/bind mounts, nunca en las imágenes.
+
+name: tune
+
+services:
+  # ------------------------------------------------------------------ MLflow
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    container_name: tune-mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # --------------------------------------------------------------------- API
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: tune-api
+    env_file: .env
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    volumes:
+      - ./configs:/app/configs:ro
+
+  # ---------------------------------------------------------------- Training
+  # Solo con `--profile training`. Requiere NVIDIA Container Toolkit para GPU;
+  # sin GPU también arranca (útil para smoke tests con subsets).
+  training:
+    build:
+      context: .
+      dockerfile: docker/training/Dockerfile
+    profiles: ["training"]
+    env_file: .env
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      TUNE_DATA_DIR: /app/data
+      TUNE_CONFIGS_DIR: /app/configs
+      TUNE_ARTIFACTS_DIR: /app/artifacts
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./src:/app/src            # hot-reload del código durante desarrollo
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  mlflow-data:
