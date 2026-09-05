@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tune"
+version = "0.1.0"
+description = "Laboratorio MLOps para fine-tuning eficiente: baseline vs optimized, tracking, registry e inferencia."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+  { name = "Carlos Andrés Galvis Pájaro" },
+  { name = "Zenen Contreras Royero" },
+]
+# Núcleo: sin frameworks de ML. Solo lo que necesita el dominio, la carga de
+# configuración y la CLI. Todo lo pesado va en extras para que la API y los
+# tests puedan instalarse sin torch.
+dependencies = [
+  "pydantic>=2.6",
+  "pydantic-settings>=2.2",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+# Servir el modelo (contenedor `api`)
+api = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "python-multipart>=0.0.9",
+]
+# Tracking y registry (lo usan `api` y `training`)
+tracking = [
+  "mlflow>=2.12",
+]
+# Entrenamiento (contenedor `training`, Colab/Kaggle). Requiere Python <3.13
+# por compatibilidad de torch; el Dockerfile de training usa 3.11.
+training = [
+  "torch>=2.2",
+  "lightning>=2.2",
+  "peft>=0.10",
+  "transformers>=4.40",
+  "numpy>=1.26",
+  "psutil>=5.9",
+]
+# Desarrollo y CI
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "httpx>=0.27",
+  "ruff>=0.4",
+  "pre-commit>=3.7",
+]
+
+[project.scripts]
+tune = "tune.interfaces.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tune = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "scripts"]
+extend-exclude = ["notebooks", "data", "mlruns"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "W"]
+ignore = ["B008"]  # typer.Option en defaults es idiomático
+
+[tool.ruff.lint.isort]
+known-first-party = ["tune"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "integration: pruebas que levantan la API o tocan servicios",
+  "gpu: pruebas que requieren GPU (no corren en CI)",
+]
+
+[tool.coverage.run]
+source = ["src/tune"]

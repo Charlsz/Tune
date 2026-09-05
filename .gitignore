@@ -1,0 +1,53 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- Entorno / secretos ---
+.env
+.env.*
+!.env.example
+
+# --- Datos, pesos y artefactos (nunca en Git) ---
+data/*
+!data/README.md
+!data/.gitkeep
+mlruns/
+mlflow.db
+artifacts/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.h5
+*.onnx
+*.tif
+*.tiff
+*.npz
+*.parquet
+outputs/
+logs/
+wandb/
+
+# --- Notebooks ---
+notebooks/**/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --- IDE / SO ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
