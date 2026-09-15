@@ -18,4 +18,5 @@ Reglas:
   (sección `training.precision` y `peft`). Dataset, modelo, seed, epochs y test set iguales.
 - Cambiar de caso de estudio = cambiar `dataset` y `model` en ambos archivos (ADR 001).
   No tocar `src/tune/domain`.
-- Los thresholds son provisionales hasta acordarlos con el tutor (Fase 0.5).
+- Los thresholds son valores de trabajo del protocolo experimental (ADR 003);
+  cambiarlos solo con evidencia y actualizando el ADR.

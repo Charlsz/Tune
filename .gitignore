@@ -24,6 +24,8 @@ htmlcov/
 data/*
 !data/README.md
 !data/.gitkeep
+!data/templates/
+!data/templates/**
 mlruns/
 mlflow.db
 artifacts/
