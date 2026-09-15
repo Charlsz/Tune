@@ -17,4 +17,7 @@ class EvaluateStage:
         run = self.tracker.get_run(run_id)
         quality = self.evaluator.evaluate(run.checkpoint_uri, config)
         self.tracker.log_metrics(run_id, {f"test_{k}": v for k, v in quality.values.items()})
+        attach = getattr(self.tracker, "attach_quality", None)
+        if callable(attach):
+            attach(run_id, quality)
         return quality

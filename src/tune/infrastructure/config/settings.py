@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     tune_configs_dir: Path = Path("./configs")
     tune_artifacts_dir: Path = Path("./artifacts")
 
+    # Tracker: "mlflow" (default) | "json" (smoke local sin servidor)
+    tune_tracker: str = "mlflow"
+
 
 @lru_cache
 def get_settings() -> Settings:

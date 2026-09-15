@@ -1,7 +1,7 @@
 # Investigación — Tune: fine-tuning eficiente medible
 
 **Qué es este documento:** marco de investigación del laboratorio Tune (pregunta, hipótesis, método, decisiones).  
-**Alineado a:** [PrimerInforme.md](./PrimerInforme.md) · [architecture/v1.md](./architecture/v1.md) · [003-protocolo-experimental.md](./decisions/003-protocolo-experimental.md).
+**Alineado a:** [PrimerInforme.md](../PrimerInforme.md) · [architecture/v1.md](../architecture/v1.md) · [003-protocolo-experimental.md](../decisions/003-protocolo-experimental.md) · [ComoProbar.md](./ComoProbar.md).
 
 ---
 

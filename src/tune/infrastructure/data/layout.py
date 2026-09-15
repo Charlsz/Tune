@@ -12,6 +12,7 @@ DEFAULT_SPLITS = ("train", "val", "test")
 KNOWN_SOURCES: dict[str, str] = {
     "hls_burn_scars": "https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars",
     "beans": "https://huggingface.co/datasets/beans",
+    "cifar10_smoke": "https://www.cs.toronto.edu/~kriz/cifar.html",
 }
 
 

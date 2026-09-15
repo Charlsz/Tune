@@ -2,10 +2,11 @@
 
 Insumos ya redactados para no partir de cero:
 
-- [Investigacion.md](./Investigacion.md) — pregunta, hipótesis, método
-- [CaminoInmediato.md](./CaminoInmediato.md) — orden de avance
+- [Investigacion.md](./research/Investigacion.md) — pregunta, hipótesis, método
+- [CaminoInmediato.md](./research/CaminoInmediato.md) — orden de avance
 - [architecture/v1.md](./architecture/v1.md) — arquitectura v1.2
 - [decisions/003-protocolo-experimental.md](./decisions/003-protocolo-experimental.md) — decisiones activas
+- [research/ComoProbar.md](./research/ComoProbar.md) — cómo probar
 - [Desarrollo.md](./Desarrollo.md) / [Instalación.md](./Instalación.md) — detalle técnico
 
 En el segundo informe se reflejará el trabajo desarrollado y se avanzará hacia una estructura más formal cercana a la versión final del documento.

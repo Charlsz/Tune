@@ -65,4 +65,4 @@ Hasta tener ADR 004 detallado: loggear en el entorno de train y, si hace falta, 
 
 ## Referencias
 
-- [ADR 001](./001-task-selection.md) · [Investigacion.md](../Investigacion.md) · [CaminoInmediato.md](../CaminoInmediato.md)
+- [ADR 001](./001-task-selection.md) · [Investigacion.md](../research/Investigacion.md) · [CaminoInmediato.md](../research/CaminoInmediato.md)

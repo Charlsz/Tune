@@ -33,6 +33,14 @@ class TrainStage:
             self.tracker.log_params(
                 run_id, {"hardware": efficiency.hardware, "checkpoint_uri": checkpoint_uri}
             )
+            attach = getattr(self.tracker, "attach_training_result", None)
+            if callable(attach):
+                attach(
+                    run_id,
+                    config=config,
+                    efficiency=efficiency,
+                    checkpoint_uri=checkpoint_uri,
+                )
             return run_id
         finally:
             self.tracker.end_run(run_id)

@@ -1,28 +1,34 @@
 # docker/
 
-Imágenes del proyecto. La orquestación local está en `../docker-compose.yml`.
+| Servicio | Dockerfile / imagen | Profile | Para qué |
+|----------|---------------------|---------|----------|
+| `mlflow` | ghcr.io/mlflow/mlflow | default | Tracking |
+| `api` | `docker/api/Dockerfile` | default | Inferencia |
+| `training` | `docker/training/Dockerfile` | `training` | GPU (NVIDIA) |
+| `training-cpu` | `docker/training/Dockerfile.cpu` | `smoke` | Smoke CPU sin NVIDIA |
 
-| Servicio   | Imagen / Dockerfile          | Puerto | Para qué |
-|------------|------------------------------|--------|----------|
-| `mlflow`   | `ghcr.io/mlflow/mlflow`      | 5000   | Tracking + Model Registry. Persiste en el volumen `mlflow-data`. |
-| `api`      | `docker/api/Dockerfile`      | 8000   | FastAPI: `/health`, `/model`, `/predict`. Resuelve el modelo por alias `approved`. |
-| `training` | `docker/training/Dockerfile` | —      | PyTorch + CUDA. Solo con `--profile training`. Monta `data/`, `configs/`, `artifacts/`, `src/`. |
-
-## Comandos
+## Smoke CPU (recomendado en PCs sin GPU)
 
 ```bash
 cp .env.example .env
-docker compose up -d mlflow api                  # UI MLflow en http://localhost:5000, API en :8000
-docker compose --profile training run --rm training tune train -s baseline
-docker compose down                              # -v para borrar también los runs de MLflow
+docker compose --profile smoke build training-cpu
+docker compose --profile smoke run --rm training-cpu \
+  python scripts/prepare_data.py --name cifar10_smoke --version 1.0 --download-cpu-smoke
+docker compose --profile smoke run --rm training-cpu tune run -s baseline -s optimized
+docker compose --profile smoke down
+```
+
+Detalle: [docs/research/ComoProbar.md](../docs/research/ComoProbar.md)
+
+## MLflow + API
+
+```bash
+docker compose up -d mlflow api
+docker compose down
 ```
 
 ## Reglas
 
-- Nunca copiar `data/`, `mlruns/`, pesos ni `.env` dentro de una imagen (ver `.dockerignore`).
-- Los servicios se hablan por nombre (`http://mlflow:5000`); desde el host es `localhost`.
-- GPU: requiere NVIDIA Container Toolkit. Sin GPU el servicio `training` arranca igual en CPU
-  (útil para smoke tests con subsets pequeños). Si Compose falla por el bloque `deploy`,
-  comentarlo temporalmente.
-- Entrenar en Colab/Kaggle sigue siendo válido: apuntar `MLFLOW_TRACKING_URI` al servidor
-  local expuesto (túnel) o exportar los runs. Decisión pendiente en ADR 003.
+- Apagar siempre con `docker compose ... down` al terminar.
+- No meter `data/`, pesos ni `.env` en la imagen.
+- Caso científico EO = profile `training` o Colab/Kaggle (GPU ~16 GB).
