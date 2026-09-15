@@ -1,336 +1,129 @@
-# Manual de desarrollo
+# Manual de desarrollo — Tune
 
-## 1. Propósito del documento
+## 1. Propósito
 
-Este documento tiene como objetivo servir de guía técnica para comprender, mantener, extender y dar continuidad al desarrollo del proyecto. Está dirigido a futuros equipos de trabajo que necesiten familiarizarse rápidamente con la estructura del repositorio, la organización de la solución, los contenedores, los scripts, las variables de entorno y el flujo de trabajo del sistema.
+Guía para mantener y extender el laboratorio Tune: fine-tuning eficiente (baseline vs optimized), tracking, registry e inferencia.
 
-## 2. Descripción general del proyecto desde la perspectiva de desarrollo
+## 2. Descripción técnica
 
-Describa brevemente el proyecto desde el punto de vista técnico, indicando qué tipo de solución es, cuáles son sus componentes principales y cómo se organiza su desarrollo.
+Tune es un **paquete Python** (`tune`) con clean architecture, CLI Typer, API FastAPI, MLflow y Docker Compose. No es un frontend; el “producto” es el pipeline medible + modelo servible.
 
-### 2.1 Tecnologías principales
+### 2.1 Tecnologías
 
-Liste los lenguajes, frameworks, librerías, servicios e infraestructura usados en el desarrollo.
+- **Lenguaje:** Python ≥ 3.10 (training tipado a 3.11 por torch)
+- **Dominio / CLI:** Pydantic, Typer, PyYAML
+- **API:** FastAPI, Uvicorn
+- **Training (extra):** PyTorch, Lightning, PEFT, Transformers
+- **Tracking:** MLflow
+- **Contenedores:** Docker Compose
+- **Calidad:** pytest, ruff, GitHub Actions
 
-Ejemplo:
+### 2.2 Componentes
 
-- **Frontend:** [tecnología]
-- **Backend:** [tecnología]
-- **Base de datos:** [tecnología]
-- **Contenedores:** [tecnología]
-- **Infraestructura adicional:** [tecnología]
-
-### 2.2 Componentes principales
-
-Describa los principales componentes implementados y su función dentro del sistema.
-
-Ejemplo:
-
-- **Cliente web:** [descripción]
-- **Servidor/API:** [descripción]
-- **Base de datos:** [descripción]
-- **Servicios externos:** [descripción]
+| Componente | Función |
+|------------|---------|
+| `domain/` | Entidades, umbrales de promoción, puertos |
+| `application/stages/` | Casos de uso del pipeline |
+| `infrastructure/` | Adaptadores (YAML, FS, Lightning, MLflow, eval, inference) |
+| `interfaces/cli` | Comando `tune` |
+| `interfaces/api` | `/health`, `/model`, `/predict` |
+| `configs/` | baseline, optimized, thresholds |
+| `scripts/` | `prepare_data.py`, `run_pipeline.py` |
 
 ## 3. Estructura del repositorio
 
-Explique cómo está organizado el repositorio y cuál es el propósito de cada carpeta o archivo relevante.
-
-### 3.1 Árbol general del repositorio
-
-Incluya una vista general de la estructura de directorios.
-
-Ejemplo:
-
 ```text
-/
-├── frontend/
-├── backend/
-├── docs/
-├── scripts/
-├── docker/
-├── README.md
-├── Informe.md
-├── Instalacion.md
-└── Desarrollo.md
+Tune/
+├── configs/           # YAML de entrenamiento y umbrales
+├── data/              # datasets fuera de Git (solo README)
+├── demo/              # demo mínima (opcional)
+├── docker/            # Dockerfiles api / training
+├── docs/              # informes, arquitectura, investigación, ADRs
+├── notebooks/         # exploración (no lógica de producción)
+├── scripts/           # utilidades de datos y pipeline
+├── src/tune/          # código del laboratorio
+├── tests/             # unit + integración API (sin GPU)
+├── docker-compose.yml
+├── pyproject.toml
+└── README.md
 ```
 
-### 3.2 Descripción de directorios y archivos relevantes
+## 4. Organización del código
 
-Documente las carpetas y archivos principales del repositorio.
+Dependencias: `interfaces → application → domain ← infrastructure`.
 
-Ejemplo:
+Reglas:
 
-- **frontend/**: contiene la aplicación cliente
-- **backend/**: contiene la lógica de negocio y la API
-- **scripts/**: contiene scripts auxiliares de desarrollo, pruebas o despliegue
-- **docker/**: contiene archivos relacionados con contenedores
-- **docs/**: contiene documentación técnica adicional
+1. `domain/` no importa torch, mlflow, fastapi ni yaml.
+2. Los stages reciben puertos por constructor (testeables con fakes).
+3. Imports pesados lazy (CLI/API/tests sin GPU).
+4. Cambiar de caso = Evaluator + DataModule + configs; no reescribir domain.
+5. Un solo `container.py` conoce el cableado concreto.
 
-## 4. Organización de la solución a nivel de código
+Ver [src/README.md](../src/README.md).
 
-Explique cómo se traduce la arquitectura del sistema en la estructura real del código.
+## 5. Flujo de desarrollo
 
-### 4.1 Organización por módulos o capas
+1. Rama `feat/…` desde `main` (autor único; no tocar ramas ajenas).
+2. Implementar en la carpeta de tu rol (MLOps vs ML).
+3. `ruff check .` + `pytest` en local.
+4. PR a `main`; CI debe pasar (quality + docker).
+5. No commitear `.env`, datos, pesos ni `mlruns/`.
 
-Describa si el proyecto está organizado por capas, módulos, dominios, servicios u otro criterio.
-
-Ejemplo:
-
-- capa de presentación;
-- capa de lógica de negocio;
-- capa de persistencia;
-- integración con servicios externos.
-
-### 4.2 Relación entre componentes del sistema y código fuente
-
-Explique en qué parte del repositorio se encuentra implementado cada componente principal del sistema.
-
-## 5. Contenedores
-
-Documente el uso de contenedores dentro del proyecto, si aplica.
-
-### 5.1 Contenedores utilizados
-
-Indique qué contenedores existen y qué función cumple cada uno.
-
-Ejemplo:
-
-- contenedor del frontend;
-- contenedor del backend;
-- contenedor de base de datos;
-- contenedor de proxy o servicios auxiliares.
-
-### 5.2 Archivos relacionados con contenedores
-
-Liste y describa los archivos usados para construir y orquestar contenedores.
-
-Ejemplo:
-
-- `Dockerfile`
-- `docker-compose.yml`
-- `docker-compose.override.yml`
-
-### 5.3 Construcción y ejecución de contenedores
-
-Explique cómo construir y levantar los contenedores.
-
-Ejemplo:
+### 5.1 Comandos útiles
 
 ```bash
-docker compose build
-docker compose up -d
+pip install -e ".[api,dev]"          # día a día sin torch
+pip install -e ".[training,tracking]" # solo en entorno GPU / contenedor training
+pytest -q
+ruff check .
+tune --help
 ```
 
-### 5.4 Redes, puertos y volúmenes
+### 5.2 Dónde implementar lo que falta
 
-Explique cómo se comunican los contenedores, qué puertos exponen y qué volúmenes utilizan.
+| Quiero… | Archivo / carpeta |
+|---------|-------------------|
+| Descargar dataset | `scripts/prepare_data.py` |
+| Entrenar de verdad | `infrastructure/training/lightning_trainer.py` |
+| Métricas de tarea | `infrastructure/evaluation/` |
+| Recuperar run MLflow | `infrastructure/tracking/mlflow_tracker.py` → `get_run` |
+| Inferencia | `infrastructure/inference/` |
+| Umbrales | `configs/pipeline/thresholds.yaml` + `domain/policies.py` |
 
-### 5.5 Recomendaciones para modificar contenedores
+## 6. Contenedores
 
-Documente advertencias o buenas prácticas para modificar imágenes, servicios, redes o volúmenes sin afectar el sistema.
+Ver [docker/README.md](../docker/README.md).
 
-## 6. Scripts y automatizaciones
+```bash
+cp .env.example .env
+docker compose up -d mlflow api
+docker compose --profile training run --rm training tune --help
+```
 
-Describa los scripts disponibles en el proyecto y su propósito.
-
-### 6.1 Scripts principales
-
-Liste los scripts relevantes y explique para qué sirve cada uno.
-
-Ejemplo:
-
-- `npm run dev`: inicia el ambiente de desarrollo
-- `npm run build`: genera la versión de producción
-- `npm run test`: ejecuta las pruebas
-- `npm run lint`: ejecuta validaciones de estilo
-- `npm run migrate`: ejecuta migraciones
-
-### 6.2 Ubicación de scripts auxiliares
-
-Indique dónde se encuentran scripts personalizados, por ejemplo en carpetas como `scripts/`, `tools/` o similares.
-
-### 6.3 Consideraciones para su uso
-
-Explique dependencias, permisos, variables requeridas o precauciones para ejecutar scripts.
+GPU NVIDIA + Container Toolkit en el host de entrenamiento. En PC sin NVIDIA: solo `mlflow` + `api`.
 
 ## 7. Variables de entorno
 
-Documente las variables de entorno necesarias para el funcionamiento del sistema.
+Copiar `.env.example` → `.env`. Claves: `MLFLOW_TRACKING_URI`, `TUNE_DATA_DIR`, `TUNE_CONFIGS_DIR`, `TUNE_ARTIFACTS_DIR`, `TUNE_MODEL_NAME`, `TUNE_MODEL_ALIAS`.
 
-### 7.1 Variables requeridas
+## 8. Pruebas
 
-Liste las variables obligatorias para ejecutar el proyecto.
+- Unitarias: policies, configs, stages con fakes.
+- Integración: API sin registry / predict stub.
+- Marcador `gpu`: reservado; CI corre `not gpu`.
 
-Ejemplo:
+## 9. Extensión y mantenimiento
 
-- `PORT`
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `API_KEY`
-- `FRONTEND_URL`
+- **Nuevo caso de estudio:** ADR 001 + configs + evaluator + datamodule.
+- **Nueva técnica optimized:** solo YAML (+ soporte en trainer).
+- **Cambiar tracker:** nuevo adaptador detrás de `ExperimentTracker` / `ModelRegistry`.
+- **No** añadir orquestadores enterprise hasta tener baseline trackeado.
 
-### 7.2 Variables por ambiente
+## 10. Documentos relacionados
 
-Indique qué variables cambian según el ambiente.
-
-Ejemplo:
-
-- desarrollo;
-- pruebas;
-- producción.
-
-### 7.3 Archivos de configuración
-
-Explique qué archivos de entorno se usan y cómo deben configurarse.
-
-Ejemplo:
-
-- `.env`
-- `.env.development`
-- `.env.production`
-- `.env.example`
-
-### 7.4 Manejo seguro de secretos
-
-Indique qué variables son sensibles, cómo deben gestionarse y cuáles no deben subirse al repositorio.
-
-## 8. Flujo de trabajo de desarrollo
-
-Describa el proceso recomendado para trabajar sobre el proyecto.
-
-### 8.1 Preparación del entorno
-
-Explique los pasos iniciales para empezar a desarrollar.
-
-Ejemplo:
-
-- clonar el repositorio;
-- instalar dependencias;
-- configurar variables de entorno;
-- levantar servicios requeridos.
-
-### 8.2 Desarrollo de nuevas funcionalidades
-
-Explique cómo se recomienda implementar cambios o nuevas funcionalidades.
-
-Puede incluir:
-
-- creación de ramas;
-- estructura sugerida de cambios;
-- actualización de pruebas;
-- validaciones previas a integrar.
-
-### 8.3 Ejecución de pruebas y validaciones
-
-Indique cómo ejecutar pruebas, linting, build u otras verificaciones antes de integrar cambios.
-
-### 8.4 Integración de cambios
-
-Explique cómo se incorporan cambios al repositorio principal.
-
-Puede incluir:
-
-- estrategia de ramas;
-- pull requests;
-- revisiones;
-- criterios mínimos para integrar.
-
-## 9. Dependencias y servicios externos
-
-Documente las dependencias técnicas y servicios de terceros utilizados por el proyecto.
-
-### 9.1 Servicios externos integrados
-
-Liste servicios externos relevantes.
-
-Ejemplo:
-
-- autenticación;
-- almacenamiento;
-- envío de correos;
-- analítica;
-- APIs de terceros.
-
-### 9.2 Requisitos de acceso
-
-Indique qué accesos, cuentas, credenciales o configuraciones necesita un equipo nuevo para trabajar con estas integraciones.
-
-### 9.3 Consideraciones de desarrollo y pruebas
-
-Explique si existen entornos sandbox, mocks, datos de prueba o limitaciones de uso.
-
-## 10. Convenciones del proyecto
-
-Describa las convenciones usadas para mantener consistencia en el desarrollo.
-
-### 10.1 Convenciones de código
-
-Explique criterios de estilo, formato y organización.
-
-Ejemplo:
-
-- nomenclatura de archivos;
-- convenciones de nombres;
-- estructura de módulos;
-- uso de linters y formateadores.
-
-### 10.2 Convenciones de repositorio
-
-Documente prácticas relacionadas con el trabajo colaborativo.
-
-Ejemplo:
-
-- nombres de ramas;
-- mensajes de commit;
-- manejo de issues;
-- versionado.
-
-### 10.3 Convenciones de documentación
-
-Indique cómo debe mantenerse actualizada la documentación del proyecto.
-
-## 11. Problemas frecuentes y recomendaciones
-
-Documente errores comunes, limitaciones conocidas, deuda técnica o advertencias importantes para futuros equipos.
-
-### 11.1 Problemas frecuentes
-
-Ejemplo:
-
-- errores de puertos;
-- variables de entorno faltantes;
-- problemas de conexión a la base de datos;
-- conflictos entre versiones;
-- errores de permisos.
-
-### 11.2 Deuda técnica conocida
-
-Liste componentes incompletos, decisiones provisionales, refactors pendientes o limitaciones actuales del sistema.
-
-### 11.3 Recomendaciones para continuidad
-
-Indique sugerencias concretas para futuros grupos que deban continuar el proyecto.
-
-## 12. Historial de decisiones técnicas relevantes
-
-Documente decisiones importantes tomadas durante el desarrollo y la razón detrás de ellas.
-
-Ejemplo:
-
-- elección de framework;
-- cambio de base de datos;
-- adopción o descarte de contenedores;
-- reestructuración de módulos;
-- cambio en estrategia de autenticación.
-
-## 13. Referencias relacionadas
-
-Incluya enlaces o referencias útiles para continuar el desarrollo.
-
-Ejemplo:
-
-- documentación oficial de tecnologías usadas;
-- enlaces a servicios externos;
-- documentación de arquitectura;
-- instalación del proyecto;
-- informe principal.
+- [Arquitectura v1.2](./architecture/v1.md)
+- [Investigación](./Investigacion.md)
+- [Camino inmediato](./CaminoInmediato.md)
+- [Plan](./plan.md)
+- [Instalación](./Instalación.md)

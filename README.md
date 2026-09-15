@@ -26,14 +26,19 @@ El caso de estudio (por ejemplo una tarea geoespacial) valida la arquitectura; n
 | [Instalación.md](./docs/Instalación.md) | Guía de instalación, desarrollo y despliegue |
 | [Desarrollo.md](./docs/Desarrollo.md) | Detalles técnicos del desarrollo |
 
-### Arquitectura y plan
+### Arquitectura, investigación y plan
 
 | Documento | Descripción |
 |---|---|
-| [architecture/v1.md](./docs/architecture/v1.md) | Arquitectura Tune v1 |
-| [plan.md](./docs/plan.md) | Plan de trabajo por fases e hitos |
+| [CaminoInmediato.md](./docs/CaminoInmediato.md) | Por dónde ir ahora (reunión tutor + siguientes pasos) |
+| [Investigacion.md](./docs/Investigacion.md) | Investigación: pregunta, hipótesis, estado del arte aplicado |
+| [architecture/v1.md](./docs/architecture/v1.md) | Arquitectura Tune v1.2 (código + estado real) |
+| [Desarrollo.md](./docs/Desarrollo.md) | Manual de desarrollo y extensión |
+| [Instalación.md](./docs/Instalación.md) | Setup local y Docker |
+| [plan.md](./docs/plan.md) | Plan de trabajo e hitos |
 | [decisions/001-task-selection.md](./docs/decisions/001-task-selection.md) | ADR: caso de estudio |
 | [decisions/002-orchestration.md](./docs/decisions/002-orchestration.md) | ADR: orquestación del pipeline |
+| [decisions/003-propuesta-fase0-tutor.md](./docs/decisions/003-propuesta-fase0-tutor.md) | Guion / propuesta reunión tutor |
 
 ## Estudiantes
 
