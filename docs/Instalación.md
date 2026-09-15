@@ -1,79 +1,97 @@
-# Instalación y despliegue
+# Instalación y despliegue — Tune
 
-**Proyecto:** Tune — laboratorio MLOps de fine-tuning eficiente.
+**Proyecto:** laboratorio MLOps de fine-tuning eficiente (prototipo académico).
 
-## 1. Descripción general de la solución
+## 1. Qué se instala
 
-Tune ejecuta fine-tuning baseline y optimizado, registra corridas (MLflow), compara eficiencia y calidad, y sirve el modelo seleccionado por API o CLI.
-
-### 1.1 Lenguajes y tecnologías utilizadas
-
-### 1.2 Componentes de la solución
+El paquete `tune` (CLI + API + adaptadores). El entrenamiento pesado es opcional (`[training]`).
 
 ## 2. Requisitos previos
 
-### 2.1 Software requerido
+- Git, Python 3.10–3.12 (recomendado **3.11** para training)
+- Opcional: Docker + Docker Compose
+- GPU NVIDIA solo para entrenar (lab / Colab / Kaggle). Un PC sin GPU sirve para código, tests y API.
 
-### 2.2 Variables de entorno
+## 3. Instalación local (desarrollo)
 
-## 3. Instalación para ambiente de desarrollo
+```bash
+git clone https://github.com/Charlsz/Tune.git
+cd Tune
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# Linux/macOS: source .venv/bin/activate
+python -m pip install -U pip
+pip install -e ".[api,dev]"
+cp .env.example .env
+pytest -q
+tune --help
+```
 
-### 3.1 Desarrollo sin contenedores
+API local:
 
-#### 3.1.1 Clonar el repositorio
+```bash
+uvicorn tune.interfaces.api.main:app --reload
+# GET http://127.0.0.1:8000/health
+```
 
-#### 3.1.2 Instalar dependencias
+## 4. Con Docker
 
-#### 3.1.3 Configurar variables de entorno
+```bash
+cp .env.example .env
+docker compose up -d mlflow api
+# MLflow http://localhost:5000
+# API    http://localhost:8000/health
+```
 
-#### 3.1.4 Ejecutar servicios requeridos
+Imagen de training (máquina con NVIDIA Container Toolkit):
 
-#### 3.1.5 Iniciar la aplicación
+```bash
+docker compose --profile training run --rm training tune --help
+```
 
-### 3.2 Desarrollo con contenedores
+Hoy `tune train` falla con `NotImplementedError` hasta implementar el trainer — esperado.
 
-#### 3.2.1 Construcción de contenedores
+## 5. Datos
 
-#### 3.2.2 Ejecución del entorno
+Los datasets **no** van en Git. Layout:
 
-#### 3.2.3 Servicios disponibles
+```text
+data/<name>/<version>/{train,val,test}/
+data/<name>/<version>/metadata.yaml
+```
 
-#### 3.2.4 Apagado del entorno
+Ver `data/README.md` y `scripts/prepare_data.py` (pendiente de implementación completa).
 
-## 4. Despliegue (en caso de ser aplicable)
+## 6. Verificación rápida
 
-### 4.1 Arquitectura de despliegue
+| Chequeo | Comando / URL | OK si… |
+|---------|---------------|--------|
+| Tests | `pytest -q` | 18 passed (u. actual) |
+| CLI | `tune --help` | lista prepare/train/… |
+| API | `GET /health` | JSON con version |
+| Compose | `docker compose config -q` | sin error (tras `.env`) |
 
-### 4.2 Proceso de actualización
+## 7. Entrenamiento (cuando haya GPU e implementación)
 
-### 4.3 Despliegue sin contenedores
+1. Smoke del caso en Colab/Kaggle (ver [CaminoInmediato.md](./CaminoInmediato.md)).
+2. Preparar datos → `tune prepare -s baseline`.
+3. `tune train -s baseline` con `MLFLOW_TRACKING_URI` apuntando al servidor.
+4. Evaluar, registrar, comparar; luego `optimized`.
 
-#### 4.3.1 Preparación del servidor
+Detalle de arquitectura y gaps: [architecture/v1.md](./architecture/v1.md).
 
-#### 4.3.2 Instalación de dependencias
+## 8. Solución de problemas
 
-#### 4.3.3 Configuración de la aplicación
+| Síntoma | Qué hacer |
+|---------|-----------|
+| `No module named tune` | `pip install -e ".[api,dev]"` desde la raíz |
+| `docker compose` pide `.env` | `cp .env.example .env` |
+| OOM en Prithvi | bajar batch; smoke subset; Plan B (ADR 001) |
+| PC sin NVIDIA | no entrenar local; usar lab/Colab/Kaggle |
 
-#### 4.3.4 Ejecución de la aplicación
+## 9. Referencias
 
-#### 4.3.5 Actualización de versiones
-
-### 4.4 Despliegue con contenedores
-
-#### 4.4.1 Construcción de imágenes
-
-#### 4.4.2 Ejecución en servidor
-
-#### 4.4.3 Variables de entorno y secretos
-
-#### 4.4.4 Persistencia y redes
-
-#### 4.4.5 Actualización del despliegue
-
-## 5. Verificación de funcionamiento
-
-## 6. Solución de problemas frecuentes
-
-## 7. Mantenimiento y actualización
-
-## 8. Referencias relacionadas
+- [Desarrollo.md](./Desarrollo.md)
+- [Investigacion.md](./Investigacion.md)
+- [CaminoInmediato.md](./CaminoInmediato.md)
+- [docker/README.md](../docker/README.md)

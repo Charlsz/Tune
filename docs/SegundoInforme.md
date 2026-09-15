@@ -1,8 +1,13 @@
 # Guía para el segundo informe del proyecto
 
-En el segundo informe se reflejará el trabajo desarrollado durante el semestre y se avanzará hacia una estructura más formal y cercana a la versión final del documento​
-​
-Por esta razón, cada componente deberá desarrollarse con un mínimo de tres párrafos, con el fin de asegurar el nivel de profundidad y coherencia esperado en un informe final.
+Insumos ya redactados para no partir de cero:
+
+- [Investigacion.md](./Investigacion.md) — pregunta, hipótesis, estado del arte aplicado
+- [CaminoInmediato.md](./CaminoInmediato.md) — estado real y próximo hito
+- [architecture/v1.md](./architecture/v1.md) — arquitectura implementada (v1.2)
+- [Desarrollo.md](./Desarrollo.md) / [Instalación.md](./Instalación.md) — detalle técnico
+
+En el segundo informe se reflejará el trabajo desarrollado durante el semestre y se avanzará hacia una estructura más formal y cercana a la versión final del documento.
 
 ## Resumen / Abstract
 
