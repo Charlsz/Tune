@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # Tracker: "mlflow" (default) | "json" (smoke local sin servidor)
     tune_tracker: str = "mlflow"
 
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

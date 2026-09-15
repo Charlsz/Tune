@@ -151,9 +151,7 @@ def build_pretrained_classifier(source: str, num_classes: int, pretrained: bool 
         model = models.resnet18(weights=weights)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
         return model
-    raise ValueError(
-        f"Fuente no soportada para smoke CPU: {source}. Usa 'torchvision/resnet18'."
-    )
+    raise ValueError(f"Fuente no soportada para smoke CPU: {source}. Usa 'torchvision/resnet18'.")
 
 
 def _uri_to_path(uri: str) -> Path:

@@ -136,8 +136,7 @@ def main() -> None:
         return
 
     raise SystemExit(
-        "Usa --init-layout o --download-cpu-smoke.\n"
-        f"Fuentes conocidas: {sorted(KNOWN_SOURCES)}"
+        f"Usa --init-layout o --download-cpu-smoke.\nFuentes conocidas: {sorted(KNOWN_SOURCES)}"
     )
 
 
