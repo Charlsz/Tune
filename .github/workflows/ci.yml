@@ -40,7 +40,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Validar docker-compose.yml
-        run: docker compose config -q
+        run: |
+          cp .env.example .env
+          docker compose config -q
 
       - name: Build imagen api
         run: docker build -f docker/api/Dockerfile -t tune-api:ci .
