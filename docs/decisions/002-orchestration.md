@@ -46,4 +46,4 @@ prepare → train → evaluate → register → compare
 ## Referencias
 
 - [Primer Informe — Restricciones](../PrimerInforme.md#23-restricciones-y-supuestos-iniciales)
-- [Plan de trabajo — Fase 4](../plan.md#fase-4--evaluación-promoción-y-pipeline)
+- [Plan de trabajo — evaluación y pipeline](../research/plan.md)

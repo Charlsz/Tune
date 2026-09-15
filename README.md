@@ -1,38 +1,43 @@
 # Tune
 
-Laboratorio MLOps para **fine-tuning eficiente** de modelos avanzados de inteligencia artificial.
+Laboratorio MLOps para **fine-tuning eficiente**: toma un **modelo ya preentrenado**, lo adapta con dos estrategias (baseline vs optimized), registra evidencia y puede servir el resultado.
 
-Tune no depende de un modelo concreto. Recibe un **dataset**, un **modelo preentrenado** y una **estrategia**; ejecuta el pipeline dos veces (baseline caro vs optimizado); registra parámetros, tiempo, memoria y calidad; compara las corridas; y expone el modelo elegido por **API o CLI**.
+Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder significativamente calidad?*
 
-La pregunta que responde es: *¿podemos adaptar este modelo usando menos recursos sin perder significativamente calidad?*
+## Empezar (Docker)
 
-El caso de estudio (por ejemplo una tarea geoespacial) valida la arquitectura; no la define.
+```bash
+cp .env.example .env
+docker compose --profile smoke build training-cpu
+docker compose --profile smoke run --rm training-cpu \
+  python scripts/prepare_data.py --name cifar10_smoke --version 1.0 --download-cpu-smoke
+docker compose --profile smoke run --rm training-cpu tune run -s baseline -s optimized
+docker compose --profile smoke down
+```
+
+Guía completa: [docs/research/ComoProbar.md](./docs/research/ComoProbar.md)
 
 ## Documentación
 
+### Entregables (modelo de repositorio)
+
 | Documento | Descripción |
 |---|---|
-| [CaminoInmediato.md](./docs/CaminoInmediato.md) | Orden de avance de la investigación |
-| [Investigacion.md](./docs/Investigacion.md) | Pregunta, hipótesis, método y evidencia |
-| [architecture/v1.md](./docs/architecture/v1.md) | Arquitectura v1.2 |
-| [Desarrollo.md](./docs/Desarrollo.md) | Manual de desarrollo |
-| [Instalación.md](./docs/Instalación.md) | Setup local y Docker |
-| [plan.md](./docs/plan.md) | Plan de trabajo e hitos |
-| [PrimerInforme.md](./docs/PrimerInforme.md) | Informe de planteamiento |
-| [SegundoInforme.md](./docs/SegundoInforme.md) | Guía / estado del segundo informe |
-| [decisions/001-task-selection.md](./docs/decisions/001-task-selection.md) | ADR: caso de estudio |
-| [decisions/002-orchestration.md](./docs/decisions/002-orchestration.md) | ADR: orquestación |
-| [decisions/003-protocolo-experimental.md](./docs/decisions/003-protocolo-experimental.md) | ADR: protocolo experimental |
+| [docs/PrimerInforme.md](./docs/PrimerInforme.md) | Informe de planteamiento (**congelado 2026-08-29**) |
+| [docs/SegundoInforme.md](./docs/SegundoInforme.md) | Guía / segundo informe |
+| [docs/InformeFinal.md](./docs/InformeFinal.md) | Informe final |
+| [docs/Instalación.md](./docs/Instalación.md) | Instalación |
+| [docs/Desarrollo.md](./docs/Desarrollo.md) | Manual de desarrollo |
 
-## Inicio rápido
+### Investigación y arquitectura (carpetas)
 
-```bash
-pip install -e ".[api,dev]"
-cp .env.example .env
-pytest -q
-python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
-tune prepare -s baseline
-tune --help
-```
+| Documento | Descripción |
+|---|---|
+| [docs/research/ComoProbar.md](./docs/research/ComoProbar.md) | Cómo probar (PC / free-tier / lab) |
+| [docs/research/CaminoInmediato.md](./docs/research/CaminoInmediato.md) | Orden de avance |
+| [docs/research/Investigacion.md](./docs/research/Investigacion.md) | Marco de investigación |
+| [docs/research/plan.md](./docs/research/plan.md) | Plan de trabajo |
+| [docs/architecture/v1.md](./docs/architecture/v1.md) | Arquitectura |
+| [docs/decisions/](./docs/decisions/) | ADRs |
 
-Repositorio: https://github.com/Charlsz/Tune
+Repo: https://github.com/Charlsz/Tune

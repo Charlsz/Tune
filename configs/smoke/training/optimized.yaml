@@ -1,0 +1,30 @@
+# Misma tarea/dataset/modelo que baseline; solo cambia lo "barato":
+# congelar backbone y entrenar la cabeza (adaptación eficiente).
+strategy: optimized
+
+dataset:
+  name: cifar10_smoke
+  version: "1.0"
+  root: cifar10_smoke/1.0
+  splits: [train, val, test]
+
+model:
+  name: resnet18-imagenet
+  source: torchvision/resnet18
+  task: classification
+
+training:
+  seed: 42
+  epochs: 1
+  batch_size: 8
+  learning_rate: 1.0e-3
+  precision: "32"
+
+peft:
+  method: head_only
+
+extra:
+  image_size: 64
+  freeze_backbone: true
+  early_stopping_patience: 2
+  num_workers: 0

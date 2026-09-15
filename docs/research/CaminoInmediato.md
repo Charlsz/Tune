@@ -19,7 +19,7 @@
 
 ## Decisiones ya tomadas (no esperar)
 
-Ver [003-protocolo-experimental.md](./decisions/003-protocolo-experimental.md):
+Ver [003-protocolo-experimental.md](../decisions/003-protocolo-experimental.md):
 
 - Caso A → pivot floods → Plan B  
 - Baseline FP32 full FT vs LoRA+FP16  

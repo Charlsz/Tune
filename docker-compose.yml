@@ -1,14 +1,14 @@
 # Tune — entorno local dockerizado.
 #
-#   docker compose up -d mlflow api            # tracking + inferencia
-#   docker compose --profile training run --rm training tune train -s baseline
+#   docker compose up -d mlflow api
+#   docker compose --profile smoke run --rm training-cpu ...
+#   docker compose --profile smoke down
 #
-# Los datos, pesos y runs viven en volúmenes/bind mounts, nunca en las imágenes.
+# Apagar siempre al terminar para no dejar contenedores consumiendo recursos.
 
 name: tune
 
 services:
-  # ------------------------------------------------------------------ MLflow
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.16.2
     container_name: tune-mlflow
@@ -28,7 +28,6 @@ services:
       timeout: 5s
       retries: 6
 
-  # --------------------------------------------------------------------- API
   api:
     build:
       context: .
@@ -45,9 +44,6 @@ services:
     volumes:
       - ./configs:/app/configs:ro
 
-  # ---------------------------------------------------------------- Training
-  # Solo con `--profile training`. Requiere NVIDIA Container Toolkit para GPU;
-  # sin GPU también arranca (útil para smoke tests con subsets).
   training:
     build:
       context: .
@@ -66,7 +62,8 @@ services:
       - ./configs:/app/configs:ro
       - ./data:/app/data
       - ./artifacts:/app/artifacts
-      - ./src:/app/src            # hot-reload del código durante desarrollo
+      - ./src:/app/src
+      - ./scripts:/app/scripts:ro
     deploy:
       resources:
         reservations:
@@ -74,6 +71,25 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  training-cpu:
+    build:
+      context: .
+      dockerfile: docker/training/Dockerfile.cpu
+    profiles: ["smoke"]
+    env_file: .env
+    environment:
+      TUNE_TRACKER: json
+      TUNE_DATA_DIR: /app/data
+      TUNE_CONFIGS_DIR: /app/configs/smoke
+      TUNE_ARTIFACTS_DIR: /app/artifacts
+      TUNE_MODEL_NAME: tune-smoke
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./src:/app/src
+      - ./scripts:/app/scripts:ro
 
 volumes:
   mlflow-data:

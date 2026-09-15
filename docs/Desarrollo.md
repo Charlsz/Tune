@@ -4,7 +4,7 @@
 
 Guía para mantener y extender el laboratorio Tune: fine-tuning eficiente (baseline vs optimized), tracking, registry e inferencia.
 
-**No editar** `docs/PrimerInforme.md` (entrega fija 2026-08-29). Cambios de protocolo van en ADRs e `Investigacion.md`.
+**No editar** `docs/PrimerInforme.md` (entrega fija 2026-08-29). Cambios de protocolo van en ADRs e `research/Investigacion.md`.
 
 ## 2. Descripción técnica
 
@@ -125,7 +125,8 @@ Copiar `.env.example` → `.env`. Claves: `MLFLOW_TRACKING_URI`, `TUNE_DATA_DIR`
 ## 10. Documentos relacionados
 
 - [Arquitectura v1.2](./architecture/v1.md)
-- [Investigación](./Investigacion.md)
-- [Camino inmediato](./CaminoInmediato.md)
-- [Plan](./plan.md)
+- [Investigación](./research/Investigacion.md)
+- [Camino inmediato](./research/CaminoInmediato.md)
+- [Cómo probar](./research/ComoProbar.md)
+- [Plan](./research/plan.md)
 - [Instalación](./Instalación.md)

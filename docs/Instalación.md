@@ -73,7 +73,7 @@ Ver `data/README.md` y `scripts/prepare_data.py` (pendiente de implementación c
 
 ## 7. Entrenamiento (cuando haya GPU e implementación)
 
-1. Smoke del caso en Colab/Kaggle (ver [CaminoInmediato.md](./CaminoInmediato.md)).
+1. Smoke del caso en Colab/Kaggle (ver [research/ComoProbar.md](./research/ComoProbar.md)).
 2. Preparar datos → `tune prepare -s baseline`.
 3. `tune train -s baseline` con `MLFLOW_TRACKING_URI` apuntando al servidor.
 4. Evaluar, registrar, comparar; luego `optimized`.
@@ -92,6 +92,7 @@ Detalle de arquitectura y gaps: [architecture/v1.md](./architecture/v1.md).
 ## 9. Referencias
 
 - [Desarrollo.md](./Desarrollo.md)
-- [Investigacion.md](./Investigacion.md)
-- [CaminoInmediato.md](./CaminoInmediato.md)
+- [research/Investigacion.md](./research/Investigacion.md)
+- [research/CaminoInmediato.md](./research/CaminoInmediato.md)
+- [research/ComoProbar.md](./research/ComoProbar.md)
 - [docker/README.md](../docker/README.md)

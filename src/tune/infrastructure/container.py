@@ -1,8 +1,4 @@
-"""Composición de dependencias (el único lugar que conoce todas las implementaciones).
-
-Las interfaces (CLI, API) piden aquí los stages ya armados. Para tests se pueden
-construir los stages a mano con fakes; este módulo no es obligatorio.
-"""
+"""Composición de dependencias (el único lugar que conoce todas las implementaciones)."""
 
 from __future__ import annotations
 
@@ -23,7 +19,6 @@ class Container:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
 
-    # --- infraestructura ---------------------------------------------------
     @cached_property
     def configs(self) -> YamlConfigRepository:
         return YamlConfigRepository(self.settings.tune_configs_dir)
@@ -34,6 +29,10 @@ class Container:
 
     @cached_property
     def tracker(self):
+        if self.settings.tune_tracker == "json":
+            from tune.infrastructure.tracking.json_tracker import JsonRunTracker  # noqa: PLC0415
+
+            return JsonRunTracker(self.settings.tune_artifacts_dir / "runs")
         from tune.infrastructure.tracking import MlflowTracker  # noqa: PLC0415
 
         return MlflowTracker(
@@ -42,6 +41,12 @@ class Container:
 
     @cached_property
     def registry(self):
+        if self.settings.tune_tracker == "json":
+            from tune.infrastructure.registry.file_registry import (
+                FileModelRegistry,  # noqa: PLC0415
+            )
+
+            return FileModelRegistry(self.settings.tune_artifacts_dir / "registry")
         from tune.infrastructure.registry import MlflowModelRegistry  # noqa: PLC0415
 
         return MlflowModelRegistry(self.settings.mlflow_tracking_uri)
@@ -52,17 +57,16 @@ class Container:
             LightningTrainer,
         )
 
-        return LightningTrainer(str(self.settings.tune_artifacts_dir))
+        return LightningTrainer(
+            str(self.settings.tune_artifacts_dir), str(self.settings.tune_data_dir)
+        )
 
     @cached_property
     def evaluator(self):
-        from tune.infrastructure.evaluation.segmentation import (  # noqa: PLC0415
-            SegmentationEvaluator,
-        )
+        from tune.infrastructure.evaluation.segmentation import TaskEvaluator  # noqa: PLC0415
 
-        return SegmentationEvaluator()
+        return TaskEvaluator(str(self.settings.tune_data_dir))
 
-    # --- casos de uso ------------------------------------------------------
     @cached_property
     def prepare(self) -> PrepareStage:
         return PrepareStage(self.datasets)
