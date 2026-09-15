@@ -57,9 +57,9 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | 0.2 | README como punto de entrada | `README.md` | Hecho |
 | 0.3 | ADR de caso de estudio | `docs/decisions/001-task-selection.md` | Actualizado |
 | 0.4 | Arquitectura v1 Tune | `docs/architecture/v1.md` | Actualizado |
-| 0.5 | Acordar métricas de eficiencia y umbral de calidad | Nota con el tutor | Pendiente |
-| 0.6 | Fijar modelo preentrenado, dataset y plan B | ADR 001 | Pendiente |
-| 0.7 | Configs baseline y optimized | `configs/training/` | Pendiente |
+| 0.5 | Acordar métricas de eficiencia y umbral de calidad | Nota con el tutor ([propuesta](./decisions/003-propuesta-fase0-tutor.md)) | Pendiente |
+| 0.6 | Fijar modelo preentrenado, dataset y plan B | ADR 001 ([propuesta](./decisions/003-propuesta-fase0-tutor.md)) | Pendiente |
+| 0.7 | Configs baseline y optimized | `configs/training/` | Hecho (borrador del caso preferido; se cierra al ratificar 0.6) |
 
 **Hito:** arquitectura Tune + criterios baseline / optimizado + caso (y respaldo) documentados.
 
