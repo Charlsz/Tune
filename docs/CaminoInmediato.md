@@ -2,6 +2,8 @@
 
 **Propósito:** orden de trabajo para no estancarse. Una evidencia por iteración.
 
+**Invariante:** `docs/PrimerInforme.md` quedó congelado en la entrega del **2026-08-29** (`3c13bc8`). No modificarlo; el protocolo vivo va en ADR 003 / Investigación / este camino.
+
 ---
 
 ## Dónde estamos
