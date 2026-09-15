@@ -2,12 +2,15 @@
 
 Insumos ya redactados para no partir de cero:
 
-- [Investigacion.md](./Investigacion.md) — pregunta, hipótesis, estado del arte aplicado
-- [CaminoInmediato.md](./CaminoInmediato.md) — estado real y próximo hito
-- [architecture/v1.md](./architecture/v1.md) — arquitectura implementada (v1.2)
+- [Investigacion.md](./Investigacion.md) — pregunta, hipótesis, método
+- [CaminoInmediato.md](./CaminoInmediato.md) — orden de avance
+- [architecture/v1.md](./architecture/v1.md) — arquitectura v1.2
+- [decisions/003-protocolo-experimental.md](./decisions/003-protocolo-experimental.md) — decisiones activas
 - [Desarrollo.md](./Desarrollo.md) / [Instalación.md](./Instalación.md) — detalle técnico
 
-En el segundo informe se reflejará el trabajo desarrollado durante el semestre y se avanzará hacia una estructura más formal y cercana a la versión final del documento.
+En el segundo informe se reflejará el trabajo desarrollado y se avanzará hacia una estructura más formal cercana a la versión final del documento.
+
+Por esta razón, cada componente deberá desarrollarse con un mínimo de tres párrafos, con el fin de asegurar el nivel de profundidad y coherencia esperado.
 
 ## Resumen / Abstract
 

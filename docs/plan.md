@@ -12,7 +12,7 @@ Este documento operacionaliza la metodología y los objetivos del primer informe
 
 **Principio rector:** primero un baseline reproducible y comparable; después la estrategia optimizada; al cierre, el modelo servible. La interfaz es opcional.
 
-El plan se organiza por **fases e hitos**, no por un calendario rígido. Las fechas se ajustan según GPU y retroalimentación del tutor.
+El plan se organiza por **hitos**, no por un calendario rígido. Las fechas se ajustan según GPU y resultados del smoke experimental.
 
 ---
 
@@ -57,9 +57,9 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | 0.2 | README como punto de entrada | `README.md` | Hecho |
 | 0.3 | ADR de caso de estudio | `docs/decisions/001-task-selection.md` | Actualizado |
 | 0.4 | Arquitectura v1 Tune | `docs/architecture/v1.md` | Actualizado |
-| 0.5 | Acordar métricas de eficiencia y umbral de calidad | Nota con el tutor ([propuesta](./decisions/003-propuesta-fase0-tutor.md)) | Pendiente |
-| 0.6 | Fijar modelo preentrenado, dataset y plan B | ADR 001 ([propuesta](./decisions/003-propuesta-fase0-tutor.md)) | Pendiente |
-| 0.7 | Configs baseline y optimized | `configs/training/` | Hecho (borrador del caso preferido; se cierra al ratificar 0.6) |
+| 0.5 | Fijar métricas de eficiencia y umbral de calidad | [ADR 003](./decisions/003-protocolo-experimental.md) + `thresholds.yaml` | Hecho (valores de trabajo) |
+| 0.6 | Fijar modelo, dataset y escalera de respaldo | ADR 001 + ADR 003 | Hecho (escalera activa) |
+| 0.7 | Configs baseline y optimized | `configs/training/` | Hecho (borrador caso preferido) |
 
 **Hito:** arquitectura Tune + criterios baseline / optimizado + caso (y respaldo) documentados.
 
@@ -194,13 +194,13 @@ Ver [ADR 002](./decisions/002-orchestration.md).
 
 ---
 
-## 7. División de roles sugerida
+## 7. División de trabajo por carpetas
 
-| Carlos (Infra / MLOps) | Zenen (ML / Datos) |
-|------------------------|---------------------|
+| MLOps / infra | ML / datos |
+|---------------|------------|
 | Repo, CI, Docker | Fine-tuning, métricas de tarea |
 | MLflow, pipeline, API | Dataset, notebooks, instrumentación GPU |
-| Docs técnicas | Informes y análisis baseline vs optimized |
+| Docs de arquitectura | Análisis baseline vs optimized |
 
 Revisión conjunta: ¿el baseline corre? ¿la comparación es defendible? ¿qué bloquea?
 

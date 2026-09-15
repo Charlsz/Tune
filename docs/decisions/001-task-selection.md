@@ -2,8 +2,8 @@
 
 **Estado:** Actualizado (Tune)  
 **Fecha original:** 2026-08-17  
-**Actualizado:** 2026-08-29  
-**Contexto:** [Primer Informe](../PrimerInforme.md) — secciones 3, 4 y 5
+**Actualizado:** 2026-09-15  
+**Contexto:** [Primer Informe](../PrimerInforme.md) — secciones 3, 4 y 5 · [ADR 003](./003-protocolo-experimental.md)
 
 ## Contexto
 
@@ -23,14 +23,15 @@ La decisión previa (Terra) fijaba Wildfire Scar Detection + Prithvi-EO-2.0 + Te
 
 ## Decisión
 
-**Caso preferido inicial:** tarea geoespacial de cicatrices de incendio (HLS Burn Scars) con un modelo preentrenado compatible, **si** el cómputo y el tooling lo permiten.
+**Escalera activa (ADR 003):**
 
-**Plan B:** sustituir por un modelo y un dataset más livianos o estables. Tune no se redefine.
+1. **Preferido:** HLS Burn Scars + Prithvi-EO-2.0-300M (segmentación, mIoU primaria).  
+2. **Pivot EO:** Sen1Floods11 + Prithvi — solo si fallan datos/tooling de Burn Scars (no VRAM).  
+3. **Plan B:** ResNet-50 + `beans` / CIFAR-10 (clasificación, accuracy primaria) si el smoke EO no cabe.
 
-**Métricas de calidad:** las de la tarea elegida (en segmentación: IoU, mIoU, F1, precision, recall).  
+Tune no se redefine al cambiar de peldaño.
+
 **Métricas de eficiencia (siempre):** tiempo de entrenamiento, memoria GPU, GPU-hours o proxy.
-
-**No se declara** una segunda tarea EO (Flood) como extensión por defecto. La extensión, si existe, es un segundo par experimental, no “otra app de satélites”.
 
 ## Justificación
 

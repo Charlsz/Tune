@@ -1,98 +1,73 @@
-# Camino inmediato — salir del estancamiento
+# Camino de investigación — Tune
 
-**Para:** reunión con el tutor y la primera semana después.  
-**Regla:** no intentar “terminar Tune”. Entregar **una evidencia** por sesión.
-
----
-
-## 1. Dónde estamos (honestidad técnica)
-
-| Capa | Estado | ¿Se puede mostrar mañana? |
-|------|--------|---------------------------|
-| Propósito + informes | Listo | Sí (PrimerInforme, esta guía, Investigación) |
-| Arquitectura código | Scaffold limpio | Sí (diagrama + `src/tune/`) |
-| CLI / API / Docker / CI | Esqueleto funcional | Sí: `tune --help`, `/health`, tests, compose |
-| Datos + train + evaluate | **No implementado** | No fingir corrida end-to-end |
-| Comparación real baseline vs optimized | Pendiente de corridas | No |
-
-**Mensaje al tutor:** *tenemos el laboratorio (orquestación, tracking previsto, API); falta la lógica de entrenamiento del caso y el primer smoke con GPU.*
+**Propósito:** orden de trabajo para no estancarse. Una evidencia por iteración.
 
 ---
 
-## 2. Si piden “hacer algo ya” (menú de entregables)
+## Dónde estamos
 
-Elegir **una** fila según el tiempo y si hay GPU ese día:
-
-| Prioridad | Entregable en horas | Qué hacer | Evidencia |
-|-----------|---------------------|-----------|-----------|
-| **A** (sin GPU) | 1–2 h | Demo viva: `pytest`, `tune --help`, API `/health`, MLflow UI si Docker está | Capturas + repo en `main` |
-| **B** (sin GPU) | 2–4 h | Rellenar `metadata.yaml` de ejemplo + notebook outline de exploración | Archivo en `data/` (solo metadata) o `notebooks/` |
-| **C** (con GPU free-tier) | 3–6 h | Smoke Burn Scars en Colab/Kaggle (1 epoch, subset) | Notebook + `nvidia-smi` + si OOM o OK |
-| **D** (después del smoke OK) | días | Implementar `prepare_data` + trainer mínimo en ramas | PR a `main` |
-
-**No hacer mañana:** UI elaborada, segundo caso, Kubernetes, reescribir clean architecture.
+| Capa | Estado | Demostrable ya |
+|------|--------|----------------|
+| Pregunta + arquitectura | Definidas | Sí |
+| CLI / API / Docker / CI | Esqueleto OK | Sí |
+| Layout de datos + metadata | Inicializable con script | Sí (`--init-layout`) |
+| Train / evaluate / predict | Pendientes de implementación | No fingir end-to-end |
 
 ---
 
-## 3. Guion corto para la reunión
+## Decisiones ya tomadas (no esperar)
 
-1. **Problema:** fine-tuning manual = caro, poco comparable, modelo desconectado del uso.  
-2. **Tune:** laboratorio que ejecuta baseline vs optimized, registra y sirve.  
-3. **Arquitectura:** capas `domain → application → infrastructure → interfaces`; caso intercambiable.  
-4. **Caso preferido:** Burn Scars + Prithvi; Plan B ResNet si VRAM no da.  
-5. **Compute:** PC sin NVIDIA; free-tier + GPU lab como referencia.  
-6. **Pedir:** métrica primaria, umbrales, GPU lab (modelo+VRAM), ¿free-tier oficial o solo smoke?  
-7. **Próximo hito:** smoke del caso + `prepare`/`train` mínimo (no demo bonita).
+Ver [003-protocolo-experimental.md](./decisions/003-protocolo-experimental.md):
 
-Llevar: [003-propuesta-fase0-tutor.md](./decisions/003-propuesta-fase0-tutor.md).
+- Caso A → pivot floods → Plan B  
+- Baseline FP32 full FT vs LoRA+FP16  
+- mIoU + umbrales 0.60 / 0.02  
+- Free-tier (Kaggle/Colab) válido como hardware de corrida si se documenta y se usa el **mismo** para ambas estrategias  
 
 ---
 
-## 4. Orden de implementación (post-acuerdos)
+## Orden de avance
 
 ```text
-1. Acuerdos tutor → actualizar thresholds.yaml + ADR 001
-2. Smoke caso (Colab/Kaggle o lab) → decidir A / floods / Plan B
-3. prepare_data.py + layout data/ + tune prepare
-4. LightningTrainer + ResourceProbe → tune train (baseline)
-5. Evaluator → tune evaluate
-6. Completar MlflowTracker.get_run → register / compare
-7. tune train -s optimized → tabla comparación
-8. /predict + demo mínima
-9. Informe / Segundo informe con evidencia
+1. init layout + metadata  →  tune prepare
+2. smoke Burn Scars (1 epoch / subset) en GPU free-tier
+3. trainer + ResourceProbe  →  tune train (baseline)
+4. evaluator  →  tune evaluate
+5. completar get_run / registry  →  register + compare
+6. optimized + tabla eficiencia/calidad
+7. /predict + demo mínima
+8. redacción de resultados (Investigacion + informes)
 ```
 
-**Dueños sugeridos**
+### Dueños por carpeta (sin personas)
 
-- Carlos: MLflow, API, Docker, CI, registry, ADR 003  
-- Zenen: datos, trainer, métricas de tarea, notebooks  
+| Área | Carpetas |
+|------|----------|
+| MLOps / infra | `tracking/`, `registry/`, `interfaces/`, `docker/`, CI |
+| ML / datos | `training/`, `evaluation/`, `data/`, `scripts/prepare_data.py`, `notebooks/` |
+| Compartido | `domain/`, `container.py`, thresholds, ADRs — PRs cortos |
 
-Ramas nuevas `feat/…` desde `main`; no tocar ramas ajenas; PR con tests verdes.
+Ramas: `feat/…` desde `main`; no editar la misma ruta en paralelo.
 
 ---
 
-## 5. Comandos de “prueba de vida” (hoy, sin GPU)
+## Prueba de vida (sin GPU)
 
 ```bash
-python -m pip install -e ".[api,dev]"
+pip install -e ".[api,dev]"
 pytest -q
+python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
+tune prepare -s baseline
 tune --help
-cp .env.example .env
-# si hay Docker:
-docker compose up -d mlflow api
-# http://localhost:5000  ·  http://localhost:8000/health
 ```
 
-Esperado: tests OK, CLI responde, `/health` 200.  
-`tune train` **debe** fallar con `NotImplementedError` hasta implementar el trainer — eso es correcto, no un bug de instalación.
+`tune train` debe responder `NotImplementedError` hasta existir el trainer.
 
 ---
 
-## 6. Definición de “avance real” esta semana
+## Criterio de avance real
 
-- [ ] Respuestas del tutor anotadas en la propuesta  
-- [ ] Cuenta Kaggle y/o Colab lista  
-- [ ] Smoke del caso **o** decisión documentada de Plan B  
-- [ ] Al menos un PR de código o datos hacia el trainer/prepare (no solo docs)
-
-Si solo hay docs, el proyecto sigue estancado en scaffold. La investigación ya está; el siguiente paso es **cómputo + implementación mínima**.
+- [ ] Layout + `tune prepare` en verde  
+- [ ] Smoke del caso **o** decisión Plan B documentada en ADR 001/003  
+- [ ] Al menos un PR de código hacia trainer o evaluate  
+- [ ] Dos runs comparables trackeados (cierre del núcleo experimental)  

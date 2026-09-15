@@ -1,20 +1,37 @@
 # data/
 
-Datasets versionados **fuera de Git** (solo este README y `.gitkeep` se commitean).
+Datasets versionados **fuera de Git** (solo README, `templates/` y `.gitkeep` se commitean).
 
-Layout esperado por `FilesystemDatasetRepository`:
+## Layout
 
 ```text
 data/
 └── <name>/
     └── <version>/
-        ├── metadata.yaml   # fuente (URL), fecha de descarga, licencia, checksum, nº de muestras por split
+        ├── metadata.yaml
         ├── train/
         ├── val/
         └── test/
 ```
 
-Cómo obtenerlo: `python scripts/prepare_data.py --name <name> --version <version>`.
+Plantilla: [`templates/metadata.yaml`](./templates/metadata.yaml).
 
-El `root` que declaran `configs/training/*.yaml` es relativo a esta carpeta
-(`TUNE_DATA_DIR`). En Docker se monta como volumen en `/app/data`.
+## Inicializar sin descargar el corpus
+
+```bash
+python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
+tune prepare -s baseline
+```
+
+Eso habilita el stage `prepare` del laboratorio. Los tiles/imágenes se poblan en el
+entorno de entrenamiento (Kaggle/Colab/lab). Después de poblar, actualizar
+`sample_counts` y `checksum` en `metadata.yaml`.
+
+## Fuentes del protocolo (ADR 003)
+
+| name | Origen |
+|------|--------|
+| `hls_burn_scars` | https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars |
+| `beans` (Plan B) | https://huggingface.co/datasets/beans |
+
+El `root` de `configs/training/*.yaml` es relativo a `TUNE_DATA_DIR` (por defecto `./data`).

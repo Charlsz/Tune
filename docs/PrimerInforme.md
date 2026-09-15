@@ -448,7 +448,7 @@ Threshold
 
 ## 7.3 Estrategia de validación
 
-La validación se realizará desde las siguientes perspectivas. No se usará retroalimentación de usuarios productivos: la validación es técnica y demostrativa, con revisión del tutor en los acuerdos de métricas y de caso de estudio.
+La validación se realizará desde las siguientes perspectivas. No se usará retroalimentación de usuarios productivos: la validación es técnica y demostrativa, con criterios de métricas y caso de estudio fijados en el protocolo experimental (ADR 003).
 
 ### Validación funcional
 
@@ -484,7 +484,7 @@ Se comprobará que la inferencia utiliza la versión registrada y que la respues
 
 ## 7.4 Plan de trabajo, cronograma e hitos
 
-El trabajo se organiza por **fases e hitos**, no por un calendario rígido. El orden es el de las iteraciones de la sección 7.2. Las fechas concretas se ajustarán según la disponibilidad de GPU, los resultados experimentales y la retroalimentación del tutor. Lo que no se mueve es la prioridad: primero evidencia comparable; después servicio; la interfaz es opcional.
+El trabajo se organiza por **hitos**, no por un calendario rígido. El orden es el de las iteraciones de la sección 7.2. Las fechas concretas se ajustarán según la disponibilidad de GPU y los resultados experimentales. Lo que no se mueve es la prioridad: primero evidencia comparable; después servicio; la interfaz es opcional.
 
 | Fase | Actividades principales | Hito / entregable |
 | --- | --- | --- |
