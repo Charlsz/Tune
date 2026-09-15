@@ -4,6 +4,8 @@
 
 Guía para mantener y extender el laboratorio Tune: fine-tuning eficiente (baseline vs optimized), tracking, registry e inferencia.
 
+**No editar** `docs/PrimerInforme.md` (entrega fija 2026-08-29). Cambios de protocolo van en ADRs e `Investigacion.md`.
+
 ## 2. Descripción técnica
 
 Tune es un **paquete Python** (`tune`) con clean architecture, CLI Typer, API FastAPI, MLflow y Docker Compose. No es un frontend; el “producto” es el pipeline medible + modelo servible.
