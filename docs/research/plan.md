@@ -57,8 +57,8 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | 0.2 | README como punto de entrada | `README.md` | Hecho |
 | 0.3 | ADR de caso de estudio | `docs/decisions/001-task-selection.md` | Actualizado |
 | 0.4 | Arquitectura v1 Tune | `docs/architecture/v1.md` | Actualizado |
-| 0.5 | Fijar métricas de eficiencia y umbral de calidad | [ADR 003](./decisions/003-protocolo-experimental.md) + `thresholds.yaml` | Hecho (valores de trabajo) |
-| 0.6 | Fijar modelo, dataset y escalera de respaldo | ADR 001 + ADR 003 | Hecho (escalera activa) |
+| 0.5 | Fijar métricas de eficiencia y umbral de calidad | [ADR 003](./decisions/003-protocolo-experimental.md) + `thresholds.yaml` | Hecho (valores de trabajo; ratificar con tutor → [004](./decisions/004-propuesta-tutor.md)) |
+| 0.6 | Fijar modelo, dataset y escalera de respaldo | ADR 001 + ADR 003 | Hecho (escalera activa; ratificar con tutor → [004](./decisions/004-propuesta-tutor.md)) |
 | 0.7 | Configs baseline y optimized | `configs/training/` | Hecho (borrador caso preferido) |
 
 **Hito:** arquitectura Tune + criterios baseline / optimizado + caso (y respaldo) documentados.
