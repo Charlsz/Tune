@@ -88,45 +88,22 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 **Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`configs/training/`).  
 **Modelo 2:** aún por escoger (otro EO o Plan B); mismo pipeline Tune para comparar demos.
 
-### Primera vez / cada sesión experimental
+### Sesión experimental (un solo comando)
 
 ```bash
-# 1) Ir al clone (ajusta la ruta)
-cd ~/Tune   # o donde esté el repo
+cd ~/Tune            # ajusta la ruta del clone
+git pull origin main # si ya estás en main, basta esto
+df -h . && nvidia-smi
 
-# 2) Solo main
-git checkout main
-git pull origin main
-
-# 3) Espacio en disco (el SSD del lab suele ir lleno)
-df -h .
-nvidia-smi
-
-# 4) Un comando: MLflow + API + build imagen GPU
-make lab-up
+make lab-experiment  # up + datos subset + baseline/optimized + down
 ```
 
-### Datos + smoke EO (Prithvi) — primera evidencia
+Eso equivale a lab-up → lab-data-smoke → lab-eo-smoke → lab-down (apaga aunque falle el train).
+
+Corrida seria (dataset completo + más epochs):
 
 ```bash
-# Dataset HF (varios GB). Smoke rápido con subset:
-make lab-data-smoke
-# Dataset completo (corrida seria):
-# make lab-data
-
-# Par baseline vs optimized (1 epoch, batches limitados)
-make lab-eo-smoke
-
-# Guardar salida (tiempos / mIoU) y apagar
-make lab-down
-```
-
-### Corrida completa (configs/training, más epochs)
-
-```bash
-make lab-data          # si aún no bajaste el corpus completo
-make lab-run           # baseline + optimized
-make lab-down
+make lab-experiment-full
 ```
 
 Copia la tabla (tiempo, VRAM, mIoU) a la bitácora Notion de investigación.

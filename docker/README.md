@@ -10,9 +10,9 @@
 ## Lab universidad (un comando)
 
 ```bash
-git checkout main && git pull origin main
-make lab-up      # MLflow + API + build GPU
-make lab-down    # apagar siempre
+git pull origin main
+make lab-experiment      # up + datos + train smoke + down
+# make lab-experiment-full   # corpus completo + train full
 ```
 
 ## Smoke CPU (PCs sin GPU)
