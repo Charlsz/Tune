@@ -88,29 +88,27 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 **Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`configs/training/`).  
 **Modelo 2:** aún por escoger (otro EO o Plan B); mismo pipeline Tune para comparar demos.
 
-### Sesión experimental (un solo comando)
+### Sesión experimental (un solo comando = Prithvi)
 
 ```bash
-cd ~/Tune            # ajusta la ruta del clone
-git pull origin main # si ya estás en main, basta esto
+cd ~/Tune
+git pull origin main
 df -h . && nvidia-smi
 
-make lab-experiment  # up + datos subset + baseline/optimized + down
+# Si apt/Docker dijo "Release file ... is not valid yet":
+sudo timedatectl set-ntp true
+date   # debe verse la fecha/hora actuales
+
+make lab-experiment
 ```
 
-Eso equivale a lab-up → lab-data-smoke → lab-eo-smoke → lab-down (apaga aunque falle el train).
+Eso hace: preflight → up → descargar Burn Scars completo → baseline+optimized Prithvi → down.
 
-Corrida seria (dataset completo + más epochs):
+Prueba corta (opcional, no es la evidencia de tesis): `make lab-experiment-smoke`.
 
-```bash
-make lab-experiment-full
-```
+Copia tiempo / VRAM / mIoU a la bitácora Notion.
 
-Copia la tabla (tiempo, VRAM, mIoU) a la bitácora Notion de investigación.
-
-Sanity opcional (CPU, sin NVIDIA): `make smoke-build && make smoke-data && make smoke-run && make smoke-down`.
-
-> Trainer de segmentación: TerraTorch + backbone Prithvi HF. Optimized = backbone congelado + FP16 (LoRA r/alpha documentado en YAML; freeze es el mecanismo aplicado en v1).
+> Trainer: TerraTorch + Prithvi HF. Optimized = backbone congelado + FP16.
 
 ---
 

@@ -1,42 +1,57 @@
 # Atajos de desarrollo. En Windows: Git Bash / WSL, o los comandos docker a mano.
 
-.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-up lab-down lab-train lab-run lab-data lab-data-smoke lab-eo-smoke lab-experiment lab-experiment-full pipeline clean
+.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-preflight lab-up lab-down lab-train lab-run lab-data lab-data-smoke lab-eo-smoke lab-experiment lab-experiment-smoke pipeline clean
 
 PYTHON ?= python
 STRATEGY ?= baseline
 
 help:
-	@echo "lab-experiment       — UN comando lab U: up + datos + train smoke + down"
-	@echo "lab-experiment-full  — igual pero dataset completo + train full"
-	@echo "lab-up / lab-down    — solo encender/apagar (pasos sueltos)"
-	@echo "smoke-*              — prueba CPU sin NVIDIA"
+	@echo "lab-experiment        — UN comando lab U: Prithvi completo + down"
+	@echo "lab-experiment-smoke  — prueba corta (subset, 1 epoch) si quieres validar antes"
+	@echo "lab-preflight         — reloj / GPU / disco (si apt falla con not valid yet)"
+	@echo "lab-up / lab-down     — solo encender/apagar"
+	@echo "smoke-*               — CPU sin NVIDIA"
 	@echo "install / test / lint"
 
-# --- Lab universidad: un solo comando ---
-# Encadena: build/up → descargar subset → baseline+optimized → apagar siempre.
-lab-experiment:
+# Comprueba lo tipico que rompe el build en labs (reloj atrasado, sin GPU, disco).
+lab-preflight:
+	@echo "==> fecha del host (si esta atrasada, apt en Docker falla)"
+	@date -u; date
+	@echo ""
+	@echo "==> sincronizar NTP si hace falta (Ubuntu):"
+	@echo "    sudo timedatectl set-ntp true"
+	@echo "    sudo hwclock -s 2>/dev/null || true"
+	@echo ""
+	@echo "==> GPU"
+	@nvidia-smi || (echo "ERROR: nvidia-smi no responde"; exit 1)
+	@echo ""
+	@echo "==> disco"
+	@df -h . | head -n 5
+
+# --- Lab universidad: un solo comando = caso Prithvi completo ---
+lab-experiment: lab-preflight
 	@test -f .env || cp .env.example .env
 	@echo "==> [1/4] lab-up (MLflow + API + imagen GPU)"
 	@$(MAKE) lab-up
-	@echo "==> [2/4] lab-data-smoke (Burn Scars subset)"
-	@$(MAKE) lab-data-smoke
-	@echo "==> [3/4] lab-eo-smoke (baseline + optimized)"
+	@echo "==> [2/4] lab-data (HLS Burn Scars completo)"
+	@$(MAKE) lab-data
+	@echo "==> [3/4] lab-run (baseline + optimized Prithvi)"
 	@status=0; \
-	$(MAKE) lab-eo-smoke || status=$$?; \
-	echo "==> [4/4] lab-down (apagar contenedores)"; \
+	$(MAKE) lab-run || status=$$?; \
+	echo "==> [4/4] lab-down"; \
 	$(MAKE) lab-down; \
 	exit $$status
 
-# Dataset completo + pipeline configs/training (mas largo / mas disco).
-lab-experiment-full:
+# Opcional: smoke corto (no es el experimento de tesis).
+lab-experiment-smoke: lab-preflight
 	@test -f .env || cp .env.example .env
 	@echo "==> [1/4] lab-up"
 	@$(MAKE) lab-up
-	@echo "==> [2/4] lab-data (corpus completo)"
-	@$(MAKE) lab-data
-	@echo "==> [3/4] lab-run (baseline + optimized full)"
+	@echo "==> [2/4] lab-data-smoke"
+	@$(MAKE) lab-data-smoke
+	@echo "==> [3/4] lab-eo-smoke"
 	@status=0; \
-	$(MAKE) lab-run || status=$$?; \
+	$(MAKE) lab-eo-smoke || status=$$?; \
 	echo "==> [4/4] lab-down"; \
 	$(MAKE) lab-down; \
 	exit $$status
@@ -47,7 +62,7 @@ lab-up:
 	docker compose --profile training build training
 	@echo ""
 	@echo "Lab listo. MLflow http://localhost:5000  API http://localhost:8000/health"
-	@echo "Todo-en-uno: make lab-experiment"
+	@echo "Todo-en-uno Prithvi: make lab-experiment"
 
 lab-down:
 	docker compose --profile training --profile smoke down
@@ -70,7 +85,10 @@ lab-train:
 	docker compose --profile training run --rm training tune train -s $(STRATEGY)
 
 lab-run:
-	docker compose --profile training run --rm training tune run -s baseline -s optimized
+	docker compose --profile training run --rm \
+		-e TUNE_CONFIGS_DIR=/app/configs \
+		-e TUNE_TRACKER=mlflow \
+		training tune run -s baseline -s optimized
 
 smoke-build:
 	docker compose --profile smoke build training-cpu

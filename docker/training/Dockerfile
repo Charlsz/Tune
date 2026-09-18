@@ -8,8 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      git libgdal-dev gdal-bin libgl1 \
+# Labs universitarios a menudo tienen el reloj desfasado; apt entonces falla con
+# "Release file ... is not valid yet". Desactivamos la validación de fecha del índice.
+RUN printf '%s\n' \
+      'Acquire::Check-Valid-Until "false";' \
+      'Acquire::Check-Date "false";' \
+      > /etc/apt/apt.conf.d/99tune-clock \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+      git \
+      libgdal-dev \
+      gdal-bin \
+      libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md LICENSE ./

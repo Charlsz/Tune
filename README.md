@@ -8,15 +8,17 @@ Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder signif
 
 ### Lab universidad (GPU) — un comando
 
-En la máquina remota (rama `main`):
-
 ```bash
-cd ~/Tune    # ajusta la ruta
+cd ~/Tune
 git pull origin main
-make lab-experiment    # up + datos + train smoke + down
+
+# Si el build falló con "Release file ... is not valid yet" (reloj atrasado):
+sudo timedatectl set-ntp true
+
+make lab-experiment    # Prithvi completo: up + datos + train + down
 ```
 
-Corrida completa (más disco/tiempo): `make lab-experiment-full`
+Prueba corta opcional: `make lab-experiment-smoke`
 
 ### Smoke CPU (sin NVIDIA)
 

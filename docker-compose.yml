@@ -1,6 +1,7 @@
 # Tune — entorno local dockerizado.
 #
-# Lab U (un comando):  make lab-up  /  make lab-down
+# Lab U (un comando):  make lab-experiment
+# Si apt falla "not valid yet": sudo timedatectl set-ntp true && make lab-experiment
 # Smoke CPU:           make smoke-run / make smoke-down
 # Manual:              docker compose up -d mlflow api
 #
