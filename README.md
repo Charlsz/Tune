@@ -8,14 +8,15 @@ Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder signif
 
 ### Lab universidad (GPU) — un comando
 
-En la máquina remota (solo rama `main`):
+En la máquina remota (rama `main`):
 
 ```bash
-git checkout main && git pull origin main
-make lab-up          # MLflow + API + imagen GPU
-# ... experimentos: make lab-train / make lab-run ...
-make lab-down        # apagar siempre
+cd ~/Tune    # ajusta la ruta
+git pull origin main
+make lab-experiment    # up + datos + train smoke + down
 ```
+
+Corrida completa (más disco/tiempo): `make lab-experiment-full`
 
 ### Smoke CPU (sin NVIDIA)
 
