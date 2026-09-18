@@ -1,0 +1,2 @@
+min_primary_metric: 0.50
+max_quality_drop_vs_baseline: 0.05

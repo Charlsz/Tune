@@ -1,30 +1,42 @@
 # Atajos de desarrollo. En Windows: Git Bash / WSL, o los comandos docker a mano.
 
-.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-up lab-down lab-train lab-run pipeline clean
+.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-up lab-down lab-train lab-run lab-data lab-data-smoke lab-eo-smoke pipeline clean
 
 PYTHON ?= python
 STRATEGY ?= baseline
 
 help:
-	@echo "lab-up / lab-down / lab-train / lab-run             — GPU universidad (un comando)"
-	@echo "smoke-build / smoke-data / smoke-run / smoke-down  — prueba CPU en Docker"
-	@echo "up / down                                          — mlflow + api"
-	@echo "install / test / lint                              — desarrollo local sin torch"
+	@echo "lab-up / lab-down / lab-data / lab-eo-smoke / lab-train / lab-run  — GPU universidad"
+	@echo "smoke-build / smoke-data / smoke-run / smoke-down                  — prueba CPU"
+	@echo "up / down / install / test / lint"
 
-# --- Lab universidad (AnyDesk): solo main + Docker ---
-# Un comando para levantar MLflow + API y construir la imagen GPU.
 lab-up:
 	@test -f .env || cp .env.example .env
 	docker compose --profile training up -d --build mlflow api
 	docker compose --profile training build training
 	@echo ""
 	@echo "Lab listo. MLflow http://localhost:5000  API http://localhost:8000/health"
-	@echo "Entrenar:  make lab-train STRATEGY=baseline"
-	@echo "Pipeline:  make lab-run"
+	@echo "Datos EO:  make lab-data   (o make lab-data-smoke)"
+	@echo "Smoke EO:  make lab-eo-smoke"
+	@echo "Full:      make lab-run"
 	@echo "Apagar:    make lab-down"
 
 lab-down:
 	docker compose --profile training --profile smoke down
+
+lab-data:
+	docker compose --profile training run --rm training \
+		python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --download-burn-scars
+
+lab-data-smoke:
+	docker compose --profile training run --rm training \
+		python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --download-burn-scars --max-files 8
+
+lab-eo-smoke:
+	docker compose --profile training run --rm \
+		-e TUNE_CONFIGS_DIR=/app/configs/eo_smoke \
+		-e TUNE_TRACKER=json \
+		training tune run -s baseline -s optimized
 
 lab-train:
 	docker compose --profile training run --rm training tune train -s $(STRATEGY)

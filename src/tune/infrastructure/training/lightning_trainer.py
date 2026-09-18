@@ -1,7 +1,7 @@
-"""Facade del trainer: despacha según ``config.model.task``.
+"""Despacho del trainer según ``config.model.task``.
 
-- classification → ClassificationTrainer (smoke CPU / Plan B)
-- segmentation → pendiente (caso Burn Scars en GPU)
+- classification → ClassificationTrainer (smoke / Plan B)
+- segmentation → SegmentationTrainer (Prithvi + Burn Scars vía TerraTorch)
 """
 
 from __future__ import annotations
@@ -22,8 +22,13 @@ class LightningTrainer:
             )
 
             return ClassificationTrainer(self.artifacts_dir, self.data_dir).train(config)
+        if task == "segmentation":
+            from tune.infrastructure.training.segmentation_trainer import (  # noqa: PLC0415
+                SegmentationTrainer,
+            )
+
+            return SegmentationTrainer(self.artifacts_dir, self.data_dir).train(config)
         raise NotImplementedError(
-            f"Trainer para task='{config.model.task}' aún no implementado. "
-            "El smoke local usa task=classification (ResNet18 preentrenado). "
-            "Segmentación EO (Prithvi) se ejecuta en GPU free-tier/lab."
+            f"Trainer para task='{config.model.task}' no implementado. "
+            "Soportados: classification, segmentation."
         )
