@@ -11,8 +11,9 @@
 
 ```bash
 git pull origin main
-make lab-experiment      # up + datos + train smoke + down
-# make lab-experiment-full   # corpus completo + train full
+# Si falló apt con "not valid yet": sudo timedatectl set-ntp true
+make lab-experiment          # Prithvi completo
+# make lab-experiment-smoke  # opcional, prueba corta
 ```
 
 ## Smoke CPU (PCs sin GPU)
