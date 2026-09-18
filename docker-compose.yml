@@ -1,8 +1,8 @@
 # Tune — entorno local dockerizado.
 #
-#   docker compose up -d mlflow api
-#   docker compose --profile smoke run --rm training-cpu ...
-#   docker compose --profile smoke down
+# Lab U (un comando):  make lab-up  /  make lab-down
+# Smoke CPU:           make smoke-run / make smoke-down
+# Manual:              docker compose up -d mlflow api
 #
 # Apagar siempre al terminar para no dejar contenedores consumiendo recursos.
 
