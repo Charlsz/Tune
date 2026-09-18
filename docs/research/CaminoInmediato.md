@@ -23,7 +23,7 @@ Casos: **modelo 1** Prithvi + Burn Scars primero; **modelo 2** por escoger (mism
 | CLI / API / Docker / CI | OK; `make lab-up` para lab GPU | Sí |
 | Smoke clasificación CPU | ResNet18 preentrenado | Sí |
 | Layout de datos + metadata | Inicializable con script | Sí (`--init-layout`) |
-| Train segmentación Prithvi / predict | Pendiente de PR a `main` | No fingir end-to-end EO aún |
+| Train segmentación Prithvi / predict | Trainer TerraTorch + evaluator mIoU en main | Smoke EO en lab U |
 
 ---
 

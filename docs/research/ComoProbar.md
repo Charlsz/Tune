@@ -106,36 +106,34 @@ nvidia-smi
 make lab-up
 ```
 
-Sin `make`:
+### Datos + smoke EO (Prithvi) — primera evidencia
 
 ```bash
-cp -n .env.example .env
-docker compose --profile training up -d --build mlflow api
-docker compose --profile training build training
-```
+# Dataset HF (varios GB). Smoke rápido con subset:
+make lab-data-smoke
+# Dataset completo (corrida seria):
+# make lab-data
 
-### Correr experimentos (cuando el trainer EO esté en main)
+# Par baseline vs optimized (1 epoch, batches limitados)
+make lab-eo-smoke
 
-```bash
-# Una estrategia
-make lab-train STRATEGY=baseline
-make lab-train STRATEGY=optimized
-
-# O pipeline completo baseline + optimized
-make lab-run
-```
-
-### Apagar siempre (AnyDesk / lab compartido)
-
-```bash
+# Guardar salida (tiempos / mIoU) y apagar
 make lab-down
-# equivalente:
-# docker compose --profile training --profile smoke down
 ```
+
+### Corrida completa (configs/training, más epochs)
+
+```bash
+make lab-data          # si aún no bajaste el corpus completo
+make lab-run           # baseline + optimized
+make lab-down
+```
+
+Copia la tabla (tiempo, VRAM, mIoU) a la bitácora Notion de investigación.
 
 Sanity opcional (CPU, sin NVIDIA): `make smoke-build && make smoke-data && make smoke-run && make smoke-down`.
 
-> El trainer de **segmentación Prithvi** se mergea por PR a `main` antes de las corridas serias en la U. Hasta entonces `lab-up` deja MLflow/API listos y la imagen GPU construida.
+> Trainer de segmentación: TerraTorch + backbone Prithvi HF. Optimized = backbone congelado + FP16 (LoRA r/alpha documentado en YAML; freeze es el mecanismo aplicado en v1).
 
 ---
 

@@ -52,9 +52,11 @@ services:
     env_file: .env
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      TUNE_TRACKER: mlflow
       TUNE_DATA_DIR: /app/data
-      TUNE_CONFIGS_DIR: /app/configs
+      TUNE_CONFIGS_DIR: ${TUNE_CONFIGS_DIR:-/app/configs}
       TUNE_ARTIFACTS_DIR: /app/artifacts
+      TUNE_MODEL_NAME: tune-model
     depends_on:
       mlflow:
         condition: service_healthy
