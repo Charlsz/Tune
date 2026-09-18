@@ -6,14 +6,24 @@
 
 ---
 
+## Flujo ramas vs lab U
+
+| Lugar | Regla |
+|-------|--------|
+| Desarrollo | Ramas `feat/*` → PR → `main` |
+| Universidad (AnyDesk) | Solo `main` + `git pull` + `make lab-up` / `make lab-down` |
+
+Casos: **modelo 1** Prithvi + Burn Scars primero; **modelo 2** por escoger (mismo pipeline).
+
 ## Dónde estamos
 
 | Capa | Estado | Demostrable ya |
 |------|--------|----------------|
 | Pregunta + arquitectura | Definidas | Sí |
-| CLI / API / Docker / CI | Esqueleto OK | Sí |
+| CLI / API / Docker / CI | OK; `make lab-up` para lab GPU | Sí |
+| Smoke clasificación CPU | ResNet18 preentrenado | Sí |
 | Layout de datos + metadata | Inicializable con script | Sí (`--init-layout`) |
-| Train / evaluate / predict | Pendientes de implementación | No fingir end-to-end |
+| Train segmentación Prithvi / predict | Pendiente de PR a `main` | No fingir end-to-end EO aún |
 
 ---
 

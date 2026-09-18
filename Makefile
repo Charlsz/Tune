@@ -1,14 +1,36 @@
 # Atajos de desarrollo. En Windows: Git Bash / WSL, o los comandos docker a mano.
 
-.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down pipeline clean
+.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-up lab-down lab-train lab-run pipeline clean
 
 PYTHON ?= python
 STRATEGY ?= baseline
 
 help:
+	@echo "lab-up / lab-down / lab-train / lab-run             — GPU universidad (un comando)"
 	@echo "smoke-build / smoke-data / smoke-run / smoke-down  — prueba CPU en Docker"
 	@echo "up / down                                          — mlflow + api"
 	@echo "install / test / lint                              — desarrollo local sin torch"
+
+# --- Lab universidad (AnyDesk): solo main + Docker ---
+# Un comando para levantar MLflow + API y construir la imagen GPU.
+lab-up:
+	@test -f .env || cp .env.example .env
+	docker compose --profile training up -d --build mlflow api
+	docker compose --profile training build training
+	@echo ""
+	@echo "Lab listo. MLflow http://localhost:5000  API http://localhost:8000/health"
+	@echo "Entrenar:  make lab-train STRATEGY=baseline"
+	@echo "Pipeline:  make lab-run"
+	@echo "Apagar:    make lab-down"
+
+lab-down:
+	docker compose --profile training --profile smoke down
+
+lab-train:
+	docker compose --profile training run --rm training tune train -s $(STRATEGY)
+
+lab-run:
+	docker compose --profile training run --rm training tune run -s baseline -s optimized
 
 smoke-build:
 	docker compose --profile smoke build training-cpu

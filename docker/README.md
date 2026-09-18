@@ -7,7 +7,15 @@
 | `training` | `docker/training/Dockerfile` | `training` | GPU (NVIDIA) |
 | `training-cpu` | `docker/training/Dockerfile.cpu` | `smoke` | Smoke CPU sin NVIDIA |
 
-## Smoke CPU (recomendado en PCs sin GPU)
+## Lab universidad (un comando)
+
+```bash
+git checkout main && git pull origin main
+make lab-up      # MLflow + API + build GPU
+make lab-down    # apagar siempre
+```
+
+## Smoke CPU (PCs sin GPU)
 
 ```bash
 cp .env.example .env
@@ -29,6 +37,6 @@ docker compose down
 
 ## Reglas
 
-- Apagar siempre con `docker compose ... down` al terminar.
+- Apagar siempre con `docker compose ... down` / `make lab-down` al terminar.
 - No meter `data/`, pesos ni `.env` en la imagen.
-- Caso científico EO = profile `training` o Colab/Kaggle (GPU ~16 GB).
+- Caso científico EO = profile `training` en lab U (RTX 20 GB) o Colab/Kaggle.

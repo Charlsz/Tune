@@ -6,6 +6,19 @@ Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder signif
 
 ## Empezar (Docker)
 
+### Lab universidad (GPU) — un comando
+
+En la máquina remota (solo rama `main`):
+
+```bash
+git checkout main && git pull origin main
+make lab-up          # MLflow + API + imagen GPU
+# ... experimentos: make lab-train / make lab-run ...
+make lab-down        # apagar siempre
+```
+
+### Smoke CPU (sin NVIDIA)
+
 ```bash
 cp .env.example .env
 docker compose --profile smoke build training-cpu

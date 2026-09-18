@@ -75,27 +75,77 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 
 ---
 
-## C. Cluster / GPU universidad
+## C. Lab universidad (AnyDesk) — solo `main` + un comando
 
-1. Documentar `nvidia-smi` (modelo + VRAM).  
-2. Misma imagen `training` (profile `training`) **o** entorno conda 3.11 + `pip install -e ".[training,tracking]"`.  
-3. Baseline y optimized en **el mismo** host.  
-4. `configs/training/` = Burn Scars / Prithvi.  
-5. MLflow: servidor en el lab o export de runs (ADR futuro).
+**Flujo del equipo**
+
+| Dónde | Qué |
+|-------|-----|
+| Desarrollo (casa / Cursor) | Ramas `feat/*` → tests → PR → merge a `main` |
+| Máquina U (AnyDesk) | **Solo** `git pull` de `main` + Docker. Sin feature branches aquí |
+
+**Hardware de referencia (lab):** RTX 4000 Ada 20 GB · 64 GB RAM · Ubuntu 24.04.  
+**Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`configs/training/`).  
+**Modelo 2:** aún por escoger (otro EO o Plan B); mismo pipeline Tune para comparar demos.
+
+### Primera vez / cada sesión experimental
 
 ```bash
-docker compose --profile training run --rm training tune train -s baseline
-docker compose --profile training down
+# 1) Ir al clone (ajusta la ruta)
+cd ~/Tune   # o donde esté el repo
+
+# 2) Solo main
+git checkout main
+git pull origin main
+
+# 3) Espacio en disco (el SSD del lab suele ir lleno)
+df -h .
+nvidia-smi
+
+# 4) Un comando: MLflow + API + build imagen GPU
+make lab-up
 ```
+
+Sin `make`:
+
+```bash
+cp -n .env.example .env
+docker compose --profile training up -d --build mlflow api
+docker compose --profile training build training
+```
+
+### Correr experimentos (cuando el trainer EO esté en main)
+
+```bash
+# Una estrategia
+make lab-train STRATEGY=baseline
+make lab-train STRATEGY=optimized
+
+# O pipeline completo baseline + optimized
+make lab-run
+```
+
+### Apagar siempre (AnyDesk / lab compartido)
+
+```bash
+make lab-down
+# equivalente:
+# docker compose --profile training --profile smoke down
+```
+
+Sanity opcional (CPU, sin NVIDIA): `make smoke-build && make smoke-data && make smoke-run && make smoke-down`.
+
+> El trainer de **segmentación Prithvi** se mergea por PR a `main` antes de las corridas serias en la U. Hasta entonces `lab-up` deja MLflow/API listos y la imagen GPU construida.
 
 ---
 
 ## Orden de evidencia
 
-1. Smoke CPU Docker (esta guía, sección A) → “el laboratorio corre”.  
-2. Smoke EO free-tier → “el caso científico cabe”.  
-3. Par experimental documentado → tabla eficiencia vs calidad.  
-4. API `/predict` cuando haya modelo aprobado.
+1. Smoke CPU Docker (sección A) → “el laboratorio corre”.  
+2. Lab U: `make lab-up` + smoke GPU Prithvi 1 epoch / subset → “el caso científico cabe”.  
+3. Par experimental documentado (modelo 1) → tabla eficiencia vs calidad.  
+4. Modelo 2 + demo/aplicación práctica.  
+5. API `/predict` cuando haya modelo aprobado.
 
 ---
 
