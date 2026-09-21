@@ -9,16 +9,13 @@ Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder signif
 ### Lab universidad (GPU) — un comando
 
 ```bash
-cd ~/Tune
+cd ~/Desktop/Tune
 git pull origin main
-
-# Si el build falló con "Release file ... is not valid yet" (reloj atrasado):
-sudo timedatectl set-ntp true
-
-make lab-experiment    # Prithvi completo: up + datos + train + down
+make lab-down
+make lab-experiment    # Prithvi 2 epochs (perfil viernes)
 ```
 
-Prueba corta opcional: `make lab-experiment-smoke`
+Ver [docs/research/RevisionLab.md](./docs/research/RevisionLab.md).
 
 ### Smoke CPU (sin NVIDIA)
 

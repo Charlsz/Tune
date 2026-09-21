@@ -88,25 +88,22 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 **Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`configs/training/`).  
 **Modelo 2:** aún por escoger (otro EO o Plan B); mismo pipeline Tune para comparar demos.
 
-### Sesión experimental (un solo comando = Prithvi)
+### Sesión experimental (recomendado para entregar resultados)
 
 ```bash
-cd ~/Tune
+cd ~/Desktop/Tune
 git pull origin main
-df -h . && nvidia-smi
-
-# Si apt/Docker dijo "Release file ... is not valid yet":
-sudo timedatectl set-ntp true
-date   # debe verse la fecha/hora actuales
-
-make lab-experiment
+make lab-down          # por si quedó algo del viernes
+make lab-experiment    # Prithvi, 2 epochs; omite datos si ya están
 ```
 
-Eso hace: preflight → up → descargar Burn Scars completo → baseline+optimized Prithvi → down.
+Detalle de la revisión: [RevisionLab.md](./RevisionLab.md).
 
-Prueba corta (opcional, no es la evidencia de tesis): `make lab-experiment-smoke`.
+- Si el **pull/build** no avanza ~20 min → Ctrl+C (no esperar días).  
+- Después del viernes / paper: `make lab-experiment-full` (20 epochs).  
+- Debug corto: `make lab-experiment-smoke`.
 
-Copia tiempo / VRAM / mIoU a la bitácora Notion.
+Copia tiempo / VRAM / mIoU a Notion.
 
 > Trainer: TerraTorch + Prithvi HF. Optimized = backbone congelado + FP16.
 
