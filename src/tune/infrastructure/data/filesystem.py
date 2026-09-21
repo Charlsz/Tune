@@ -56,5 +56,5 @@ def _has_terratorch_splits(root: Path, splits: tuple[str, ...]) -> bool:
         # Al menos una línea no vacía
         if not any(ln.strip() for ln in txt.read_text(encoding="utf-8").splitlines()):
             return False
-    # Al menos un geotiff (o cualquier archivo) en data/
-    return any(data_dir.iterdir())
+    # Al menos un geotiff real en data/ (una carpeta vacía NO es un dataset)
+    return any(data_dir.glob("*.tif")) or any(data_dir.glob("*.tiff"))

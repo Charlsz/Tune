@@ -13,7 +13,10 @@ def test_loads_both_strategies_from_repo_configs(configs_dir):
     assert base.strategy is Strategy.BASELINE
     assert opt.strategy is Strategy.OPTIMIZED
     assert base.peft is None
-    assert opt.peft is not None and opt.peft["method"] == "lora"
+    # optimized EO = backbone congelado + FP16 (TerraTorch no aplica LoRA)
+    assert opt.peft is None
+    assert opt.extra.get("freeze_backbone") is True
+    assert opt.precision == "16-mixed"
 
 
 def test_strategies_share_everything_except_the_optimization(configs_dir):

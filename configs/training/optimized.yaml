@@ -1,5 +1,5 @@
 # Estrategia OPTIMIZED: misma tarea, menos recursos.
-# Solo cambia lo que explica el ahorro (LoRA + mixed precision). Todo lo demás
+# Solo cambia lo que explica el ahorro (backbone congelado + mixed precision). Todo lo demás
 # se mantiene idéntico al baseline para que la comparación sea defendible.
 strategy: optimized
 
@@ -21,13 +21,11 @@ training:
   learning_rate: 1.0e-4
   precision: "16-mixed"
 
-peft:
-  method: lora
-  r: 8
-  alpha: 16
-  dropout: 0.05
-  target_modules: [qkv, proj]
+# Sin LoRA: el trainer de segmentación (TerraTorch) no lo aplica. El ahorro viene
+# de congelar el backbone (solo decoder entrenable) + FP16.
+peft: null
 
 extra:
+  freeze_backbone: true
   early_stopping_patience: 5
   num_workers: 4

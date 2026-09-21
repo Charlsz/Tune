@@ -1,4 +1,8 @@
-# Mismo dataset/modelo que baseline; solo cambia lo eficiente (freeze + FP16).
+# Mismo dataset/modelo que baseline; solo cambia lo eficiente:
+#   - backbone congelado (solo se entrena el decoder UNet)
+#   - precisión mixta FP16
+# NO usa LoRA: el trainer de segmentación (TerraTorch) no lo aplica; declararlo
+# aquí sería mentir en el informe.
 strategy: optimized
 
 dataset:
@@ -19,10 +23,7 @@ training:
   learning_rate: 1.0e-4
   precision: "16-mixed"
 
-peft:
-  method: lora
-  r: 8
-  alpha: 16
+peft: null
 
 extra:
   freeze_backbone: true

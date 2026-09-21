@@ -43,10 +43,12 @@ training = [
   "lightning>=2.2",
   "peft>=0.10",
   "transformers>=4.40",
-  "numpy>=1.26",
+  "numpy>=2.2",
   "psutil>=5.9",
   "huggingface_hub>=0.23",
-  "terratorch",
+  # Pin: verificado compatible con la base pytorch 2.4 (no reinstala torch/CUDA).
+  # Un terratorch nuevo sin pin puede arrastrar otro torch y multiplicar el build.
+  "terratorch==1.2.13",
   "albumentations>=1.4",
   "rasterio>=1.3",
 ]
