@@ -32,7 +32,7 @@ lab-preflight:
 	@echo "Pasos esperados de lab-experiment:"
 	@echo "  1) pull imagen PyTorch (puede tardar; vigilar %)"
 	@echo "  2) build training (apt + pip terratorch)"
-	@echo "  3) datos Burn Scars (se omite si ya estan)"
+	@echo "  3) datos Burn Scars: tar.gz 2.6G + extraccion (se omite si ya estan)"
 	@echo "  4) train baseline + optimized (2 epochs)"
 	@echo "  5) apagar contenedores"
 
@@ -54,10 +54,10 @@ lab-up: lab-pull-base
 lab-down:
 	docker compose --profile training --profile smoke down
 
-# Omite descarga si el layout EO ya existe (evita re-bajar varios GB).
+# Omite descarga si el layout EO ya existe CON geotiffs (una carpeta data/ vacía no cuenta).
 lab-data:
-	@if [ -f data/hls_burn_scars/1.0/metadata.yaml ] && [ -f data/hls_burn_scars/1.0/splits/train.txt ] && [ -d data/hls_burn_scars/1.0/data ]; then \
-		echo "==> Burn Scars ya en data/hls_burn_scars/1.0 — se omite descarga"; \
+	@if [ -f data/hls_burn_scars/1.0/metadata.yaml ] && [ -f data/hls_burn_scars/1.0/splits/train.txt ] && ls data/hls_burn_scars/1.0/data/*_merged.tif >/dev/null 2>&1; then \
+		echo "==> Burn Scars ya en data/hls_burn_scars/1.0 ($$(ls data/hls_burn_scars/1.0/data/*_merged.tif | wc -l) escenas) — se omite descarga"; \
 	else \
 		echo "==> descargando Burn Scars (HF)..."; \
 		docker compose --profile training run --rm training \

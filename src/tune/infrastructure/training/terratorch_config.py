@@ -16,6 +16,8 @@ from tune.domain.entities import TrainingConfig
 
 # Bands / normalización del paper Prithvi-EO-2.0 Burn Scars (HF model card).
 _BANDS = ["BLUE", "GREEN", "RED", "NIR_NARROW", "SWIR_1", "SWIR_2"]
+# Subcarpeta del CSVLogger bajo default_root_dir: <run_dir>/logs/version_N/metrics.csv
+LOGS_DIRNAME = "logs"
 _MEANS = [
     0.033349706741586264,
     0.05701185520536176,
@@ -82,6 +84,12 @@ def build_terratorch_dict(
         "default_root_dir": str(default_root_dir),
         "enable_checkpointing": True,
         "precision": map_precision(config.precision),
+        # CSVLogger explícito: Lightning usa TensorBoard por defecto y entonces no
+        # habría metrics.csv que leer para el mIoU del test.
+        "logger": {
+            "class_path": "lightning.pytorch.loggers.CSVLogger",
+            "init_args": {"save_dir": str(default_root_dir), "name": LOGS_DIRNAME},
+        },
         "callbacks": [
             {
                 "class_path": "lightning.pytorch.callbacks.EarlyStopping",
@@ -96,7 +104,9 @@ def build_terratorch_dict(
                     "monitor": "val/loss",
                     "mode": "min",
                     "save_top_k": 1,
-                    "filename": f"tune-{config.strategy.value}-{{epoch}}-{{val/loss:.4f}}",
+                    # sin auto_insert: "val/loss" en el nombre crearía un subdirectorio
+                    "auto_insert_metric_name": False,
+                    "filename": f"tune-{config.strategy.value}-epoch{{epoch}}-{{val/loss:.4f}}",
                 },
             },
         ],

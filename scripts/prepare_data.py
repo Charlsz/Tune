@@ -123,9 +123,14 @@ def download_burn_scars(target: Path, *, max_files: int | None = None) -> None:
     )
     ds_path = Path(ds_cache)
 
-    tifs = list(ds_path.rglob("*.tif")) + list(ds_path.rglob("*.tiff"))
+    tifs = collect_geotiffs(ds_path, extract_dir=target / "_raw")
+    if not tifs:
+        raise SystemExit(
+            f"El snapshot HF en {ds_path} no contiene geotiffs ni tar.gz extraible. "
+            "Revisa la descarga (red/disco)."
+        )
     if max_files is not None:
-        tifs = sorted(tifs)[: max(1, max_files) * 4]
+        tifs = _limit_pairs(tifs, max_files)
 
     copied = 0
     for src in tifs:
@@ -135,25 +140,24 @@ def download_burn_scars(target: Path, *, max_files: int | None = None) -> None:
             copied += 1
     print(f"[prepare_data] geotiffs en data/: {copied} nuevos, listados={len(tifs)}")
 
-    print("[prepare_data] descargando splits desde Prithvi-EO-2.0-300M-BurnScars ...")
-    split_repo = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars"
-    files = list_repo_files(split_repo, repo_type="model")
-    split_files = [f for f in files if "split" in f.lower() and f.endswith(".txt")]
-    for rel in split_files:
-        local = hf_hub_download(repo_id=split_repo, filename=rel, repo_type="model")
-        shutil.copy2(local, splits_dir / Path(rel).name)
-
-    if not (splits_dir / "train.txt").exists():
-        _write_fallback_splits(data_dir, splits_dir)
-
+    splits_origin = "fallback 70/15/15 sobre archivos locales"
     if max_files is not None and max_files > 0:
-        for split_name in ("train", "val", "test"):
-            sp = splits_dir / f"{split_name}.txt"
-            if not sp.exists():
-                continue
-            lines = [ln.strip() for ln in sp.read_text(encoding="utf-8").splitlines() if ln.strip()]
-            n = max_files if split_name == "train" else max(2, max_files // 4)
-            sp.write_text("\n".join(lines[:n]) + ("\n" if lines else ""), encoding="utf-8")
+        # Smoke: los splits oficiales referencian escenas que no copiamos; generar
+        # splits a partir de lo que si hay en data/.
+        _write_fallback_splits(data_dir, splits_dir)
+    else:
+        print("[prepare_data] descargando splits desde Prithvi-EO-2.0-300M-BurnScars ...")
+        split_repo = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars"
+        files = list_repo_files(split_repo, repo_type="model")
+        split_files = [f for f in files if "split" in f.lower() and f.endswith(".txt")]
+        for rel in split_files:
+            local = hf_hub_download(repo_id=split_repo, filename=rel, repo_type="model")
+            shutil.copy2(local, splits_dir / Path(rel).name)
+        if (splits_dir / "train.txt").exists():
+            splits_origin = f"oficiales ({split_repo})"
+        else:
+            _write_fallback_splits(data_dir, splits_dir)
+    print(f"[prepare_data] splits: {splits_origin}")
 
     counts = {}
     for split_name in ("train", "val", "test"):
@@ -172,7 +176,7 @@ def download_burn_scars(target: Path, *, max_files: int | None = None) -> None:
         source="https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars",
         license_name="dataset license (HF ibm-nasa-geospatial)",
         notes=(
-            "HLS Burn Scars + splits Prithvi BurnScars. "
+            f"HLS Burn Scars; splits {splits_origin}. "
             f"counts={counts}. Modelo: ibm-nasa-geospatial/Prithvi-EO-2.0-300M"
         ),
     )
@@ -181,17 +185,75 @@ def download_burn_scars(target: Path, *, max_files: int | None = None) -> None:
     meta_path = target / "metadata.yaml"
     meta = yaml.safe_load(meta_path.read_text(encoding="utf-8"))
     meta["sample_counts"] = counts
+    meta["geotiffs_in_data"] = len(list(data_dir.glob("*.tif")))
     meta_path.write_text(
         yaml.safe_dump(meta, sort_keys=False, allow_unicode=True), encoding="utf-8"
     )
     print(f"[prepare_data] burn-scars OK -> {target} counts={counts}")
 
 
+def collect_geotiffs(snapshot: Path, *, extract_dir: Path) -> list[Path]:
+    """Geotiffs del snapshot HF. El repo publica ``hls_burn_scars.tar.gz`` (no tifs
+    sueltos), asi que si no hay tifs se extrae el tar bajo ``extract_dir``."""
+    tifs = sorted(snapshot.rglob("*.tif")) + sorted(snapshot.rglob("*.tiff"))
+    if tifs:
+        return tifs
+    tarballs = sorted(snapshot.rglob("*.tar.gz")) + sorted(snapshot.rglob("*.tgz"))
+    if not tarballs:
+        return []
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    existing = sorted(extract_dir.rglob("*.tif"))
+    if existing:
+        print(f"[prepare_data] tar ya extraido en {extract_dir} ({len(existing)} tifs)")
+        return existing
+    import tarfile
+
+    for tb in tarballs:
+        print(f"[prepare_data] extrayendo {tb.name} -> {extract_dir} (2.6 GB, paciencia)...")
+        with tarfile.open(tb, "r:gz") as tar:
+            _safe_extract(tar, extract_dir)
+    return sorted(extract_dir.rglob("*.tif"))
+
+
+def _safe_extract(tar, dest: Path) -> None:
+    dest = dest.resolve()
+    for member in tar.getmembers():
+        target = (dest / member.name).resolve()
+        if dest not in target.parents and target != dest:
+            raise SystemExit(f"Entrada sospechosa en tar: {member.name}")
+    try:
+        tar.extractall(dest, filter="data")
+    except TypeError:  # Python < 3.12 sin argumento filter
+        tar.extractall(dest)
+
+
+def stem_of(path: Path) -> str:
+    """Identificador comun de un par imagen/mascara Burn Scars.
+
+    ``X_merged.tif`` y ``X.mask.tif`` -> ``X``. Es lo que TerraTorch compara por
+    substring contra las lineas del split (asi que nunca escribir ``_merged.tif``)."""
+    name = path.name
+    for suffix in ("_merged.tif", "_merged.tiff", ".mask.tif", ".mask.tiff"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return path.stem
+
+
+def _limit_pairs(tifs: list[Path], max_files: int) -> list[Path]:
+    """Primeros N pares (imagen + mascara) para smoke; N cubre train+val+test."""
+    n_pairs = max(4, max_files + 2 * max(2, max_files // 4))
+    by_stem: dict[str, list[Path]] = {}
+    for p in tifs:
+        by_stem.setdefault(stem_of(p), []).append(p)
+    pairs = [v for _, v in sorted(by_stem.items()) if len(v) >= 2][:n_pairs]
+    return [p for pair in pairs for p in pair]
+
+
 def _write_fallback_splits(data_dir: Path, splits_dir: Path) -> None:
     merged = sorted(data_dir.glob("*_merged.tif"))
     if not merged:
         merged = sorted(p for p in data_dir.glob("*.tif") if "mask" not in p.name.lower())
-    stems = [p.name for p in merged]
+    stems = [stem_of(p) for p in merged]
     n = len(stems)
     if n == 0:
         raise SystemExit("No se encontraron geotiffs para generar splits.")

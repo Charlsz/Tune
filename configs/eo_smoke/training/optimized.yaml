@@ -1,4 +1,4 @@
-# Smoke EO optimized: backbone congelado + FP16 (proxy eficiente; LoRA r/alpha en full run).
+# Smoke EO optimized: backbone congelado + FP16. Sin LoRA (TerraTorch no lo aplica aquí).
 strategy: optimized
 
 dataset:
@@ -19,12 +19,7 @@ training:
   learning_rate: 1.0e-4
   precision: "16-mixed"
 
-peft:
-  method: lora
-  r: 8
-  alpha: 16
-  dropout: 0.05
-  target_modules: [qkv, proj]
+peft: null
 
 extra:
   freeze_backbone: true

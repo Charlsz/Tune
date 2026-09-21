@@ -66,3 +66,6 @@ def test_write_terratorch_yaml(tmp_path: Path):
     assert "prithvi_eo_v2_300" in text
     assert "SemanticSegmentationTask" in text
     assert "limit_train_batches" in text
+    # CSVLogger explícito: sin él no habría metrics.csv del que leer el mIoU
+    assert "CSVLogger" in text
+    assert "auto_insert_metric_name: false" in text

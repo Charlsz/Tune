@@ -12,11 +12,14 @@ import sys
 from pathlib import Path
 
 from tune.domain.entities import EfficiencyMetrics, QualityMetrics, TrainingConfig
-from tune.infrastructure.training.instrumentation import ResourceProbe
+from tune.infrastructure.training.instrumentation import ExternalGpuProbe
 from tune.infrastructure.training.terratorch_config import (
+    LOGS_DIRNAME,
     freeze_backbone_for,
     write_terratorch_yaml,
 )
+
+TERRATORCH_BIN = "terratorch"
 
 
 class SegmentationTrainer:
@@ -39,7 +42,8 @@ class SegmentationTrainer:
             out_path=run_dir / "terratorch.yaml",
         )
 
-        probe = ResourceProbe()
+        # El fit corre en subprocess: medir VRAM con nvidia-smi, no con torch.cuda.
+        probe = ExternalGpuProbe()
         with probe.measure():
             _run_terratorch_fit(yaml_path)
 
@@ -57,6 +61,7 @@ class SegmentationTrainer:
             "freeze_backbone": freeze_backbone_for(config),
             "terratorch_yaml": str(yaml_path),
             "checkpoint": str(ckpt),
+            "run_dir": str(run_dir),
             "data_root": str(data_root),
         }
         meta_path = run_dir / "tune_checkpoint.json"
@@ -64,7 +69,7 @@ class SegmentationTrainer:
         # URI apunta al JSON Tune (incluye path al .ckpt Lightning)
         uri = meta_path.resolve().as_uri()
 
-        gpu_hours = probe.elapsed_s / 3600
+        gpu_hours = probe.elapsed_s / 3600 if probe.peak_gpu_memory_mb is not None else None
         return uri, EfficiencyMetrics(
             train_time_s=probe.elapsed_s,
             peak_gpu_memory_mb=probe.peak_gpu_memory_mb,
@@ -87,24 +92,71 @@ class SegmentationEvaluator:
         if not yaml_path.exists() or not ckpt.exists():
             raise FileNotFoundError(f"Faltan artefacts TerraTorch: yaml={yaml_path} ckpt={ckpt}")
 
-        metrics = _run_terratorch_test(yaml_path, ckpt)
-        miou = 0.0
-        for key, value in metrics.items():
-            low = key.lower()
-            if "jaccard" in low or "miou" in low or low.endswith("/iou"):
-                miou = float(value)
-                break
-        if "miou" in metrics:
-            miou = float(metrics["miou"])
-        clean = {"miou": miou}
-        for k, v in metrics.items():
-            if k == "miou":
-                continue
-            try:
-                clean[k.replace("/", "_")] = float(v)
-            except (TypeError, ValueError):
-                continue
-        return QualityMetrics(values=clean, primary="miou")
+        run_dir = Path(meta.get("run_dir") or yaml_path.parent)
+        metrics = _run_terratorch_test(yaml_path, ckpt, run_dir)
+        return quality_from_test_metrics(metrics)
+
+
+def quality_from_test_metrics(metrics: dict[str, float]) -> QualityMetrics:
+    """Convierte las métricas ``test/*`` de TerraTorch en ``QualityMetrics`` (primary=miou).
+
+    Falla explícitamente si no hay ningún IoU: un mIoU inventado de 0.0 haría que
+    register rechace y compare compare ceros sin que nadie se entere.
+    """
+    miou = pick_miou(metrics)
+    if miou is None:
+        raise RuntimeError(
+            "TerraTorch test no reportó mIoU/Jaccard. Métricas vistas: "
+            + (", ".join(sorted(metrics)) or "ninguna")
+            + ". Revisa el metrics.csv del CSVLogger y la salida de `terratorch test`."
+        )
+    clean: dict[str, float] = {"miou": miou}
+    for k, v in metrics.items():
+        key = k.replace("/", "_")
+        if key == "miou":
+            continue
+        try:
+            clean[key] = float(v)
+        except (TypeError, ValueError):
+            continue
+    return QualityMetrics(values=clean, primary="miou")
+
+
+def pick_miou(metrics: dict[str, float]) -> float | None:
+    """mIoU macro del test set. Prioridad: ``miou`` exacto > Jaccard macro > cualquier IoU.
+
+    TerraTorch nombra ``test/Multiclass_Jaccard_Index`` (macro),
+    ``..._Micro`` y ``..._<clase>`` por clase; queremos el macro.
+    """
+    by_low = {k.lower(): float(v) for k, v in metrics.items() if _is_number(v)}
+    for key in ("miou", "test/miou", "test_miou"):
+        if key in by_low:
+            return by_low[key]
+    for key, value in by_low.items():
+        if key in {"test/multiclass_jaccard_index", "test_multiclass_jaccard_index"}:
+            return value
+    candidates = [
+        (k, v)
+        for k, v in by_low.items()
+        if ("jaccard" in k or "miou" in k or "iou" in k.split("/")[-1])
+        and "micro" not in k
+        and k.startswith(("test/", "test_"))
+    ]
+    if not candidates:
+        candidates = [(k, v) for k, v in by_low.items() if "jaccard" in k or "miou" in k]
+    if not candidates:
+        return None
+    # El nombre más corto suele ser el agregado (sin sufijo de clase).
+    candidates.sort(key=lambda kv: len(kv[0]))
+    return candidates[0][1]
+
+
+def _is_number(v: object) -> bool:
+    try:
+        float(v)  # type: ignore[arg-type]
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 def _require_terratorch() -> None:
@@ -131,6 +183,13 @@ def _assert_burn_scars_layout(data_root: Path) -> None:
                 + ". Ejecuta: python scripts/prepare_data.py "
                 "--name hls_burn_scars --version 1.0 --download-burn-scars"
             )
+        n_img = len(list(data_dir.glob("*_merged.tif")))
+        n_mask = len(list(data_dir.glob("*.mask.tif")))
+        if n_img == 0 or n_mask == 0:
+            raise FileNotFoundError(
+                f"{data_dir} no tiene pares imagen/mascara (merged={n_img}, mask={n_mask}). "
+                "Borra data/hls_burn_scars/1.0 y vuelve a correr make lab-data."
+            )
         return
     raise FileNotFoundError(
         f"No hay {data_dir}. Descarga el dataset con --download-burn-scars "
@@ -139,67 +198,72 @@ def _assert_burn_scars_layout(data_root: Path) -> None:
 
 
 def _run_terratorch_fit(yaml_path: Path) -> None:
-    cmd = [sys.executable, "-m", "terratorch", "fit", "-c", str(yaml_path)]
-    proc = subprocess.run(cmd, check=False)
-    if proc.returncode != 0:
-        # fallback CLI entrypoint
-        cmd = ["terratorch", "fit", "-c", str(yaml_path)]
-        subprocess.run(cmd, check=True)
+    # Un solo intento: si el fit falla (OOM, datos), reintentar con otro entrypoint
+    # duplicaría horas de GPU para fallar igual.
+    _run_checked([TERRATORCH_BIN, "fit", "-c", str(yaml_path)], what="terratorch fit")
 
 
-def _run_terratorch_test(yaml_path: Path, ckpt: Path) -> dict[str, float]:
-    out_json = ckpt.parent / "tune_test_metrics.json"
-    cmd = [
-        sys.executable,
-        "-m",
-        "terratorch",
-        "test",
-        "-c",
-        str(yaml_path),
-        "--ckpt_path",
-        str(ckpt),
-    ]
-    proc = subprocess.run(cmd, check=False)
-    if proc.returncode != 0:
-        subprocess.run(
-            ["terratorch", "test", "-c", str(yaml_path), "--ckpt_path", str(ckpt)],
-            check=True,
+def _run_terratorch_test(yaml_path: Path, ckpt: Path, run_dir: Path) -> dict[str, float]:
+    before = set(_metrics_csvs(run_dir))
+    _run_checked(
+        [TERRATORCH_BIN, "test", "-c", str(yaml_path), "--ckpt_path", str(ckpt)],
+        what="terratorch test",
+    )
+    # El test crea su propia version_N del CSVLogger; preferir la nueva.
+    after = _metrics_csvs(run_dir)
+    fresh = [p for p in after if p not in before] or after
+    if not fresh:
+        raise FileNotFoundError(
+            f"terratorch test terminó pero no hay metrics.csv bajo {run_dir / LOGS_DIRNAME}. "
+            "¿Se sobrescribió el logger del YAML?"
         )
-    if out_json.exists():
-        raw = json.loads(out_json.read_text(encoding="utf-8"))
-        return {str(k): float(v) for k, v in raw.items()}
-    # Si TerraTorch no escribió el JSON, intentar leer metrics.csv del trainer
-    metrics_files = list(ckpt.parent.rglob("metrics.csv"))
-    if metrics_files:
-        return _parse_last_metrics_csv(metrics_files[-1])
-    # Último recurso: marcar miou desconocido 0 — el lab debe revisar logs
-    return {"miou": 0.0}
+    newest = max(fresh, key=lambda p: p.stat().st_mtime)
+    metrics = parse_test_metrics_csv(newest)
+    out_json = run_dir / "tune_test_metrics.json"
+    out_json.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    return metrics
 
 
-def _parse_last_metrics_csv(path: Path) -> dict[str, float]:
+def _run_checked(cmd: list[str], *, what: str) -> None:
+    try:
+        proc = subprocess.run(cmd, check=False)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            f"No se encontró el ejecutable '{cmd[0]}'. ¿Está instalado terratorch en este "
+            f"entorno? ({sys.executable})"
+        ) from exc
+    if proc.returncode != 0:
+        raise RuntimeError(f"{what} falló con código {proc.returncode}. Revisa la salida arriba.")
+
+
+def _metrics_csvs(run_dir: Path) -> list[Path]:
+    logs = run_dir / LOGS_DIRNAME
+    if not logs.is_dir():
+        return []
+    return sorted(logs.rglob("metrics.csv"))
+
+
+def parse_test_metrics_csv(path: Path) -> dict[str, float]:
+    """Métricas ``test/*`` del metrics.csv de Lightning.
+
+    Lightning escribe una fila por step/epoch con muchas celdas vacías; se fusionan
+    todas las filas (la última no vacía gana) y se conservan solo las columnas test/.
+    Si no hubiera columnas test/ se devuelven todas las numéricas (diagnóstico).
+    """
     import csv
 
-    rows: list[dict[str, str]] = []
+    merged: dict[str, float] = {}
     with path.open(encoding="utf-8") as fh:
-        reader = csv.DictReader(fh)
-        rows.extend(reader)
-    if not rows:
-        return {"miou": 0.0}
-    last = rows[-1]
-    out: dict[str, float] = {}
-    for k, v in last.items():
-        if k is None or v is None or v == "":
-            continue
-        try:
-            out[k] = float(v)
-        except ValueError:
-            continue
-    if "miou" not in out:
-        for k, v in out.items():
-            if "jaccard" in k.lower() or "miou" in k.lower():
-                out["miou"] = v
-                break
-    return out
+        for row in csv.DictReader(fh):
+            for k, v in row.items():
+                if k is None or v is None or v == "":
+                    continue
+                try:
+                    merged[k] = float(v)
+                except ValueError:
+                    continue
+    test_only = {k: v for k, v in merged.items() if k.lower().startswith("test/")}
+    return test_only or merged
 
 
 def _find_best_checkpoint(run_dir: Path) -> Path | None:

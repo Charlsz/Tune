@@ -58,6 +58,7 @@ services:
       TUNE_CONFIGS_DIR: ${TUNE_CONFIGS_DIR:-/app/configs}
       TUNE_ARTIFACTS_DIR: /app/artifacts
       TUNE_MODEL_NAME: tune-model
+      HF_HOME: /app/.hf_cache
     depends_on:
       mlflow:
         condition: service_healthy
@@ -67,6 +68,9 @@ services:
       - ./artifacts:/app/artifacts
       - ./src:/app/src
       - ./scripts:/app/scripts:ro
+      # Caché HF persistente: dataset (2.6 GB tar) + pesos Prithvi (1.2 GB) no se
+      # re-descargan en cada `compose run --rm`.
+      - hf-cache:/app/.hf_cache
     deploy:
       resources:
         reservations:
@@ -96,3 +100,4 @@ services:
 
 volumes:
   mlflow-data:
+  hf-cache:
