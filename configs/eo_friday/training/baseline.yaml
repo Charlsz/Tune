@@ -1,0 +1,27 @@
+# Perfil para entregar resultados esta semana: Prithvi real + Burn Scars completo,
+# pero pocas epochs (defendible; no es el smoke de 4 batches).
+strategy: baseline
+
+dataset:
+  name: hls_burn_scars
+  version: "1.0"
+  root: hls_burn_scars/1.0
+  splits: [train, val, test]
+
+model:
+  name: prithvi-eo-2.0-300m
+  source: ibm-nasa-geospatial/Prithvi-EO-2.0-300M
+  task: segmentation
+
+training:
+  seed: 42
+  epochs: 2
+  batch_size: 2
+  learning_rate: 1.0e-4
+  precision: "32"
+
+peft: null
+
+extra:
+  early_stopping_patience: 2
+  num_workers: 2
