@@ -42,12 +42,12 @@ Tune no se redefine al cambiar de peldaño.
 
 ## Consecuencias
 
-- Las configs viven en `configs/training/` como `baseline` y `optimized`, no como “la config de Prithvi”.
-- Los datos se almacenan en `data/` (no versionados en Git).
+- Las configs viven en `lab/configs/training/` como `baseline` y `optimized`, no como “la config de Prithvi”.
+- Los datos se almacenan en `lab/data/` (no versionados en Git).
 - La API expone el input/output de **la tarea del caso** (p. ej. una imagen → máscara), más la versión del modelo.
 - Si el caso preferido bloquea, se actualiza este ADR con el caso de respaldo; no se reescribe el objetivo general.
 
 ## Referencias
 
 - [Primer Informe — Solución propuesta](../PrimerInforme.md#5-solución-propuesta)
-- [Arquitectura v1](../architecture/v1.md)
+- [Arquitectura v1](../../lab/docs/architecture-v1.md)

@@ -2,7 +2,7 @@
 
 **Versión:** 1.2  
 **Fecha:** 2026-09-15  
-**Basado en:** [Primer Informe](../PrimerInforme.md) — sección 5 · [Investigacion.md](../research/Investigacion.md)
+**Basado en:** [Primer Informe](../../docs/PrimerInforme.md) — sección 5 · [Investigacion.md](./research/Investigacion.md)
 
 ## Visión general
 
@@ -16,12 +16,12 @@ El modelo concreto (p. ej. Prithvi + Burn Scars) **valida** la arquitectura; no 
 
 ## Diagrama lógico
 
-![Arquitectura](../assets/img/Arquitectura.jpg)
+![Arquitectura](../../docs/assets/img/Arquitectura.jpg)
 
 ```text
 Dataset versionado + modelo preentrenado
    ↓
-Config (baseline | optimized)     ← configs/training/*.yaml
+Config (baseline | optimized)     ← lab/configs/training/*.yaml
    ↓
 Fine-tuning                       ← infrastructure/training
    ↓
@@ -51,7 +51,7 @@ src/tune/
     └── api/                # FastAPI /health /model /predict
 ```
 
-Detalle operativo: [src/README.md](../../src/README.md) · [Desarrollo.md](../Desarrollo.md).
+Detalle operativo: [src/README.md](../../src/README.md) · [Desarrollo.md](../../docs/Desarrollo.md).
 
 ### Por qué esta forma
 
@@ -68,7 +68,7 @@ Detalle operativo: [src/README.md](../../src/README.md) · [Desarrollo.md](../De
 |------------|------------|-----------|--------|
 | Dataset | Scripts + metadata | `data/`, `infrastructure/data/` | `--init-layout` OK; corpus EO por poblar |
 | Training | Lightning / PEFT | `infrastructure/training/` | **Stub** (`NotImplementedError`) |
-| Estrategias | YAML | `configs/training/` | Borrador Burn Scars |
+| Estrategias | YAML | `lab/configs/training/` | Borrador Burn Scars |
 | Tracking | MLflow | `infrastructure/tracking/` | Parcial (`get_run` TODO) |
 | Registry | MLflow Registry | `infrastructure/registry/` | Esqueleto |
 | Evaluation | Métricas de tarea | `infrastructure/evaluation/` | **Stub** |
@@ -76,7 +76,7 @@ Detalle operativo: [src/README.md](../../src/README.md) · [Desarrollo.md](../De
 | Pipeline | CLI `tune` | `interfaces/cli/` | Orquestación lista |
 | API | FastAPI | `interfaces/api/` | `/health` `/model` OK; `/predict` stub |
 | Domain | Umbrales / promoción | `domain/` | Implementado |
-| Containers | Compose | `docker-compose.yml` | Esqueleto |
+| Containers | Compose | `lab/docker-compose.yml` | Esqueleto |
 | CI | GitHub Actions | `.github/workflows/ci.yml` | Lint + tests + docker config |
 
 ## Caso de estudio (escalera)
@@ -85,7 +85,7 @@ Detalle operativo: [src/README.md](../../src/README.md) · [Desarrollo.md](../De
 2. **Pivot EO:** Sen1Floods11 + Prithvi (si fallan datos/tooling de Burn Scars; **no** arregla VRAM).  
 3. **Plan B:** ResNet-50 + `beans`/CIFAR-10 (si VRAM insuficiente).
 
-Ver [ADR 001](../decisions/001-task-selection.md) · [CaminoInmediato.md](../research/CaminoInmediato.md) · [ComoProbar.md](../research/ComoProbar.md).
+Ver [ADR 001](../../docs/decisions/001-task-selection.md) · [CaminoInmediato.md](./research/CaminoInmediato.md) · [ComoProbar.md](./research/ComoProbar.md).
 
 ## Entornos de ejecución
 
@@ -98,10 +98,10 @@ Ver [ADR 001](../decisions/001-task-selection.md) · [CaminoInmediato.md](../res
 
 ## Decisiones
 
-- [ADR 001 — Caso de estudio](../decisions/001-task-selection.md)
-- [ADR 002 — Orquestación](../decisions/002-orchestration.md)
-- [ADR 003 — Protocolo experimental](../decisions/003-protocolo-experimental.md)
-- [004 — Propuesta reunión tutor](../decisions/004-propuesta-tutor.md) (borrador)
+- [ADR 001 — Caso de estudio](../../docs/decisions/001-task-selection.md)
+- [ADR 002 — Orquestación](../../docs/decisions/002-orchestration.md)
+- [ADR 003 — Protocolo experimental](../../docs/decisions/003-protocolo-experimental.md)
+- [004 — Propuesta reunión tutor](../../docs/decisions/004-propuesta-tutor.md) (borrador)
 - ADR 005 (tracking remoto Colab/Kaggle → MLflow): tras el primer smoke
 
 ## Evolución

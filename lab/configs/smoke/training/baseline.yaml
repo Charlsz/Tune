@@ -1,6 +1,6 @@
 # Caso smoke CPU: fine-tune de ResNet18 **ya preentrenado** (ImageNet).
 # Dataset pequeño ImageFolder (CIFAR-10 subset como proxy local liviano).
-# El caso científico Burn Scars/Prithvi sigue en configs/training/ (GPU).
+# El caso científico Burn Scars/Prithvi sigue en lab/configs/training/ (GPU).
 strategy: baseline
 
 dataset:

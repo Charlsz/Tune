@@ -2,7 +2,7 @@
 
 **Proyecto:** Arquitectura MLOps para el fine-tuning eficiente de modelos avanzados de IA  
 **Versión:** 1.1  
-**Referencia académica:** [Primer Informe](./PrimerInforme.md)
+**Referencia académica:** [Primer Informe](../../../docs/PrimerInforme.md)
 
 ---
 
@@ -56,10 +56,10 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | 0.1 | Estructura del repositorio | Carpetas, `pyproject.toml`, `.gitignore` | Hecho |
 | 0.2 | README como punto de entrada | `README.md` | Hecho |
 | 0.3 | ADR de caso de estudio | `docs/decisions/001-task-selection.md` | Actualizado |
-| 0.4 | Arquitectura v1 Tune | `docs/architecture/v1.md` | Actualizado |
-| 0.5 | Fijar métricas de eficiencia y umbral de calidad | [ADR 003](./decisions/003-protocolo-experimental.md) + `thresholds.yaml` | Hecho (valores de trabajo; ratificar con tutor → [004](./decisions/004-propuesta-tutor.md)) |
-| 0.6 | Fijar modelo, dataset y escalera de respaldo | ADR 001 + ADR 003 | Hecho (escalera activa; ratificar con tutor → [004](./decisions/004-propuesta-tutor.md)) |
-| 0.7 | Configs baseline y optimized | `configs/training/` | Hecho (borrador caso preferido) |
+| 0.4 | Arquitectura v1 Tune | `lab/docs/architecture-v1.md` | Actualizado |
+| 0.5 | Fijar métricas de eficiencia y umbral de calidad | [ADR 003](../../../docs/decisions/003-protocolo-experimental.md) + `thresholds.yaml` | Hecho (valores de trabajo; ratificar con tutor → [004](../../../docs/decisions/004-propuesta-tutor.md)) |
+| 0.6 | Fijar modelo, dataset y escalera de respaldo | ADR 001 + ADR 003 | Hecho (escalera activa; ratificar con tutor → [004](../../../docs/decisions/004-propuesta-tutor.md)) |
+| 0.7 | Configs baseline y optimized | `lab/configs/training/` | Hecho (borrador caso preferido) |
 
 **Hito:** arquitectura Tune + criterios baseline / optimizado + caso (y respaldo) documentados.
 
@@ -72,7 +72,7 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | ID | Tarea | Entregable |
 |----|-------|------------|
 | 1.1 | Preparar y versionar el dataset | `data/` (local, no en Git) + metadatos |
-| 1.2 | Notebook o script de exploración | `notebooks/` o `scripts/prepare_data.py` |
+| 1.2 | Notebook o script de exploración | `lab/notebooks/` o `lab/scripts/prepare_data.py` |
 | 1.3 | Fine-tuning baseline | Métricas de referencia |
 | 1.4 | Registrar parámetros y métricas | Run trazable |
 | 1.5 | Documentar hardware y config | Insumo del informe |
@@ -118,7 +118,7 @@ Las fases corresponden a las iteraciones del primer informe (sección 7.2).
 | ID | Tarea | Entregable |
 |----|-------|------------|
 | 4.1 | Stages del pipeline | `prepare → train → evaluate → register → compare` |
-| 4.2 | `scripts/run_pipeline.py` | Pipeline end-to-end |
+| 4.2 | `lab/scripts/run_pipeline.py` | Pipeline end-to-end |
 | 4.3 | Thresholds de promoción y rechazo | Criterios explícitos |
 | 4.4 | CI: lint + tests (sin entrenar en cada push) | `.github/workflows/ci.yml` |
 
@@ -129,7 +129,7 @@ Training → Evaluation → Threshold → PASS → Registry → Compare
                               └── FAIL → Reject
 ```
 
-Ver [ADR 002](./decisions/002-orchestration.md).
+Ver [ADR 002](../../../docs/decisions/002-orchestration.md).
 
 ---
 
@@ -143,7 +143,7 @@ Ver [ADR 002](./decisions/002-orchestration.md).
 | 5.2 | API FastAPI: `/health`, `/model`, `/predict` | `src/api/` |
 | 5.3 | Versión del modelo en la respuesta | Schema documentado |
 | 5.4 | Dockerfile de inferencia (si aporta) | `docker/` |
-| 5.5 | Demo de comparación + predicción | `demo/` o CLI; UI solo si no come experimentos |
+| 5.5 | Demo de comparación + predicción | `lab/demo/` o CLI; UI solo si no come experimentos |
 
 **Hito:** modelo servible + demo de “¿menos recursos, casi la misma calidad?”.
 
@@ -208,7 +208,7 @@ Revisión conjunta: ¿el baseline corre? ¿la comparación es defendible? ¿qué
 
 ## 8. Referencias
 
-- [Primer Informe](./PrimerInforme.md)
-- [Arquitectura v1](./architecture/v1.md)
-- [ADR 001 — Caso de estudio](./decisions/001-task-selection.md)
-- [ADR 002 — Orquestación](./decisions/002-orchestration.md)
+- [Primer Informe](../../../docs/PrimerInforme.md)
+- [Arquitectura v1](../architecture-v1.md)
+- [ADR 001 — Caso de estudio](../../../docs/decisions/001-task-selection.md)
+- [ADR 002 — Orquestación](../../../docs/decisions/002-orchestration.md)

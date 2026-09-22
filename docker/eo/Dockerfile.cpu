@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-COPY scripts ./scripts
-COPY configs ./configs
+COPY lab/scripts ./scripts
+COPY lab/configs ./configs
 
 # Torch CPU primero; luego el paquete Tune (sin reinstalar torch CUDA).
 RUN pip install --upgrade pip \

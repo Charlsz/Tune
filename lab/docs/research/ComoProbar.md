@@ -2,7 +2,7 @@
 
 **En una frase:** Tune no inventa modelos; **fine-tunea modelos ya preentrenados**, registra baseline vs optimized y deja evidencia comparable.
 
-`docs/PrimerInforme.md` está **congelado** (entrega 2026-08-29). Este documento es el protocolo vivo de pruebas.
+`docs/PrimerInforme.md` está **congelado** (entrega 2026-08-29). Este documento es el protocolo vivo de pruebas del **laboratorio**.
 
 ---
 
@@ -23,22 +23,12 @@ No entrenamos “una red desde cero como producto”. El producto es el **labora
 Requisito: Docker Desktop **encendido**. En este repo el smoke CPU no necesita NVIDIA.
 
 ```bash
-# 1) Variables
+# desde la raíz del repo
 cp .env.example .env
-
-# 2) Construir imagen CPU (una vez)
-docker compose --profile smoke build training-cpu
-
-# 3) Preparar dataset pequeño (CIFAR-10 subset → ImageFolder)
-docker compose --profile smoke run --rm training-cpu \
-  python scripts/prepare_data.py --name cifar10_smoke --version 1.0 --download-cpu-smoke
-
-# 4) Pipeline completo baseline + optimized
-docker compose --profile smoke run --rm training-cpu \
-  tune run -s baseline -s optimized
-
-# 5) APAGAR (importante)
-docker compose --profile smoke down
+make -C lab smoke-build
+make -C lab smoke-data
+make -C lab smoke-run
+make -C lab smoke-down
 ```
 
 **Qué usa el smoke**
@@ -56,8 +46,8 @@ docker compose --profile smoke down
 Opcional — MLflow + API (también apagar después):
 
 ```bash
-docker compose up -d mlflow api
-# http://localhost:5000  ·  http://localhost:8000/health
+cd lab && docker compose up -d mlflow api
+# http://localhost:5000  ·  http://localhost:8001/health
 docker compose down
 ```
 
@@ -85,7 +75,7 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 | Máquina U (AnyDesk) | **Solo** `git pull` de `main` + Docker. Sin feature branches aquí |
 
 **Hardware de referencia (lab):** RTX 4000 Ada 20 GB · 64 GB RAM · Ubuntu 24.04.  
-**Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`configs/training/`).  
+**Modelo 1 (primero):** Prithvi-EO-2.0-300M + HLS Burn Scars (`lab/configs/training/`).  
 **Modelo 2:** aún por escoger (otro EO o Plan B); mismo pipeline Tune para comparar demos.
 
 ### Sesión experimental (recomendado para entregar resultados)
@@ -93,15 +83,15 @@ Luego se cablea el trainer de segmentación al repo (misma CLI `tune train`).
 ```bash
 cd ~/Desktop/Tune
 git pull origin main
-make lab-down          # por si quedó algo del viernes
-make lab-experiment    # Prithvi, 2 epochs; omite datos si ya están
+make -C lab down
+make -C lab experiment
 ```
 
 Detalle de la revisión: [RevisionLab.md](./RevisionLab.md).
 
 - Si el **pull/build** no avanza ~20 min → Ctrl+C (no esperar días).  
-- Después del viernes / paper: `make lab-experiment-full` (20 epochs).  
-- Debug corto: `make lab-experiment-smoke`.
+- Después del viernes / paper: `make -C lab experiment-full` (20 epochs).  
+- Debug corto: `make -C lab experiment-smoke`.
 
 Copia tiempo / VRAM / mIoU a Notion.
 
@@ -112,7 +102,7 @@ Copia tiempo / VRAM / mIoU a Notion.
 ## Orden de evidencia
 
 1. Smoke CPU Docker (sección A) → “el laboratorio corre”.  
-2. Lab U: `make lab-up` + smoke GPU Prithvi 1 epoch / subset → “el caso científico cabe”.  
+2. Lab U: `make -C lab up` + smoke GPU Prithvi 1 epoch / subset → “el caso científico cabe”.  
 3. Par experimental documentado (modelo 1) → tabla eficiencia vs calidad.  
 4. Modelo 2 + demo/aplicación práctica.  
 5. API `/predict` cuando haya modelo aprobado.
@@ -123,7 +113,8 @@ Copia tiempo / VRAM / mIoU a Notion.
 
 | Dónde | Qué |
 |-------|-----|
-| `docs/PrimerInforme.md` … `Desarrollo.md` | Entregables del modelo de repositorio (oficiales) |
-| `docs/research/` | Investigación viva (camino, protocolo de prueba, plan) |
-| `docs/architecture/` | Arquitectura |
+| `docs/` | Entregables del modelo de repositorio (oficiales) |
+| `lab/docs/research/` | Investigación del laboratorio (este archivo, plan, revisión) |
+| `docs/architecture/v2.md` | Arquitectura de la app |
+| `lab/docs/architecture-v1.md` | Arquitectura del laboratorio |
 | `docs/decisions/` | ADRs |

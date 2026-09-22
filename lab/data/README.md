@@ -19,7 +19,7 @@ Plantilla: [`templates/metadata.yaml`](./templates/metadata.yaml).
 ## Inicializar sin descargar el corpus
 
 ```bash
-python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
+python lab/scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
 tune prepare -s baseline
 ```
 
@@ -34,4 +34,4 @@ entorno de entrenamiento (Kaggle/Colab/lab). Después de poblar, actualizar
 | `hls_burn_scars` | https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars |
 | `beans` (Plan B) | https://huggingface.co/datasets/beans |
 
-El `root` de `configs/training/*.yaml` es relativo a `TUNE_DATA_DIR` (por defecto `./data`).
+El `root` de `lab/configs/training/*.yaml` es relativo a `TUNE_DATA_DIR` (por defecto `./lab/data`).

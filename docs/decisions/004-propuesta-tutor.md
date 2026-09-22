@@ -45,7 +45,7 @@ Anotar aquí en la reunión:
 | Segmentación (Caso A, Burn Scars) | **mIoU** (IoU y F1 como secundarias) | ¿mIoU te parece la primaria, o prefieres IoU de la clase “quemado” / F1? |
 | Clasificación (Plan B) | **accuracy** (macro-F1 secundaria) | ¿accuracy o F1? |
 
-Umbrales que hoy están en `configs/pipeline/thresholds.yaml` (provisionales):
+Umbrales que hoy están en `lab/configs/pipeline/thresholds.yaml` (provisionales):
 
 - piso: `min_primary_metric = 0.60`
 - caída máxima de optimized vs baseline: `0.02`
@@ -57,7 +57,7 @@ No discutir SOTA. El piso es “el modelo aprendió algo”.
 
 ## 4. Preguntar: ¿qué par de estrategias?
 
-Ya hay un borrador en `configs/training/`. Llevarlo como punto de partida:
+Ya hay un borrador en `lab/configs/training/`. Llevarlo como punto de partida:
 
 | | Baseline (caro) | Optimized (barato) |
 |---|-----------------|--------------------|

@@ -44,7 +44,7 @@ class ModelSpec:
 
 @dataclass(frozen=True)
 class TrainingConfig:
-    """Config resuelta desde ``configs/training/<strategy>.yaml``."""
+    """Config resuelta desde ``lab/configs/training/<strategy>.yaml``."""
 
     strategy: Strategy
     dataset: DatasetSpec

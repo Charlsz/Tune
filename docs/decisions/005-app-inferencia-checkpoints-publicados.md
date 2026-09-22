@@ -7,7 +7,7 @@
 
 Desde el 17-09 el flujo `make lab-experiment` no logró completar una corrida en la máquina de la
 universidad (descarga de la imagen base de Docker bloqueada; ver
-[RevisionLab.md](../research/RevisionLab.md)). Al revisar el código se encontraron además errores
+[RevisionLab.md](../../lab/docs/research/RevisionLab.md)). Al revisar el código se encontraron además errores
 que habrían invalidado los resultados (dataset no extraído, mIoU siempre 0, VRAM no medida). Con
 entrega el viernes 25-09 y el tutor advirtiendo que el alcance era ambicioso, depender de corridas
 largas de fine-tuning en GPU para cada resultado es un riesgo que no podemos asumir.

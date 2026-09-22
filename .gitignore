@@ -26,6 +26,11 @@ data/*
 !data/.gitkeep
 !data/templates/
 !data/templates/**
+lab/data/*
+!lab/data/README.md
+!lab/data/.gitkeep
+!lab/data/templates/
+!lab/data/templates/**
 mlruns/
 mlflow.db
 artifacts/
@@ -46,6 +51,7 @@ wandb/
 
 # --- Notebooks ---
 notebooks/**/.ipynb_checkpoints/
+lab/notebooks/**/.ipynb_checkpoints/
 *.ipynb_checkpoints
 
 # --- IDE / SO ---

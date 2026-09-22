@@ -1,6 +1,6 @@
 # Plantilla de metadatos para datasets versionados fuera de Git.
 # Copiar a data/<name>/<version>/metadata.yaml o generar con:
-#   python scripts/prepare_data.py --name <name> --version <ver> --init-layout
+#   python lab/scripts/prepare_data.py --name <name> --version <ver> --init-layout
 
 name: hls_burn_scars
 version: "1.0"

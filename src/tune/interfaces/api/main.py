@@ -1,7 +1,7 @@
 """API de inferencia: ``GET /health``, ``GET /model``, ``POST /predict``.
 
 Arranque local:   uvicorn tune.interfaces.api.main:app --reload
-En Docker:        docker compose up api
+En Docker:        docker compose up   # app; laboratorio: ver lab/
 """
 
 from __future__ import annotations

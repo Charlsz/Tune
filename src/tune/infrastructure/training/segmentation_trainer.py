@@ -180,7 +180,7 @@ def _assert_burn_scars_layout(data_root: Path) -> None:
             raise FileNotFoundError(
                 "Layout Burn Scars incompleto. Faltan: "
                 + ", ".join(str(p) for p in missing)
-                + ". Ejecuta: python scripts/prepare_data.py "
+                + ". Ejecuta: python lab/scripts/prepare_data.py "
                 "--name hls_burn_scars --version 1.0 --download-burn-scars"
             )
         n_img = len(list(data_dir.glob("*_merged.tif")))
@@ -193,7 +193,7 @@ def _assert_burn_scars_layout(data_root: Path) -> None:
         return
     raise FileNotFoundError(
         f"No hay {data_dir}. Descarga el dataset con --download-burn-scars "
-        "(ver docs/research/ComoProbar.md sección lab universidad)."
+        "(ver lab/docs/research/ComoProbar.md sección lab universidad)."
     )
 
 

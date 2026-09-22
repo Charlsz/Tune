@@ -1,10 +1,10 @@
-# configs/
+# lab/configs/
 
-Configuración declarativa. El código no tiene números mágicos: todo lo que cambia
+Configuración declarativa del laboratorio. El código no tiene números mágicos: todo lo que cambia
 entre corridas vive aquí.
 
 ```text
-configs/
+lab/configs/
 ├── training/
 │   ├── baseline.yaml     # referencia (full FT, FP32)
 │   └── optimized.yaml    # misma tarea, LoRA + FP16 (u otra técnica)

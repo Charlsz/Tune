@@ -4,10 +4,10 @@
 
 **Invariante:** `docs/PrimerInforme.md` quedó congelado en la entrega del **2026-08-29** (`3c13bc8`). No modificarlo; el protocolo vivo va en ADR 003 / Investigación / este camino.
 
-> **Cambio de rumbo 2026-09-21 ([ADR 005](../decisions/005-app-inferencia-checkpoints-publicados.md)).**
+> **Cambio de rumbo 2026-09-21 ([ADR 005](../../../docs/decisions/005-app-inferencia-checkpoints-publicados.md)).**
 > El núcleo ya no es comparar fine-tunings sino la **app**: GeoTIFF → Prithvi publicado → máscara
 > en mapa. Todo lo de abajo describe el laboratorio de fine-tuning, que sigue disponible
-> (`make lab-*`, rama `backup/mlops-finetuning-lab`) pero es secundario.
+> (`make -C lab experiment`, rama `backup/mlops-finetuning-lab`) pero es secundario.
 >
 > Camino de la app hasta el viernes 25-09:
 > 1. `make app-up` y analizar las imágenes `examples/` de los dos repos HF (CPU sirve).
@@ -22,7 +22,7 @@
 | Lugar | Regla |
 |-------|--------|
 | Desarrollo | Ramas `feat/*` → PR → `main` |
-| Universidad (AnyDesk) | Solo `main` + `git pull` + `make lab-up` / `make lab-down` |
+| Universidad (AnyDesk) | Solo `main` + `git pull` + `make -C lab up` / `make -C lab down` |
 
 Casos: **modelo 1** Prithvi + Burn Scars primero; **modelo 2** por escoger (mismo pipeline).
 
@@ -31,7 +31,7 @@ Casos: **modelo 1** Prithvi + Burn Scars primero; **modelo 2** por escoger (mism
 | Capa | Estado | Demostrable ya |
 |------|--------|----------------|
 | Pregunta + arquitectura | Definidas | Sí |
-| CLI / API / Docker / CI | OK; `make lab-up` para lab GPU | Sí |
+| CLI / API / Docker / CI | OK; `make -C lab up` para lab GPU | Sí |
 | Smoke clasificación CPU | ResNet18 preentrenado | Sí |
 | Layout de datos + metadata | Inicializable con script | Sí (`--init-layout`) |
 | Train segmentación Prithvi / predict | Trainer TerraTorch + evaluator mIoU en main | Smoke EO en lab U |
@@ -40,7 +40,7 @@ Casos: **modelo 1** Prithvi + Burn Scars primero; **modelo 2** por escoger (mism
 
 ## Decisiones ya tomadas (no esperar)
 
-Ver [003-protocolo-experimental.md](../decisions/003-protocolo-experimental.md):
+Ver [003-protocolo-experimental.md](../../../docs/decisions/003-protocolo-experimental.md):
 
 - Caso A → pivot floods → Plan B  
 - Baseline FP32 full FT vs LoRA+FP16  
@@ -67,7 +67,7 @@ Ver [003-protocolo-experimental.md](../decisions/003-protocolo-experimental.md):
 | Área | Carpetas |
 |------|----------|
 | MLOps / infra | `tracking/`, `registry/`, `interfaces/`, `docker/`, CI |
-| ML / datos | `training/`, `evaluation/`, `data/`, `scripts/prepare_data.py`, `notebooks/` |
+| ML / datos | `training/`, `evaluation/`, `lab/data/`, `lab/scripts/prepare_data.py`, `lab/notebooks/` |
 | Compartido | `domain/`, `container.py`, thresholds, ADRs — PRs cortos |
 
 Ramas: `feat/…` desde `main`; no editar la misma ruta en paralelo.
@@ -79,7 +79,7 @@ Ramas: `feat/…` desde `main`; no editar la misma ruta en paralelo.
 ```bash
 pip install -e ".[api,dev]"
 pytest -q
-python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
+python lab/scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
 tune prepare -s baseline
 tune --help
 ```

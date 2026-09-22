@@ -2,13 +2,13 @@
 
 Ejemplos:
   # Solo carpetas + metadata (EO / layout vacío)
-  python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
+  python lab/scripts/prepare_data.py --name hls_burn_scars --version 1.0 --init-layout
 
   # Smoke CPU: descarga CIFAR-10 reducido como ImageFolder (correr en Docker CPU)
-  python scripts/prepare_data.py --name cifar10_smoke --version 1.0 --download-cpu-smoke
+  python lab/scripts/prepare_data.py --name cifar10_smoke --version 1.0 --download-cpu-smoke
 
   # Caso científico: HLS Burn Scars (HF) + splits oficiales Prithvi BurnScars
-  python scripts/prepare_data.py --name hls_burn_scars --version 1.0 --download-burn-scars
+  python lab/scripts/prepare_data.py --name hls_burn_scars --version 1.0 --download-burn-scars
 """
 
 from __future__ import annotations

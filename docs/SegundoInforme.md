@@ -244,7 +244,7 @@ La API no entrena. Un consumidor envía el archivo y la tarea y recibe el análi
 
 Esta solución responde al problema porque el resultado deja de depender de que termine un entrenamiento en la GPU de la universidad. Responde al alcance porque nombra dos tareas, dos datasets de procedencia y dos modelos, y porque declara con igual claridad lo que no hace (reentrenar, PostGIS, Copernicus). Responde a la retroalimentación porque el objetivo verificable ya no es un umbral de mIoU entre dos estrategias aún no corridas: es un análisis recuperable con el `model_id` del checkpoint usado.
 
-El laboratorio de fine-tuning permanece en el repositorio (`make lab-*`, rama `backup/mlops-finetuning-lab`) para quien quiera retomar la pregunta de eficiencia. No forma parte del criterio de éxito de este informe.
+El laboratorio de fine-tuning permanece en el repositorio (`make lab-experiment` o `make -C lab experiment`, rama `backup/mlops-finetuning-lab`) para quien quiera retomar la pregunta de eficiencia. No forma parte del criterio de éxito de este informe.
 
 ---
 
@@ -396,7 +396,7 @@ Hacia la entrega se añadirán diagramas de secuencia (carga feliz, rechazo 422,
 
 ### 11.1 Stack tecnológico
 
-Python, FastAPI, Typer, TerraTorch / PyTorch, rasterio, NumPy, React, TypeScript, Vite, Leaflet, Docker Compose, nginx, pytest. Hugging Face Hub para pesos. Persistencia en sistema de archivos (sin PostgreSQL en este ciclo). La imagen de `eo-api` reutiliza `docker/training/Dockerfile` (torch + terratorch + GDAL) porque es la que ya instala las dependencias de inferencia.
+Python, FastAPI, Typer, TerraTorch / PyTorch, rasterio, NumPy, React, TypeScript, Vite, Leaflet, Docker Compose, nginx, pytest. Hugging Face Hub para pesos. Persistencia en sistema de archivos (sin PostgreSQL en este ciclo). La imagen de `eo-api` usa `docker/eo/Dockerfile` (torch + terratorch + GDAL).
 
 ### 11.2 Componentes implementados
 

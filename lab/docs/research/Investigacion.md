@@ -1,7 +1,7 @@
 # Investigación — Tune: fine-tuning eficiente medible
 
 **Qué es este documento:** marco de investigación del laboratorio Tune (pregunta, hipótesis, método, decisiones).  
-**Alineado a:** [PrimerInforme.md](../PrimerInforme.md) · [architecture/v1.md](../architecture/v1.md) · [003-protocolo-experimental.md](../decisions/003-protocolo-experimental.md) · [ComoProbar.md](./ComoProbar.md).
+**Alineado a:** [PrimerInforme.md](../../../docs/PrimerInforme.md) · [architecture-v1.md](../architecture-v1.md) · [003-protocolo-experimental.md](../../../docs/decisions/003-protocolo-experimental.md) · [ComoProbar.md](./ComoProbar.md).
 
 ---
 
@@ -50,7 +50,7 @@ Efectividad de PEFT: frecuente, no universal (depende de modelo, tarea, hardware
 
 ## 5. Decisiones activas
 
-Documentadas en [ADR 003](./decisions/003-protocolo-experimental.md). Resumen:
+Documentadas en [ADR 003](../../../docs/decisions/003-protocolo-experimental.md). Resumen:
 
 - mIoU (seg.) / accuracy (Plan B)  
 - umbrales 0.60 / 0.02  

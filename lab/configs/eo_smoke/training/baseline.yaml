@@ -1,5 +1,5 @@
 # Smoke EO en lab U: 1 epoch, batches limitados, batch pequeño.
-# Mismo modelo/dataset que configs/training; solo reduce cómputo.
+# Mismo modelo/dataset que lab/configs/training; solo reduce cómputo.
 strategy: baseline
 
 dataset:

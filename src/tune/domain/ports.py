@@ -21,7 +21,7 @@ from tune.domain.entities import (
 
 
 class ConfigRepository(Protocol):
-    """Carga configs de entrenamiento y thresholds (YAML en ``configs/``)."""
+    """Carga configs de entrenamiento y thresholds (YAML en ``lab/configs/``)."""
 
     def load_training_config(self, strategy: str) -> TrainingConfig: ...
 
