@@ -1,0 +1,10 @@
+# Override para máquinas con NVIDIA (lab U): make app-up-gpu
+services:
+  eo-api:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

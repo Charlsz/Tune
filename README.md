@@ -1,10 +1,32 @@
 # Tune
 
-Laboratorio MLOps para **fine-tuning eficiente**: toma un **modelo ya preentrenado**, lo adapta con dos estrategias (baseline vs optimized), registra evidencia y puede servir el resultado.
+Aplicación de **análisis de imágenes satelitales** para detectar **inundaciones** y **cicatrices de incendio** usando los modelos **Prithvi‑EO 2.0** que IBM‑NASA ya publicó fine‑tuneados en Hugging Face. Subes un GeoTIFF, Tune corre el modelo y muestra la máscara sobre un mapa con área afectada e historial.
 
-Pregunta: *¿podemos adaptar este modelo usando menos recursos sin perder significativamente calidad?*
+No entrenamos: se usan checkpoints publicados ([ADR 005](./docs/decisions/005-app-inferencia-checkpoints-publicados.md)). El laboratorio de fine‑tuning original se conserva como componente secundario (rama `backup/mlops-finetuning-lab` y `make lab-*`).
 
-## Empezar (Docker)
+## App — empezar (Docker)
+
+```bash
+cp .env.example .env
+make app-up          # CPU (tu PC)         -> http://localhost:8080
+make app-up-gpu      # con NVIDIA (lab U)  -> http://localhost:8080
+make app-logs        # la primera inferencia descarga ~1.2 GB de pesos
+make app-down
+```
+
+API: `http://localhost:8000/docs` (`POST /api/analyze`, `GET /api/analyses`, `GET /api/tasks`).
+CLI: `tune analyze --task flood --input imagen.tif`.
+
+Imágenes de prueba (GeoTIFF con las 6 bandas Prithvi): carpeta `examples/` de
+[Sen1Floods11](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11/tree/main/examples) y
+[Burn Scars](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars/tree/main/examples).
+
+Frontend en caliente (opcional): `make web-dev` con la API corriendo en `:8000`.
+
+Stack: FastAPI + TerraTorch/PyTorch (backend) · Vite + React + TypeScript + Leaflet (web) · Docker Compose.
+Arquitectura: [docs/architecture/v2.md](./docs/architecture/v2.md).
+
+## Laboratorio de fine‑tuning (secundario)
 
 ### Lab universidad (GPU) — un comando
 
@@ -50,7 +72,8 @@ Guía completa: [docs/research/ComoProbar.md](./docs/research/ComoProbar.md)
 | [docs/research/CaminoInmediato.md](./docs/research/CaminoInmediato.md) | Orden de avance |
 | [docs/research/Investigacion.md](./docs/research/Investigacion.md) | Marco de investigación |
 | [docs/research/plan.md](./docs/research/plan.md) | Plan de trabajo |
-| [docs/architecture/v1.md](./docs/architecture/v1.md) | Arquitectura |
+| [docs/architecture/v2.md](./docs/architecture/v2.md) | Arquitectura actual (app EO) |
+| [docs/architecture/v1.md](./docs/architecture/v1.md) | Arquitectura v1 (laboratorio fine-tuning) |
 | [docs/decisions/](./docs/decisions/) | ADRs |
 
 Repo: https://github.com/Charlsz/Tune

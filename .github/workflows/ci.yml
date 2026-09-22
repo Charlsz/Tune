@@ -33,6 +33,21 @@ jobs:
       - name: Pytest (unitarios + integración de API, sin GPU)
         run: pytest -m "not gpu" --cov --cov-report=term-missing
 
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build frontend (typecheck + vite)
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
   docker:
     runs-on: ubuntu-latest
     needs: quality
@@ -46,3 +61,6 @@ jobs:
 
       - name: Build imagen api
         run: docker build -f docker/api/Dockerfile -t tune-api:ci .
+
+      - name: Build imagen web
+        run: docker build -t tune-web:ci web

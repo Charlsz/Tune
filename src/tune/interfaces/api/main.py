@@ -10,16 +10,28 @@ import time
 from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from tune import __version__
 from tune.infrastructure.config import get_settings
+from tune.interfaces.api.analyses import router as analyses_router
 from tune.interfaces.api.schemas import HealthResponse, ModelInfoResponse, PredictResponse
 
 app = FastAPI(
-    title="Tune inference API",
+    title="Tune API",
     version=__version__,
-    description="Sirve el modelo aprobado del par experimental baseline vs optimized.",
+    description=(
+        "Análisis de imágenes satelitales con Prithvi-EO 2.0 (inundaciones, cicatrices de "
+        "incendio) bajo /api. Endpoints legacy del laboratorio de fine-tuning en la raíz."
+    ),
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().cors_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(analyses_router)
 
 
 @lru_cache

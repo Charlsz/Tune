@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import cached_property
 
+from tune.application.analyze import AnalyzeUseCase
 from tune.application.stages import (
     CompareStage,
     EvaluateStage,
@@ -86,3 +87,21 @@ class Container:
     @cached_property
     def compare(self) -> CompareStage:
         return CompareStage(self.tracker)
+
+    # --- aplicación EO: imagen -> máscara con checkpoints Prithvi publicados ---
+
+    @cached_property
+    def segmenter(self):
+        from tune.infrastructure.inference.prithvi import PrithviSegmenter  # noqa: PLC0415
+
+        return PrithviSegmenter(device=self.settings.tune_device or None)
+
+    @cached_property
+    def analyses(self):
+        from tune.infrastructure.analyses import FileAnalysisRepository  # noqa: PLC0415
+
+        return FileAnalysisRepository(self.settings.tune_artifacts_dir / "analyses")
+
+    @cached_property
+    def analyze(self) -> AnalyzeUseCase:
+        return AnalyzeUseCase(self.segmenter, self.analyses)

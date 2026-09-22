@@ -6,8 +6,10 @@ Se usan ``Protocol`` para no obligar a herencia. Cada adaptador en
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Protocol
 
+from tune.domain.analysis import Analysis, HazardTask, SegmentationOutput
 from tune.domain.entities import (
     DatasetSpec,
     EfficiencyMetrics,
@@ -85,3 +87,23 @@ class Predictor(Protocol):
     def model_version(self) -> str: ...
 
     def predict(self, payload: Any) -> Any: ...
+
+
+class HazardSegmenter(Protocol):
+    """Segmenta un GeoTIFF con el checkpoint publicado para la tarea (Prithvi)."""
+
+    def segment(self, geotiff: Path, task: HazardTask) -> SegmentationOutput: ...
+
+
+class AnalysisRepository(Protocol):
+    """Persistencia de análisis + sus artefactos (máscara, preview)."""
+
+    def save(self, analysis: Analysis, output: SegmentationOutput, source: Path) -> Analysis:
+        """Guarda artefactos y devuelve el análisis con ``artifacts`` rellenado."""
+        ...
+
+    def get(self, analysis_id: str) -> Analysis: ...
+
+    def list(self, limit: int = 50) -> list[Analysis]: ...
+
+    def artifact_path(self, analysis_id: str, name: str) -> Path: ...
