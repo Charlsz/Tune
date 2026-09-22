@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     # Tracker: "mlflow" (default) | "json" (smoke local sin servidor)
     tune_tracker: str = "mlflow"
 
+    # App EO: dispositivo para Prithvi ("" = auto: cuda si hay, si no cpu)
+    tune_device: str = ""
+    # Orígenes permitidos para el frontend (dev Vite y nginx en compose)
+    tune_cors_origins: str = "http://localhost:5173,http://localhost:8080"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.tune_cors_origins.split(",") if o.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:

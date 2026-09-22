@@ -4,6 +4,17 @@
 
 **Invariante:** `docs/PrimerInforme.md` quedó congelado en la entrega del **2026-08-29** (`3c13bc8`). No modificarlo; el protocolo vivo va en ADR 003 / Investigación / este camino.
 
+> **Cambio de rumbo 2026-09-21 ([ADR 005](../decisions/005-app-inferencia-checkpoints-publicados.md)).**
+> El núcleo ya no es comparar fine-tunings sino la **app**: GeoTIFF → Prithvi publicado → máscara
+> en mapa. Todo lo de abajo describe el laboratorio de fine-tuning, que sigue disponible
+> (`make lab-*`, rama `backup/mlops-finetuning-lab`) pero es secundario.
+>
+> Camino de la app hasta el viernes 25-09:
+> 1. `make app-up` y analizar las imágenes `examples/` de los dos repos HF (CPU sirve).
+> 2. Si funciona: `make app-up-gpu` en la U y medir tiempos.
+> 3. Demo: subir imagen → máscara sobre mapa → % y km² → historial.
+> 4. Después del viernes: imágenes propias de Colombia (Sentinel-2 L1C), PostGIS si hace falta.
+
 ---
 
 ## Flujo ramas vs lab U

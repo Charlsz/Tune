@@ -1,6 +1,6 @@
 # Atajos de desarrollo. En Windows: Git Bash / WSL, o los comandos docker a mano.
 
-.PHONY: help install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-preflight lab-pull-base lab-up lab-down lab-train lab-run lab-run-friday lab-data lab-data-smoke lab-eo-smoke lab-experiment lab-experiment-full lab-experiment-smoke pipeline clean
+.PHONY: help app-up app-up-gpu app-down app-logs web-dev install install-all lint format test test-int up down logs mlflow api train smoke-build smoke-data smoke-run smoke-down lab-preflight lab-pull-base lab-up lab-down lab-train lab-run lab-run-friday lab-data lab-data-smoke lab-eo-smoke lab-experiment lab-experiment-full lab-experiment-smoke pipeline clean
 
 PYTHON ?= python
 STRATEGY ?= baseline
@@ -9,11 +9,34 @@ export COMPOSE_DOCKER_CLI_BUILD ?= 1
 export BUILDKIT_PROGRESS ?= plain
 
 help:
-	@echo "lab-experiment        — RECOMENDADO viernes: Prithvi 2 epochs + down"
-	@echo "lab-experiment-full   — 20 epochs (despues del viernes / paper)"
-	@echo "lab-experiment-smoke  — prueba corta subset (opcional)"
-	@echo "lab-preflight / lab-pull-base / lab-up / lab-down"
+	@echo "APP (nucleo):"
+	@echo "  app-up        — API Prithvi + web en http://localhost:8080 (CPU)"
+	@echo "  app-up-gpu    — igual, con GPU NVIDIA (lab U)"
+	@echo "  app-down      — apagar la app"
+	@echo "  app-logs      — logs de la API (primera inferencia descarga pesos)"
+	@echo "  web-dev       — frontend Vite en caliente contra API local :8000"
+	@echo "LAB fine-tune (secundario): lab-experiment / lab-experiment-full / lab-down"
 	@echo "smoke-* / install / test / lint"
+
+# --- App EO ---------------------------------------------------------------------
+app-up: lab-pull-base
+	@test -f .env || cp .env.example .env
+	docker compose --profile app up -d --build
+	@echo "Web: http://localhost:$${WEB_PORT:-8080}   API: http://localhost:$${API_PORT:-8000}/docs"
+
+app-up-gpu: lab-pull-base
+	@test -f .env || cp .env.example .env
+	docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile app up -d --build
+	@echo "Web: http://localhost:$${WEB_PORT:-8080}   API: http://localhost:$${API_PORT:-8000}/docs"
+
+app-down:
+	docker compose --profile app down
+
+app-logs:
+	docker compose --profile app logs -f eo-api
+
+web-dev:
+	cd web && npm install && npm run dev
 
 lab-preflight:
 	@echo "==> fecha"

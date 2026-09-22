@@ -1,4 +1,7 @@
-"""CLI ``tune``: un subcomando por stage + ``run`` para el pipeline completo (ADR 002).
+"""CLI ``tune``.
+
+App EO (núcleo):       tune analyze --task flood --input imagen.tif
+Laboratorio fine-tune: un subcomando por stage + ``run`` (ADR 002).
 
 tune prepare --strategy baseline
 tune train   --strategy optimized
@@ -7,14 +10,17 @@ tune run     --strategy baseline --strategy optimized
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 
 from tune import __version__
+from tune.domain.analysis import HazardTask
 from tune.domain.entities import Strategy
 
 app = typer.Typer(
     name="tune",
-    help="Laboratorio MLOps para fine-tuning eficiente (baseline vs optimized).",
+    help="Tune: analisis satelital con Prithvi (analyze) + laboratorio de fine-tuning (run).",
     no_args_is_help=True,
 )
 
@@ -44,6 +50,23 @@ def _root(
     ),
 ) -> None:
     """Salida en ASCII: las consolas Windows con cp1252 no soportan flechas ni letras griegas."""
+
+
+@app.command()
+def analyze(
+    input: Path = typer.Option(..., "--input", "-i", exists=True, help="GeoTIFF de entrada"),
+    task: HazardTask = typer.Option(HazardTask.FLOOD, "--task", "-t", help="flood | burn_scar"),
+) -> None:
+    """App EO: segmenta la imagen con el Prithvi publicado y guarda mascara + stats."""
+    c = _container()
+    a = c.analyze.execute(input, task)
+    folder = c.settings.tune_artifacts_dir / "analyses" / a.id
+    area = f"{a.affected_area_km2:.2f} km2" if a.affected_area_km2 is not None else "n/a"
+    typer.secho(
+        f"[analyze] {task.value} id={a.id} afectado={a.affected_ratio:.1%} ({area}) "
+        f"en {a.latency_s:.1f}s -> {folder}",
+        fg="green",
+    )
 
 
 @app.command()
