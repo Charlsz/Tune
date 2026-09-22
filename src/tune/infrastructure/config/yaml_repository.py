@@ -1,4 +1,4 @@
-"""Carga ``configs/training/<strategy>.yaml`` y ``configs/pipeline/thresholds.yaml``."""
+"""Carga ``lab/configs/training/<strategy>.yaml`` y ``lab/configs/pipeline/thresholds.yaml``."""
 
 from __future__ import annotations
 

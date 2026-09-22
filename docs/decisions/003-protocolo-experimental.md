@@ -29,7 +29,7 @@ Tune necesita criterios fijos *antes* de la primera corrida comparable. Este ADR
 | PEFT | ninguno (full FT) | LoRA r=8, alpha=16 |
 | Fijo | mismo dataset, modelo, seed 42, epochs/batch/lr del YAML | |
 
-Configs: `configs/training/baseline.yaml`, `optimized.yaml`.
+Configs: `lab/configs/training/baseline.yaml`, `optimized.yaml`.
 
 ### 4. Métricas
 
@@ -41,7 +41,7 @@ Configs: `configs/training/baseline.yaml`, `optimized.yaml`.
 | Umbral piso | `min_primary_metric: 0.60` |
 | Caída máx. vs baseline | `max_quality_drop_vs_baseline: 0.02` |
 
-Archivo: `configs/pipeline/thresholds.yaml`.
+Archivo: `lab/configs/pipeline/thresholds.yaml`.
 
 ### 5. Hardware
 
@@ -65,4 +65,4 @@ Hasta tener ADR 004 detallado: loggear en el entorno de train y, si hace falta, 
 
 ## Referencias
 
-- [ADR 001](./001-task-selection.md) · [Investigacion.md](../research/Investigacion.md) · [CaminoInmediato.md](../research/CaminoInmediato.md)
+- [ADR 001](./001-task-selection.md) · [Investigacion.md](../../lab/docs/research/Investigacion.md) · [CaminoInmediato.md](../../lab/docs/research/CaminoInmediato.md)

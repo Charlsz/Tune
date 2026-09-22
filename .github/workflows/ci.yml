@@ -59,8 +59,5 @@ jobs:
           cp .env.example .env
           docker compose config -q
 
-      - name: Build imagen api
-        run: docker build -f docker/api/Dockerfile -t tune-api:ci .
-
       - name: Build imagen web
         run: docker build -t tune-web:ci web

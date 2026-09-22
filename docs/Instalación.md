@@ -1,98 +1,80 @@
-# Instalación y despliegue — Tune
+# Instalación — Tune (aplicación)
 
-**Proyecto:** laboratorio MLOps de fine-tuning eficiente (prototipo académico).
+**Proyecto:** análisis de imágenes satelitales (inundación / cicatriz) con checkpoints Prithvi-EO 2.0 publicados.
+
+El laboratorio de fine-tuning (opcional) está documentado en [lab/README.md](../lab/README.md).
 
 ## 1. Qué se instala
 
-El paquete `tune` (CLI + API + adaptadores). El entrenamiento pesado es opcional (`[training]`).
+El paquete `tune` (CLI `tune analyze` + API `/api`) y, con Docker, el frontend en el puerto 8080. El extra `[training]` trae TerraTorch/PyTorch para inferir; Docker ya lo incluye.
 
-## 2. Requisitos previos
+## 2. Requisitos
 
-- Git, Python 3.10–3.12 (recomendado **3.11** para training)
-- Opcional: Docker + Docker Compose
-- GPU NVIDIA solo para entrenar (lab / Colab / Kaggle). Un PC sin GPU sirve para código, tests y API.
+- Git, Docker + Docker Compose (camino recomendado)
+- Opcional: Python 3.11, Node 22 (desarrollo del frontend)
+- GPU NVIDIA opcional (`make app-up-gpu`); CPU basta para la demo
 
-## 3. Instalación local (desarrollo)
+## 3. Docker (recomendado)
 
 ```bash
 git clone https://github.com/Charlsz/Tune.git
 cd Tune
+cp .env.example .env
+make app-up
+# Web  http://localhost:8080
+# API  http://localhost:8000/docs
+```
+
+La primera inferencia descarga ~1,2 GB de pesos (caché en el volumen `hf-cache`). Escenas de prueba: [examples/README.md](../examples/README.md).
+
+Apagar: `make app-down`.
+
+## 4. Instalación local (desarrollo)
+
+```bash
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-# Linux/macOS: source .venv/bin/activate
-python -m pip install -U pip
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -U pip
 pip install -e ".[api,dev]"
 cp .env.example .env
 pytest -q
 tune --help
 ```
 
-API local:
+API sin Docker (hace falta el extra `training` para Prithvi):
 
 ```bash
+pip install -e ".[api,training,dev]"
 uvicorn tune.interfaces.api.main:app --reload
-# GET http://127.0.0.1:8000/health
 ```
 
-## 4. Con Docker
+Frontend: `make web-dev` (Vite en `:5173`, espera la API en `:8000`).
 
-```bash
-cp .env.example .env
-docker compose up -d mlflow api
-# MLflow http://localhost:5000
-# API    http://localhost:8000/health
-```
-
-Imagen de training (máquina con NVIDIA Container Toolkit):
-
-```bash
-docker compose --profile training run --rm training tune --help
-```
-
-Hoy `tune train` falla con `NotImplementedError` hasta implementar el trainer — esperado.
-
-## 5. Datos
-
-Los datasets **no** van en Git. Layout:
-
-```text
-data/<name>/<version>/{train,val,test}/
-data/<name>/<version>/metadata.yaml
-```
-
-Ver `data/README.md` y `scripts/prepare_data.py` (pendiente de implementación completa).
-
-## 6. Verificación rápida
+## 5. Verificación rápida
 
 | Chequeo | Comando / URL | OK si… |
 |---------|---------------|--------|
-| Tests | `pytest -q` | 18 passed (u. actual) |
-| CLI | `tune --help` | lista prepare/train/… |
-| API | `GET /health` | JSON con version |
+| Tests | `pytest -q` | pasan (sin GPU) |
+| CLI | `tune analyze --help` | documenta `--task` / `--input` |
+| App | `make app-up` | mapa en `:8080`, OpenAPI en `:8000/docs` |
 | Compose | `docker compose config -q` | sin error (tras `.env`) |
 
-## 7. Entrenamiento (cuando haya GPU e implementación)
-
-1. Smoke del caso en Colab/Kaggle (ver [research/ComoProbar.md](./research/ComoProbar.md)).
-2. Preparar datos → `tune prepare -s baseline`.
-3. `tune train -s baseline` con `MLFLOW_TRACKING_URI` apuntando al servidor.
-4. Evaluar, registrar, comparar; luego `optimized`.
-
-Detalle de arquitectura y gaps: [architecture/v1.md](./architecture/v1.md).
-
-## 8. Solución de problemas
+## 6. Solución de problemas
 
 | Síntoma | Qué hacer |
 |---------|-----------|
 | `No module named tune` | `pip install -e ".[api,dev]"` desde la raíz |
 | `docker compose` pide `.env` | `cp .env.example .env` |
-| OOM en Prithvi | bajar batch; smoke subset; Plan B (ADR 001) |
-| PC sin NVIDIA | no entrenar local; usar lab/Colab/Kaggle |
+| Inferencia 503 / falta terratorch | usar `make app-up` o extra `training` |
+| Raster 422 | GeoTIFF con 6 bandas Prithvi (o L1C en inundación) |
+| Overlay sin mapa | el GeoTIFF no trae CRS |
 
-## 9. Referencias
+## 7. Laboratorio de fine-tuning
+
+No forma parte de esta instalación. Ver [lab/README.md](../lab/README.md) y [lab/docs/research/ComoProbar.md](../lab/docs/research/ComoProbar.md).
+
+## 8. Referencias
 
 - [Desarrollo.md](./Desarrollo.md)
-- [research/Investigacion.md](./research/Investigacion.md)
-- [research/CaminoInmediato.md](./research/CaminoInmediato.md)
-- [research/ComoProbar.md](./research/ComoProbar.md)
-- [docker/README.md](../docker/README.md)
+- [architecture/v2.md](./architecture/v2.md)
+- [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md)

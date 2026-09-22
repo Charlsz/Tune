@@ -1,22 +1,14 @@
-# Tune — entorno local dockerizado.
-#
-# App EO (núcleo):     make app-up      (+ make app-up-gpu en la U)  -> http://localhost:8080
-# Lab fine-tune (U):   make lab-experiment
-# Si apt falla "not valid yet": sudo timedatectl set-ntp true && make lab-experiment
-# Smoke CPU:           make smoke-run / make smoke-down
-#
-# Apagar siempre al terminar para no dejar contenedores consumiendo recursos.
+# App: GeoTIFF → máscara Prithvi.  make app-up  → http://localhost:8080
+# Laboratorio de fine-tuning: lab/docker-compose.yml  (make -C lab experiment)
 
 name: tune
 
 services:
-  # --- App: imagen satelital -> máscara (Prithvi publicado) -----------------------
   eo-api:
     build:
       context: .
-      dockerfile: docker/training/Dockerfile
+      dockerfile: docker/eo/Dockerfile
     container_name: tune-eo-api
-    profiles: ["app"]
     env_file: .env
     command: uvicorn tune.interfaces.api.main:app --host 0.0.0.0 --port 8000
     environment:
@@ -40,102 +32,11 @@ services:
     build:
       context: ./web
     container_name: tune-web
-    profiles: ["app"]
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:
       eo-api:
         condition: service_healthy
 
-  # --- Laboratorio de fine-tuning (secundario) -------------------------------------
-  mlflow:
-    image: ghcr.io/mlflow/mlflow:v2.16.2
-    container_name: tune-mlflow
-    command: >
-      mlflow server
-      --host 0.0.0.0 --port 5000
-      --backend-store-uri sqlite:////mlflow/mlflow.db
-      --artifacts-destination /mlflow/artifacts
-      --serve-artifacts
-    ports:
-      - "${MLFLOW_PORT:-5000}:5000"
-    volumes:
-      - mlflow-data:/mlflow
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:5000/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
-
-  api:
-    build:
-      context: .
-      dockerfile: docker/api/Dockerfile
-    container_name: tune-api
-    env_file: .env
-    environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-    ports:
-      - "${API_PORT:-8000}:8000"
-    depends_on:
-      mlflow:
-        condition: service_healthy
-    volumes:
-      - ./configs:/app/configs:ro
-
-  training:
-    build:
-      context: .
-      dockerfile: docker/training/Dockerfile
-    profiles: ["training"]
-    env_file: .env
-    environment:
-      MLFLOW_TRACKING_URI: http://mlflow:5000
-      TUNE_TRACKER: mlflow
-      TUNE_DATA_DIR: /app/data
-      TUNE_CONFIGS_DIR: ${TUNE_CONFIGS_DIR:-/app/configs}
-      TUNE_ARTIFACTS_DIR: /app/artifacts
-      TUNE_MODEL_NAME: tune-model
-      HF_HOME: /app/.hf_cache
-    depends_on:
-      mlflow:
-        condition: service_healthy
-    volumes:
-      - ./configs:/app/configs:ro
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./src:/app/src
-      - ./scripts:/app/scripts:ro
-      # Caché HF persistente: dataset (2.6 GB tar) + pesos Prithvi (1.2 GB) no se
-      # re-descargan en cada `compose run --rm`.
-      - hf-cache:/app/.hf_cache
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-  training-cpu:
-    build:
-      context: .
-      dockerfile: docker/training/Dockerfile.cpu
-    profiles: ["smoke"]
-    env_file: .env
-    environment:
-      TUNE_TRACKER: json
-      TUNE_DATA_DIR: /app/data
-      TUNE_CONFIGS_DIR: /app/configs/smoke
-      TUNE_ARTIFACTS_DIR: /app/artifacts
-      TUNE_MODEL_NAME: tune-smoke
-    volumes:
-      - ./configs:/app/configs:ro
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./src:/app/src
-      - ./scripts:/app/scripts:ro
-
 volumes:
-  mlflow-data:
   hf-cache:

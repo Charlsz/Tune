@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     tune_model_alias: str = "approved"
 
     # Rutas
-    tune_data_dir: Path = Path("./data")
-    tune_configs_dir: Path = Path("./configs")
+    tune_data_dir: Path = Path("./lab/data")
+    tune_configs_dir: Path = Path("./lab/configs")
     tune_artifacts_dir: Path = Path("./artifacts")
 
     # Tracker: "mlflow" (default) | "json" (smoke local sin servidor)

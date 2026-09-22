@@ -1,3 +1,0 @@
-# Umbrales para smoke CPU (accuracy). El caso EO usa configs/pipeline/.
-min_primary_metric: 0.15
-max_quality_drop_vs_baseline: 0.10

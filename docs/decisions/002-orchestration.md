@@ -15,7 +15,7 @@ El pipeline debe poder ejecutar **dos estrategias** (baseline y optimized) y **c
 
 | Opción | Pros | Contras |
 |--------|------|---------|
-| Script Python + CLI (`scripts/run_pipeline.py`) | Simple, reproducible, fácil de documentar | Sin UI de orquestación |
+| Script Python + CLI (`lab/scripts/run_pipeline.py`) | Simple, reproducible, fácil de documentar | Sin UI de orquestación |
 | Makefile | Comandos claros por stage | Menos flexible para lógica condicional |
 | Prefect / Airflow | Orquestación enterprise | Complejidad alta para un prototipo de grado |
 | Kubernetes / Argo | Escalable en producción | Fuera del alcance académico declarado |
@@ -28,7 +28,7 @@ Utilizar un **pipeline script en Python** con stages explícitos:
 prepare → train → evaluate → register → compare
 ```
 
-`train` recibe la estrategia (`baseline` | `optimized`). `compare` confronta dos runs ya registrados. Invocable desde la línea de comandos. Configuraciones en YAML (`configs/`). MLflow registra metadatos de cada ejecución.
+`train` recibe la estrategia (`baseline` | `optimized`). `compare` confronta dos runs ya registrados. Invocable desde la línea de comandos. Configuraciones en YAML (`lab/configs/`). MLflow registra metadatos de cada ejecución.
 
 ## Justificación
 
@@ -39,11 +39,11 @@ prepare → train → evaluate → register → compare
 
 ## Consecuencias
 
-- El pipeline vive en `scripts/run_pipeline.py` (implementación en la fase de automatización).
+- El pipeline vive en `lab/scripts/run_pipeline.py` (implementación en la fase de automatización).
 - Cada stage es una función o subcomando independiente y testeable.
 - La arquitectura v1 refleja esta decisión.
 
 ## Referencias
 
 - [Primer Informe — Restricciones](../PrimerInforme.md#23-restricciones-y-supuestos-iniciales)
-- [Plan de trabajo — evaluación y pipeline](../research/plan.md)
+- [Plan de trabajo — evaluación y pipeline](../../lab/docs/research/plan.md)

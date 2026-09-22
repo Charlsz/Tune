@@ -20,7 +20,7 @@ def test_loads_both_strategies_from_repo_configs(configs_dir):
 
 
 def test_strategies_share_everything_except_the_optimization(configs_dir):
-    """Regla de configs/README.md: solo cambia lo que explica el ahorro."""
+    """Regla de lab/configs/README.md: solo cambia lo que explica el ahorro."""
     repo = YamlConfigRepository(configs_dir)
     base = repo.load_training_config("baseline")
     opt = repo.load_training_config("optimized")

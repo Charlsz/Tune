@@ -31,7 +31,7 @@ class RegistryPredictor:
                     "checkpoint": meta.get("checkpoint"),
                     "message": (
                         "Modelo EO registrado. Para máscara geotiff usa el checkpoint "
-                        "TerraTorch en el lab (ver docs/research/ComoProbar.md)."
+                        "TerraTorch en el lab (ver lab/docs/research/ComoProbar.md)."
                     ),
                     "bytes_received": len(payload)
                     if isinstance(payload, (bytes, bytearray))
