@@ -391,7 +391,7 @@ Tune es una arquitectura **cliente-servidor** en dos contenedores: el navegador 
 
 El enfoque general es **hexagonal / limpio**, heredado de la v1: las dependencias apuntan hacia el dominio. TerraTorch, rasterio y el sistema de archivos viven en infraestructura e imports perezosos. La alternativa seleccionada (checkpoints publicados) se materializa en `PrithviSegmenter` y `MODEL_CARDS`; el resto del sistema no conoce los nombres de archivo `.pt`.
 
-Esa forma se dibuja en la figura de arquitectura de la sección 10.2. El camino horizontal es el de un análisis: usuario, web, API, segmentador y Hugging Face. El disco de artefactos cuelga de la API porque el caso de uso persiste ahí, en el mismo proceso. No hay cola, base de datos ni servicio de modelo aparte. La figura está hecha con Archify para que el jurado abra un diagrama navegable, y el texto normativo sigue en [architecture/v2.md](./architecture/v2.md).
+Esa forma se dibuja en la Figura 1. El camino horizontal es el de un análisis: usuario, web, API, segmentador y Hugging Face. El disco de artefactos cuelga de la API porque el caso de uso persiste ahí, en el mismo proceso. No hay cola, base de datos ni servicio de modelo aparte. Los términos de esas cajas están definidos en la tabla de la sección 10.2. El texto normativo sigue en [architecture/v2.md](./architecture/v2.md).
 
 ### 10.2 Componentes del sistema
 
@@ -405,9 +405,39 @@ Esa forma se dibuja en la figura de arquitectura de la sección 10.2. El camino 
 | Volumen `hf-cache` | Pesos entre reinicios | RNF1 |
 | CLI Typer | Mismo caso de uso sin UI | RF7 |
 
-**Figura 1. Arquitectura de Tune.** El camino horizontal es un análisis. El disco cuelga de la API porque la persistencia ocurre en el mismo proceso. La versión navegable está en [tune-arquitectura.html](./diagrams/tune-arquitectura.html). El texto normativo vive en [architecture/v2.md](./architecture/v2.md).
+Los nombres de las figuras se definen aquí, antes de leerlas. Cada palabra de las cajas y de las flechas tiene un significado fijo en este informe.
 
-![Figura 1. Arquitectura de Tune: usuario, web, API, Prithvi y disco de análisis](./diagrams/tune-arquitectura.png)
+| Término | Definición en Tune |
+|---|---|
+| Usuario | Persona que abre la aplicación en un navegador. En la demo es el equipo o el jurado. |
+| Web | Interfaz hecha con React (pantallas) y Leaflet (mapa). La sirve nginx en el puerto 8080. |
+| eo-api | Servidor de la aplicación. FastAPI recibe el archivo, valida y responde HTTP. Puerto 8000. |
+| Caso de uso (`AnalyzeUseCase`) | Función que ordena el análisis: segmentar, calcular estadísticas y guardar. La API y la CLI lo llaman igual. |
+| Segmentador (`PrithviSegmenter`) | Pieza que corre el modelo. Usa TerraTorch, el programa que carga el checkpoint de Prithvi. |
+| Hugging Face | Sitio de donde se descargan el archivo de configuración y los pesos del modelo. No es una base de datos del proyecto. |
+| Checkpoint | Pesos ya entrenados más su `config.yaml`. Tune no los produce: los usa. |
+| GeoTIFF | Imagen satelital con bandas y, si existe, coordenadas. Es la entrada válida. Un PNG o un JPG no lo es. |
+| Máscara | Imagen de salida: cada píxel queda clasificado (agua o no; quemado o no). |
+| Bounds | Caja geográfica de la escena en coordenadas EPSG:4326 (latitud y longitud). Sirve para poner la máscara sobre el mapa. |
+| CRS | Sistema de coordenadas del raster. Sin CRS hay máscara, pero no hay lugar en el mapa. |
+| `artifacts/` | Carpeta en disco donde queda cada análisis (`analysis.json`, máscara, preview y el GeoTIFF de entrada). |
+| `POST /api/analyze` | Petición HTTP con la que la web envía la tarea y el archivo. |
+| 201 | Respuesta de éxito: el análisis quedó creado. |
+| 400 | El archivo no es un GeoTIFF. No se llama al modelo. |
+| 422 | El archivo es GeoTIFF, pero las bandas o la tarea no cumplen el contrato. |
+| 503 | El modelo no pudo cargarse (falta TerraTorch o el checkpoint). |
+| Caché | Copia local de los pesos. La primera vez se descargan (~1,2 GB). Después se leen del disco. |
+
+**Figura 1. Arquitectura de Tune.** El camino de izquierda a derecha es un análisis. El disco queda debajo de la API porque guardar ocurre en el mismo proceso, sin otra base de datos. El texto normativo está en [architecture/v2.md](./architecture/v2.md).
+
+```mermaid
+flowchart LR
+  Usuario["Usuario: quien abre el navegador"] --> Web["Web: React y mapa Leaflet, puerto 8080"]
+  Web -->|"HTTP /api: envia tarea y archivo"| API["eo-api: FastAPI y caso de uso, puerto 8000"]
+  API -->|"segmentar: pide la mascara"| Seg["PrithviSegmenter: TerraTorch corre el checkpoint"]
+  Seg -->|"config y pesos: solo si no estan en cache"| HF["Hugging Face: modelos publicados"]
+  API -->|"guarda el analisis"| Disco["artifacts: carpeta del historial"]
+```
 
 ### 10.3 Interacción entre módulos
 
@@ -417,9 +447,27 @@ Las dependencias van de la interfaz a la aplicación y al dominio. La infraestru
 
 Ese corte mantiene el acoplamiento bajo donde más duele cambiarlo. Sustituir Leaflet o el formato de persistencia (hoy archivos) no exige reescribir Prithvi. Sustituir Prithvi sí exige respetar el puerto y las seis bandas.
 
-**Figura 2. Interacción entre módulos.** Las flechas de la Figura 1 son ese flujo: la web solo habla HTTP con la API, la API llama al segmentador, el segmentador pide config y pesos a Hugging Face, y la API guarda el análisis en disco. No hay una flecha del navegador hacia TerraTorch.
+**Figura 2. Interacción entre módulos.** No es la misma caja de la Figura 1: aquí se ve el orden de las llamadas. La web solo habla HTTP con eo-api. eo-api llama al caso de uso. El caso de uso llama al segmentador. El segmentador, si hace falta, pide los pesos. Nadie del navegador llama a TerraTorch.
 
-![Figura 2. Interacción entre módulos en el camino de un análisis](./diagrams/tune-arquitectura.png)
+```mermaid
+sequenceDiagram
+  participant Web as Web
+  participant API as eo-api
+  participant Caso as Caso de uso
+  participant Seg as Segmentador
+  participant HF as Hugging Face
+  participant Disco as artifacts
+  Web->>API: POST /api/analyze, tarea y GeoTIFF
+  API->>Caso: execute, ordena el analisis
+  Caso->>Seg: segment, pide la mascara
+  Seg->>HF: descarga config y pesos si no hay cache
+  HF-->>Seg: checkpoint
+  Seg-->>Caso: mascara y bounds
+  Caso->>Disco: escribe json, png y GeoTIFF
+  Disco-->>Caso: analisis guardado
+  Caso-->>API: estadisticas y rutas
+  API-->>Web: 201, JSON del analisis
+```
 
 ### 10.4 Comportamiento
 
@@ -429,13 +477,39 @@ El cuello de botella es la inferencia y, la primera vez, la descarga de cerca de
 
 Los fallos no tumban el historial. Un archivo que no es GeoTIFF responde 400 antes de tocar el modelo. Bandas incorrectas responden 422. Falta de TerraTorch o un checkpoint que no carga responden 503. En los tres casos los análisis ya guardados siguen listables.
 
-**Figura 3. Secuencia de un análisis válido.** Carga, inferencia (con descarga de pesos solo si no hay caché) y respuesta 201.
+**Figura 3. Secuencia de un análisis válido.** Tres tramos: el usuario elige la tarea y el GeoTIFF, el segmentador infiere (y descarga pesos solo si no hay caché), y la web recibe 201 para pintar el mapa.
 
-![Figura 3. Secuencia de un análisis válido](./diagrams/tune-analisis.png)
+```mermaid
+sequenceDiagram
+  actor Usuario
+  participant Web as Web
+  participant API as eo-api
+  participant Seg as Segmentador
+  Usuario->>Web: Elige inundacion o cicatriz, y sube el GeoTIFF
+  Web->>API: POST /api/analyze
+  API->>Seg: Calcula la mascara con Prithvi
+  Seg-->>API: Mascara, bounds y estadisticas
+  API-->>Web: 201, porcentaje, area y ruta de la mascara
+  Web-->>Usuario: Mapa con overlay e historial
+```
 
-**Figura 4. Rechazo de entrada y fallo de modelo.** Un PNG responde 400. Un GeoTIFF cuyo modelo no carga devuelve el error al caso de uso y no borra el historial. Versiones navegables: [tune-analisis.html](./diagrams/tune-analisis.html) y [tune-rechazo.html](./diagrams/tune-rechazo.html).
+**Figura 4. Rechazo de entrada y fallo de modelo.** Un archivo que no es GeoTIFF responde 400 y no llega al modelo. Si el GeoTIFF es válido pero el modelo no carga, el caso de uso devuelve el error y el historial ya guardado sigue en disco.
 
-![Figura 4. Rechazo de un archivo inválido y fallo al cargar el modelo](./diagrams/tune-rechazo.png)
+```mermaid
+sequenceDiagram
+  actor Usuario
+  participant Web as Web
+  participant API as eo-api
+  participant Caso as Caso de uso
+  Usuario->>Web: Sube un PNG
+  Web->>API: POST /api/analyze
+  API-->>Web: 400, no es GeoTIFF
+  Usuario->>Web: Sube un GeoTIFF
+  Web->>API: POST /api/analyze
+  API->>Caso: execute
+  Caso-->>API: 422 bandas incorrectas, o 503 modelo no disponible
+  API-->>Web: Error, el historial anterior sigue listable
+```
 
 ---
 
@@ -545,7 +619,7 @@ Estrategia: congelar el contrato de API y de artefactos; no añadir PostGIS ni C
 
 La prioridad 1 se hace en la máquina de la universidad: `make app-up-gpu`, pesos en caché, un GeoTIFF de ejemplo de cada repositorio Hugging Face. De esa sesión salen latencia, captura del mapa y el identificador del análisis guardado. Eso cierra el objetivo 7 y alimenta la sección 13.3.
 
-La prioridad 3 ya está hecha en este documento. Las figuras 1 a 4 están incrustadas en la sección 10 como imágenes, así que se ven al abrir el markdown. Los HTML de Archify quedan como versión navegable, no como el único lugar donde aparece el dibujo.
+La prioridad 3 ya está hecha en este documento. Las figuras 1 a 4 están en la sección 10 como diagramas del propio markdown, con la tabla de términos al lado. No dependen de abrir un HTML aparte.
 
 ---
 

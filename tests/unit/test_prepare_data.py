@@ -12,8 +12,8 @@ from tune.infrastructure.data.filesystem import FilesystemDatasetRepository
 from tune.infrastructure.data.layout import init_layout, resolve_source, write_metadata
 
 _ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "scripts") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "scripts"))
+if str(_ROOT / "lab" / "scripts") not in sys.path:
+    sys.path.insert(0, str(_ROOT / "lab" / "scripts"))
 
 import prepare_data  # noqa: E402
 

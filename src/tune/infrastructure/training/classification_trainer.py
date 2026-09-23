@@ -31,7 +31,8 @@ class ClassificationTrainer:
         if not train_dir.exists():
             raise FileNotFoundError(
                 f"No hay split train en {train_dir}. "
-                "Ejecuta prepare_data con --download-cpu-smoke (ver lab/docs/research/ComoProbar.md)."
+                "Ejecuta prepare_data con --download-cpu-smoke "
+                "(ver lab/docs/research/ComoProbar.md)."
             )
 
         img_size = int(config.extra.get("image_size", 64))
