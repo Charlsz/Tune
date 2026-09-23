@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Tune: secuencia de un analisis valido",
+    "viewBox": [1000, 700],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador" },
+    { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React" },
+    { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI" },
+    { "id": "caso", "type": "backend", "label": "Caso de uso", "sublabel": "AnalyzeUseCase" },
+    { "id": "seg", "type": "backend", "label": "Segmentador", "sublabel": "Prithvi / TerraTorch" },
+    { "id": "hf", "type": "external", "label": "Hugging Face", "sublabel": "cache de pesos" },
+    { "id": "disco", "type": "database", "label": "Disco", "sublabel": "artifacts" }
+  ],
+  "segments": [
+    { "from": 150, "to": 240, "label": "Carga" },
+    { "from": 270, "to": 460, "label": "Inferencia" },
+    { "from": 490, "to": 620, "label": "Respuesta" }
+  ],
+  "messages": [
+    { "id": "elige", "from": "usuario", "to": "web", "y": 170, "label": "elige tarea y GeoTIFF", "variant": "default" },
+    { "id": "post", "from": "web", "to": "api", "y": 205, "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "ejecuta", "from": "api", "to": "caso", "y": 300, "label": "execute(geotiff, task)", "variant": "default" },
+    { "id": "segmenta", "from": "caso", "to": "seg", "y": 335, "label": "segment()", "variant": "emphasis" },
+    { "id": "pesos", "from": "seg", "to": "hf", "y": 370, "label": "hf_hub_download si no hay cache", "variant": "dashed" },
+    { "id": "mascara", "from": "seg", "to": "caso", "y": 410, "label": "mascara + bounds", "variant": "return" },
+    { "id": "guarda", "from": "caso", "to": "disco", "y": 520, "label": "json, png, tif", "variant": "default" },
+    { "id": "ok-disco", "from": "disco", "to": "caso", "y": 555, "label": "analisis persistido", "variant": "return" },
+    { "id": "json", "from": "api", "to": "web", "y": 590, "label": "201 JSON", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "web", "from": 165, "to": 600, "type": "frontend" },
+    { "participant": "api", "from": 200, "to": 600, "type": "backend" },
+    { "participant": "caso", "from": 295, "to": 565, "type": "backend" },
+    { "participant": "seg", "from": 330, "to": 420, "type": "backend" },
+    { "participant": "hf", "from": 365, "to": 395, "type": "external" },
+    { "participant": "disco", "from": 515, "to": 565, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Camino principal", "items": ["La web solo habla HTTP con la API", "TerraTorch queda detras del puerto de segmentacion"] },
+    { "dot": "amber", "title": "Primera corrida", "items": ["La descarga de pesos es opcional si ya hay cache", "No bloquea los analisis ya guardados"] }
+  ]
+}

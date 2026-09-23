@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Tune: arquitectura de la aplicacion",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "camino-analisis",
+        "label": "Camino del analisis",
+        "focus": ["usuario", "web", "api", "segmentador", "huggingface"],
+        "note": "De la carga del GeoTIFF a los pesos publicados de Prithvi."
+      },
+      {
+        "id": "persistencia",
+        "label": "Persistencia",
+        "focus": ["api", "disco"],
+        "note": "El analisis queda en disco, no en una base espacial."
+      }
+    ]
+  },
+  "components": [
+    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador", "pos": [40, 220], "size": [130, 64] },
+    { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React + Leaflet :8080", "pos": [240, 220], "size": [160, 64] },
+    { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI + caso de uso", "pos": [470, 220], "size": [170, 64] },
+    { "id": "segmentador", "type": "backend", "label": "PrithviSegmenter", "sublabel": "TerraTorch", "pos": [710, 220], "size": [160, 64] },
+    { "id": "huggingface", "type": "external", "label": "Hugging Face", "sublabel": "checkpoints Prithvi", "pos": [940, 220], "size": [170, 64] },
+    { "id": "disco", "type": "database", "label": "artifacts/", "sublabel": "analyses/<id>", "pos": [470, 400], "size": [170, 64] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Contenedor eo-api", "wraps": ["api", "segmentador", "disco"] }
+  ],
+  "connections": [
+    { "id": "usuario-web", "from": "usuario", "to": "web", "label": "abre la app", "variant": "emphasis" },
+    { "id": "web-api", "from": "web", "to": "api", "label": "HTTP /api" },
+    { "id": "api-seg", "from": "api", "to": "segmentador", "label": "segmentar" },
+    { "id": "seg-hf", "from": "segmentador", "to": "huggingface", "label": "config + pesos", "labelDy": 56 },
+    { "id": "api-disco", "from": "api", "to": "disco", "label": "guarda analisis", "fromSide": "bottom", "toSide": "top", "labelDy": 24 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Cliente", "items": ["La web no llama a TerraTorch", "Leaflet pinta la mascara con los bounds"] },
+    { "dot": "emerald", "title": "Servidor", "items": ["Un analisis a la vez, sin cola", "El dominio no importa torch"] },
+    { "dot": "amber", "title": "Fuera del proceso", "items": ["Hugging Face solo en la primera descarga", "Los analisis ya guardados siguen en disco"] }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Tune: rechazo de entrada y fallo de modelo",
+    "viewBox": [980, 560],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador" },
+    { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React" },
+    { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI" },
+    { "id": "caso", "type": "backend", "label": "AnalyzeUseCase", "sublabel": "aplicacion" }
+  ],
+  "segments": [
+    { "from": 150, "to": 270, "label": "Entrada invalida" },
+    { "from": 300, "to": 450, "label": "Modelo no disponible" }
+  ],
+  "messages": [
+    { "id": "malo", "from": "usuario", "to": "web", "y": 175, "label": "sube un PNG", "variant": "default" },
+    { "id": "post-malo", "from": "web", "to": "api", "y": 205, "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "cuatrocientos", "from": "api", "to": "web", "y": 235, "label": "400 no es GeoTIFF", "variant": "return" },
+    { "id": "tif", "from": "usuario", "to": "web", "y": 325, "label": "sube un GeoTIFF", "variant": "default" },
+    { "id": "post-ok", "from": "web", "to": "api", "y": 355, "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "ejecuta", "from": "api", "to": "caso", "y": 385, "label": "execute()", "variant": "default" },
+    { "id": "import", "from": "caso", "to": "api", "y": 415, "label": "ImportError o ValueError", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "web", "from": 170, "to": 430, "type": "frontend" },
+    { "participant": "api", "from": 200, "to": 430, "type": "backend" },
+    { "participant": "caso", "from": 380, "to": 425, "type": "backend" }
+  ],
+  "cards": [
+    { "dot": "rose", "title": "Fallo parcial", "items": ["Un 400 no llega al modelo", "Un 422 o 503 no borra el historial"] }
+  ]
+}

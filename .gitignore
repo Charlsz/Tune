@@ -59,3 +59,7 @@ lab/notebooks/**/.ipynb_checkpoints/
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Herramientas locales (Archify y otros skills). No son del proyecto. ---
+.agents/
+skills-lock.json
