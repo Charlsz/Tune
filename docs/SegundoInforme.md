@@ -96,6 +96,10 @@ El proyecto está condicionado por las siguientes restricciones y supuestos:
 * No se preentrena un foundation model. No se reentrena Prithvi como requisito de la entrega.
 * PostGIS, autenticación, descarga automática desde Copernicus y operación 24/7 quedan fuera de este ciclo.
 
+Esas restricciones fijan el contrato que el jurado puede comprobar. La entrada es un GeoTIFF de seis bandas (o un L1C amplio en inundación). La salida es una máscara, un porcentaje y, si hay CRS, un área y un overlay. El modelo no se entrena en la demo: se descarga el checkpoint publicado y se cachea. Si falta red la primera vez, o si el archivo no trae las bandas, el sistema rechaza o no infiere, y el historial ya guardado sigue en disco.
+
+El supuesto de carga es el de una sustentación, no el de un servicio. Un operador, un análisis, una máquina con Docker. CPU basta para mostrar el flujo. GPU solo acorta el recorrido de ventanas. Por eso el diseño no incluye cola, login ni base espacial: cada una de esas piezas añadiría un fallo posible sin cambiar el resultado que se enseña.
+
 ### 3.3 Alcance actualizado
 
 Respecto del primer informe, el alcance **cambia de eje**. Allí Tune era un laboratorio que ejecutaba dos estrategias de fine-tuning, registraba GPU-hours y promovía un modelo. Aquí Tune es una aplicación que ejecuta dos checkpoints publicados y muestra el análisis.
@@ -132,6 +136,10 @@ Los objetivos se formulan como logros verificables y recogen la retroalimentaci�
 ### 4.1 Objetivo general
 
 **Diseñar e implementar Tune, un prototipo de aplicación de análisis de imágenes satelitales que, dado un GeoTIFF con las bandas que espera Prithvi-EO 2.0, ejecute el checkpoint publicado de inundación o de cicatriz de incendio, devuelva la máscara georreferenciada con porcentaje y área afectada, y deje el análisis recuperable mediante API, CLI e interfaz de mapa.**
+
+El compromiso concreto, en los términos de la retroalimentación del primer informe, queda así. La tarea es segmentación de inundación (`flood`) y de cicatriz de incendio (`burn_scar`). Los datasets versionados fuera de Git son Sen1Floods11 y HLS Burn Scars, citados como procedencia de los pesos. Los modelos preentrenados y ya fine-tuneados son `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` y `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars`.
+
+El objetivo se considera cumplido cuando un GeoTIFF válido produce un análisis persistido con el `model_id` de ese checkpoint, y cuando la API sirve la máscara y las estadísticas. No se exige una nueva cifra de mIoU ni una corrida de fine-tuning.
 
 * **Específico:** sistema de ingesta, inferencia, persistencia y visualización; no un detector comercial ni un laboratorio de PEFT.
 * **Medible:** existencia de los dos checkpoints cableados, de `POST /api/analyze`, del historial y de la máscara sobre el mapa para una escena de ejemplo.
@@ -213,6 +221,8 @@ Tune es una aplicación de análisis satelital de alcance académico. Recibe un 
 
 Los usuarios de la demo cargan una escena de ejemplo (las publicadas junto a cada modelo en Hugging Face) o una escena propia que cumpla el contrato de bandas. El sistema no se presenta como un laboratorio para decidir si LoRA ahorra memoria. El caso de inundación y el de incendio **son el producto visible**. El aporte es el sistema que los hace consultables: mismo pipeline, dos checkpoints.
 
+La propuesta de valor cabe en una frase operativa: el operador elige la tarea, sube el raster y obtiene una máscara ubicable, con porcentaje y área, sin esperar a que termine un entrenamiento. El detalle de enfoque, de usuarios y de relación con el problema está en los apartados siguientes.
+
 ### 6.1 Enfoque general y propuesta de valor
 
 El enfoque es **consumir especialización ya publicada** en lugar de producirla en el laboratorio. IBM-NASA fine-tuneó Prithvi-EO 2.0-300M sobre Sen1Floods11 y sobre HLS Burn Scars y dejó config + pesos en Hugging Face. Tune descarga esos artefactos, aplica el preprocesado del recetario oficial (selección de bandas, escala a reflectancia, ventana 512×512, coordenadas temporales y de ubicación en inundación) y persiste lo que un usuario puede auditar: la entrada, la máscara, un preview RGB y un JSON con `model_id`, bounds y latencia.
@@ -261,6 +271,8 @@ La API no entrena. Un consumidor envía el archivo y la tarea y recibe el análi
 Esta solución responde al problema porque el resultado deja de depender de que termine un entrenamiento en la GPU de la universidad. Responde al alcance porque nombra dos tareas, dos datasets de procedencia y dos modelos, y porque declara con igual claridad lo que no hace (reentrenar, PostGIS, Copernicus). Responde a la retroalimentación porque el objetivo verificable ya no es un umbral de mIoU entre dos estrategias aún no corridas: es un análisis recuperable con el `model_id` del checkpoint usado.
 
 El laboratorio de fine-tuning permanece en el repositorio (`make lab-experiment` o `make -C lab experiment`, rama `backup/mlops-finetuning-lab`) para quien quiera retomar la pregunta de eficiencia. No forma parte del criterio de éxito de este informe.
+
+La relación con la retroalimentación es directa. El primer informe pedía comprometer una tarea, un dataset versionado y un modelo preentrenado, y un objetivo que se pudiera verificar. Aquí la tarea son las dos segmentaciones, los datasets son Sen1Floods11 y HLS Burn Scars en sus publicaciones originales, y los modelos son los dos checkpoints de Hugging Face. Verificar es correr el análisis y leer el `model_id` guardado, no interpretar un umbral de promoción que aún no tenía corrida.
 
 ---
 
@@ -325,6 +337,8 @@ Desempeño, seguridad y usabilidad se declaran al tamaño de la demo. No hay usu
 
 Las alternativas que se compararon no son un catálogo abstracto de backends. Son las opciones reales del proyecto después del primer informe y después del bloqueo en el laboratorio. Los criterios del template (desempeño bajo carga, acoplamiento, disponibilidad) se aplican a **esa** decisión, con la carga esperada de una demo académica: un operador, un análisis a la vez, demostración en un PC o en un navegador.
 
+Las tres preguntas se responden sobre A1 (seguir fine-tuneando), A2 (cambiar de dataset y seguir entrenando), A3 (un clasificador pequeño en CPU) y A4 (checkpoints publicados más la aplicación). La opción seleccionada es A4. El resto de la sección justifica por qué, con la carga real del proyecto y no con un benchmark de miles de usuarios.
+
 ### 9.1 Alternativas consideradas
 
 **A1. Mantener el fine-tuning propio como núcleo** (baseline FP32 full fine-tuning versus LoRA+FP16, mismo dataset y mismo Prithvi, umbrales de mIoU 0,60 y caída máxima 0,02). Es el planteamiento del primer informe. Produce evidencia de eficiencia si las dos corridas terminan en el mismo hardware. Exige GPU, horas de reloj e imagen Docker PyTorch+CUDA. Entre el 17 y el 21 de septiembre esa imagen no terminó de descargarse en la máquina de la universidad, y el código de entrenamiento aún contenía errores que habrían anulado la tabla. Sin corrida no hay métrica que defender.
@@ -346,6 +360,8 @@ Comportamiento bajo concurrencia: A4 no está diseñada para ella. Un segundo an
 | Tiempo hasta un resultado visible | Días, bloqueado en el lab | Igual riesgo de GPU | Horas, otra tarea | Minutos tras cachear pesos |
 | Latencia de una inferencia | N/A hasta entrenar | N/A hasta entrenar | Baja | Media en CPU, menor en GPU |
 | Throughput concurrente | No aplica | No aplica | Alto e irrelevante | Un análisis a la vez (aceptado) |
+
+Bajo esa carga, A4 es la que ofrece un resultado visible en el plazo. A1 y A2 pueden ser más “rápidas” el día en que el entrenamiento ya terminó, y ese día no llegó. A3 responde antes y responde otra pregunta. El desempeño que se defiende es el tiempo hasta una máscara en el mapa, medido desde una máquina con los pesos ya en caché.
 
 ### 9.3 ¿Qué grado de acoplamiento introduce cada opción?
 
@@ -389,22 +405,9 @@ Esa forma se dibuja en la figura de arquitectura de la sección 10.2. El camino 
 | Volumen `hf-cache` | Pesos entre reinicios | RNF1 |
 | CLI Typer | Mismo caso de uso sin UI | RF7 |
 
-Diagrama de arquitectura:
+**Figura 1. Arquitectura de Tune.** El camino horizontal es un análisis. El disco cuelga de la API porque la persistencia ocurre en el mismo proceso. La versión navegable está en [tune-arquitectura.html](./diagrams/tune-arquitectura.html). El texto normativo vive en [architecture/v2.md](./architecture/v2.md).
 
-```text
- [Navegador :8080] --/api--> [eo-api :8000]
-                                |
-                                v
-                         AnalyzeUseCase
-                          /            \
-              HazardSegmenter     AnalysisRepository
-                     |                     |
-              PrithviSegmenter     archivos en disco
-                     |
-              Hugging Face (pesos) + TerraTorch
-```
-
-Figura de arquitectura (Archify, abrir en el navegador): [tune-arquitectura.html](./diagrams/tune-arquitectura.html). El texto de la arquitectura vive en [architecture/v2.md](./architecture/v2.md).
+![Figura 1. Arquitectura de Tune: usuario, web, API, Prithvi y disco de análisis](./diagrams/tune-arquitectura.png)
 
 ### 10.3 Interacción entre módulos
 
@@ -412,7 +415,11 @@ El navegador no habla con TerraTorch. Llama HTTP a `/api`. El router valida el a
 
 Las dependencias van de la interfaz a la aplicación y al dominio. La infraestructura implementa los puertos y no al revés. El acoplamiento entre tareas es un diccionario de fichas de modelo: inundación y cicatriz comparten el mismo camino y cambian el repositorio de Hugging Face, las clases y, en inundación, el uso de coordenadas. El laboratorio de fine-tuning convive en el mismo paquete y no participa de este flujo.
 
-Ese corte mantiene el acoplamiento bajo donde más duele cambiarlo. Sustituir Leaflet o el formato de persistencia (hoy archivos) no exige reescribir Prithvi. Sustituir Prithvi sí exige respetar el puerto y las seis bandas. La figura de arquitectura muestra el camino principal (usuario, web, API, segmentador, Hugging Face) y la rama de persistencia hacia `artifacts/`.
+Ese corte mantiene el acoplamiento bajo donde más duele cambiarlo. Sustituir Leaflet o el formato de persistencia (hoy archivos) no exige reescribir Prithvi. Sustituir Prithvi sí exige respetar el puerto y las seis bandas.
+
+**Figura 2. Interacción entre módulos.** Las flechas de la Figura 1 son ese flujo: la web solo habla HTTP con la API, la API llama al segmentador, el segmentador pide config y pesos a Hugging Face, y la API guarda el análisis en disco. No hay una flecha del navegador hacia TerraTorch.
+
+![Figura 2. Interacción entre módulos en el camino de un análisis](./diagrams/tune-arquitectura.png)
 
 ### 10.4 Comportamiento
 
@@ -420,7 +427,15 @@ La secuencia feliz es corta a propósito. El usuario elige la tarea y el GeoTIFF
 
 El cuello de botella es la inferencia y, la primera vez, la descarga de cerca de 1,2 GB. No hay pasos de entrenamiento en el camino. El flujo es eficiente para la carga de una demo: un análisis, sin colas ni servicios extra. El desacoplamiento se verifica en CI, porque la API se prueba con un segmentador falso y un fallo de torch no impide validar el contrato HTTP.
 
-Los fallos no tumban el historial. Un archivo que no es GeoTIFF responde 400 antes de tocar el modelo. Bandas incorrectas responden 422. Falta de TerraTorch o un checkpoint que no carga responden 503. En los tres casos los análisis ya guardados siguen listables. Las dos secuencias están en [tune-analisis.html](./diagrams/tune-analisis.html) y [tune-rechazo.html](./diagrams/tune-rechazo.html).
+Los fallos no tumban el historial. Un archivo que no es GeoTIFF responde 400 antes de tocar el modelo. Bandas incorrectas responden 422. Falta de TerraTorch o un checkpoint que no carga responden 503. En los tres casos los análisis ya guardados siguen listables.
+
+**Figura 3. Secuencia de un análisis válido.** Carga, inferencia (con descarga de pesos solo si no hay caché) y respuesta 201.
+
+![Figura 3. Secuencia de un análisis válido](./diagrams/tune-analisis.png)
+
+**Figura 4. Rechazo de entrada y fallo de modelo.** Un PNG responde 400. Un GeoTIFF cuyo modelo no carga devuelve el error al caso de uso y no borra el historial. Versiones navegables: [tune-analisis.html](./diagrams/tune-analisis.html) y [tune-rechazo.html](./diagrams/tune-rechazo.html).
+
+![Figura 4. Rechazo de un archivo inválido y fallo al cargar el modelo](./diagrams/tune-rechazo.png)
 
 ---
 
@@ -522,7 +537,7 @@ Frente a los objetivos, los ítems 1–6 están implementados en el repositorio.
 |---|---|---|
 | 1 | Demo estable: un GeoTIFF de inundación y uno de cicatriz, pesos ya en caché | No hay resultado que mostrar |
 | 2 | Cerrar validación 13.3 con capturas y latencias | Informe sin evidencia de uso |
-| 3 | Capturas de las figuras Archify dentro del informe si el jurado no abre el HTML | Las figuras ya están enlazadas en la sección 10 |
+| 3 | Revisar que las figuras 1 a 4 se vean al abrir el markdown | Ya están incrustadas en la sección 10 |
 | 4 | Ordenar el repositorio (docs vs código vs lab secundario) | El catálogo se lee como el proyecto v1 |
 | 5 | Laboratorio de fine-tuning: no tocar salvo que sobre tiempo | Desvía el cierre |
 
@@ -530,7 +545,7 @@ Estrategia: congelar el contrato de API y de artefactos; no añadir PostGIS ni C
 
 La prioridad 1 se hace en la máquina de la universidad: `make app-up-gpu`, pesos en caché, un GeoTIFF de ejemplo de cada repositorio Hugging Face. De esa sesión salen latencia, captura del mapa y el identificador del análisis guardado. Eso cierra el objetivo 7 y alimenta la sección 13.3.
 
-La prioridad 3 ya no es “dibujar la arquitectura”. Las figuras están en `docs/diagrams/` (Archify): arquitectura, secuencia del análisis y secuencia de rechazo. Si el formato del catálogo no admite HTML, se exporta una captura de cada figura y se inserta en este mismo documento. El texto de las secciones 10.2 a 10.4 ya describe lo que esas figuras muestran.
+La prioridad 3 ya está hecha en este documento. Las figuras 1 a 4 están incrustadas en la sección 10 como imágenes, así que se ven al abrir el markdown. Los HTML de Archify quedan como versión navegable, no como el único lugar donde aparece el dibujo.
 
 ---
 
