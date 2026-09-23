@@ -1,5 +1,7 @@
 # Tune: aplicación de análisis satelital para inundaciones y cicatrices de incendio con Prithvi-EO 2.0
 
+**Autores:** Carlos Andrés Galvis Pájaro y Zenen Contreras Royero  
+**Tutor:** Daniel Romero  
 **Avance del segundo informe** · septiembre de 2026 · repositorio [tune](https://github.com/Charlsz/tune)
 
 ## Resumen / Abstract
@@ -26,7 +28,13 @@ El estado del trabajo, a la fecha de este avance, es el de un sistema ya cablead
 
 ---
 
-## 2. Marco conceptual
+## 2. Marco teórico (segunda versión)
+
+Esta es la segunda versión del marco. La primera, en el [PrimerInforme.md](./PrimerInforme.md) (apartado 5), organizaba Tune como laboratorio de fine-tuning: baseline frente a estrategia optimizada, tracking, model registry y una API al final del experimento. El caso satelital era un ejemplo posible, no el producto.
+
+La segunda versión cambia el centro. El objeto ya no es medir si LoRA gasta menos GPU que un entrenamiento completo. El objeto es usar un foundation model ya especializado, publicado, y servir su máscara. Entran conceptos que la primera versión no necesitaba como contrato: raster de seis bandas, GeoTIFF, CRS, segmentación semántica, checkpoint de Hugging Face, ventana de 512×512 y arquitectura hexagonal para no atar la interfaz a TerraTorch.
+
+Lo que se conserva de la primera versión es el vocabulario de cierre de ciclo: el modelo no queda como archivo suelto, hay artefactos y hay un servicio. Lo que deja de ser marco del producto es PEFT, el par experimental y el registry de promoción. Ese lenguaje sigue en `lab/` como componente secundario.
 
 ### 2.1 Observación de la Tierra, raster y segmentación semántica
 
@@ -81,7 +89,15 @@ La problemática no consiste en hacer falta un foundation model nuevo, ni en la 
 
 La retroalimentación del primer informe pedía comprometer tarea, dataset, modelo y un objetivo que se pueda comprobar. Ese pedido se atiende aquí nombrando las dos tareas, los dos datasets de procedencia y los dos repositorios de Hugging Face, y definiendo el resultado como “escena válida → análisis persistido”, no como “tabla de GPU-hours”.
 
-### 3.2 Restricciones y supuestos de diseño
+### 3.2 Justificación
+
+Atender este problema es pertinente en lo técnico porque los checkpoints de inundación y de cicatriz ya existen y están publicados. Repetir el fine-tuning para tener un mapa consume el plazo en una corrida que puede no terminar, y no agrega un modelo que el equipo pueda mostrar. Usar el checkpoint publicado, y dejar máscara, área e historial, produce una evidencia que se puede abrir en un navegador.
+
+Es pertinente en Ingeniería de Sistemas porque el aporte no es un detector nuevo. Es la arquitectura que une ingesta del raster, inferencia, persistencia, API y mapa. Esas piezas convierten un archivo de pesos en un análisis consultable. Sin ese sistema, el modelo publicado sigue siendo un comando suelto.
+
+Es defendible en este ciclo porque el tutor aceptó desplazar el núcleo desde el laboratorio de comparación hacia los checkpoints publicados, después de que la imagen de entrenamiento no cerró en la máquina de la universidad. La justificación no dice que el fine-tuning sea inútil. Dice que, con el calendario y la infraestructura observados, el resultado verificable es el análisis servido, no una tabla de mIoU que no llegó a existir.
+
+### 3.3 Restricciones y supuestos de diseño
 
 El proyecto está condicionado por las siguientes restricciones y supuestos:
 
@@ -100,7 +116,7 @@ Esas restricciones fijan el contrato que el jurado puede comprobar. La entrada e
 
 El supuesto de carga es el de una sustentación, no el de un servicio. Un operador, un análisis, una máquina con Docker. CPU basta para mostrar el flujo. GPU solo acorta el recorrido de ventanas. Por eso el diseño no incluye cola, login ni base espacial: cada una de esas piezas añadiría un fallo posible sin cambiar el resultado que se enseña.
 
-### 3.3 Alcance actualizado
+### 3.4 Alcance actualizado
 
 Respecto del primer informe, el alcance **cambia de eje**. Allí Tune era un laboratorio que ejecutaba dos estrategias de fine-tuning, registraba GPU-hours y promovía un modelo. Aquí Tune es una aplicación que ejecuta dos checkpoints publicados y muestra el análisis.
 
@@ -171,9 +187,33 @@ Un enunciado verificable, en la forma que pidió la retroalimentación, es:
 
 ---
 
-## 5. Estado del arte / soluciones relacionadas
+## 5. Bibliografía inicial y revisión de la literatura
 
-### 5.1 Prithvi-EO 2.0 y TerraTorch
+### 5.0 Bibliografía inicial
+
+La revisión parte de un corpus corto, el que el proyecto ya tenía comprometido al redefinir el núcleo. No es una lista abierta de todo lo publicado sobre incendios o inundaciones. Son las fuentes sin las cuales no se puede decir qué modelo se usa, sobre qué dataset se especializó y qué práctica de ingeniería rodea al servicio.
+
+| Fuente | Para qué entra al corpus |
+|---|---|
+| Szwarcman et al., 2024, Prithvi-EO 2.0 | Define el foundation model, las seis bandas y el tamaño de 300 M. |
+| Fichas de Hugging Face Sen1Floods11 y Burn Scars | Son los checkpoints que Tune ejecuta, con config y pesos. |
+| Bonafilia et al., 2020, Sen1Floods11 | Procedencia del dataset de inundación. |
+| Phillips et al., 2023, HLS Burn Scars | Procedencia del dataset de cicatriz. |
+| Rojas Sánchez, 2025 | Uso académico reciente de Prithvi en una arquitectura de software, no solo en un notebook. |
+| Nogare y Silveira, 2024; Sculley et al., 2015 | Marco de MLOps y de deuda técnica: por qué el modelo no puede quedar suelto. |
+| Documentación de MLflow | Solo para el laboratorio secundario de fine-tuning. |
+
+La ficha completa de cada fuente está en la sección 16. Esa sección es la bibliografía citada. Esta tabla es la bibliografía inicial: el conjunto con el que se decidió qué leer y qué dejar fuera.
+
+### 5.1 Revisión sistemática de la literatura
+
+La pregunta de la revisión es cuál camino permite, en este plazo, un análisis de inundación o de cicatriz verificable: reentrenar Prithvi, cambiar solo de dataset, usar un clasificador pequeño, o servir el checkpoint ya publicado. La búsqueda no recorrió una base bibliográfica completa. Se limitó a las fuentes de la bibliografía inicial, a las fichas oficiales de los dos modelos en Hugging Face y al planteamiento del primer informe. Eso se declara para no presentar como sistemática una lectura que no contó cientos de artículos.
+
+Criterio de inclusión: la fuente describe el modelo que se va a ejecutar, el dataset del que proviene, o el sistema de software que lo sirve. Criterio de exclusión: plataformas que el equipo no puede operar (SageMaker, Copernicus como servicio), técnicas de fine-tuning que exigen una corrida cerrada que este ciclo no tiene, y tareas que no producen una máscara georreferenciada. Con ese filtro quedan dentro Prithvi-EO 2.0, TerraTorch, Sen1Floods11, HLS Burn Scars, el script oficial de inferencia y el laboratorio MLOps del primer informe, que se conserva como antecedente y no como resultado.
+
+El resultado de la revisión es el posicionamiento de los apartados siguientes. El modelo y el toolkit resuelven la inferencia. Los datasets nombran la procedencia. El script oficial y el GIS no dejan aplicación. El laboratorio v1 reentrena y no mostró un mapa a tiempo. Tune ocupa el hueco que esos antecedentes dejan: checkpoint publicado, más historial y mapa.
+
+### 5.2 Prithvi-EO 2.0 y TerraTorch
 
 Prithvi-EO 2.0 es un foundation model geoespacial de IBM-NASA, con pesos y recetas de fine-tuning públicas. TerraTorch es el toolkit con el que esos recetarios se ejecutan. Resuelven el “cómo adaptar o cómo inferir el modelo”. No resuelven, por sí solos, una aplicación con historial, mapa y Docker listo para una demo académica. Tune los usa como motor de inferencia, no como producto.
 
@@ -181,7 +221,7 @@ El valor de esa pareja para este proyecto es de contrato, no de entrenamiento. C
 
 La limitación también queda nombrada. Prithvi y TerraTorch no saben de usuarios, de historial ni de un mapa web. Si el proyecto se quedara en el repositorio del modelo, el resultado sería un archivo en disco después de un comando. El estado del arte cubre el modelo. Tune cubre el sistema que lo vuelve consultable.
 
-### 5.2 Datasets de desastre
+### 5.3 Datasets de desastre
 
 Sen1Floods11 y HLS Burn Scars son conjuntos de referencia para agua en inundación y para cicatriz de incendio. Permiten entrenar y reportar mIoU. Tune no reporta una nueva cifra de mIoU sobre esos conjuntos en este ciclo: reporta que los modelos **ya evaluados y publicados** por IBM-NASA se pueden consumir en un flujo de ingeniería. El dataset queda como procedencia del checkpoint, que es lo que la retroalimentación pedía nombrar.
 
@@ -189,7 +229,7 @@ Sen1Floods11 reúne eventos de inundación en varios continentes. El checkpoint 
 
 Esa decisión evita confundir “usar el dataset” con “volver a entrenar sobre el dataset”. Un lector del primer informe podría esperar una tabla de mIoU. Este informe declara que la métrica de éxito es otra: una escena válida produce un análisis persistido con el identificador del modelo. La calidad del detector es la que IBM-NASA ya publicó con esos pesos. Lo que se valida aquí es que el sistema respeta el contrato de entrada y entrega la máscara.
 
-### 5.3 Scripts de inferencia, GIS y plataformas cloud
+### 5.4 Scripts de inferencia, GIS y plataformas cloud
 
 El `inference.py` de cada repositorio Hugging Face produce una máscara en disco. Un GIS de escritorio la visualiza. Una plataforma cloud podría servir el modelo con autenticación y cola. El vacío que aborda Tune es el tramo intermedio: un prototipo único que une inferencia oficial, API, persistencia y mapa, sin pretender ser Copernicus Browser ni SageMaker.
 
@@ -197,7 +237,7 @@ El script oficial es la referencia de corrección. Si Tune divergiera en bandas,
 
 Un GIS o una plataforma cloud cubren visualización o escala, y exigen otra instalación, otra cuenta o otro presupuesto. Para un equipo de grado sin dinero de hosting, esas piezas no cierran el entregable. Tune se queda en un cliente web y un servidor que se levantan con Docker en la máquina de la universidad. Esa frontera es deliberada: el producto es demostrable, y no promete un servicio 24/7.
 
-### 5.4 El laboratorio MLOps del primer informe
+### 5.5 El laboratorio MLOps del primer informe
 
 El planteamiento anterior se posicionaba frente a scripts manuales de fine-tuning, trainers, MLflow y SageMaker, con el núcleo en comparar eficiencia. Ese posicionamiento sigue siendo válido **para el componente secundario**. El posicionamiento de este informe es otro: frente a “reentrenar para tener un mapa” y frente a “correr un script una vez”, Tune ofrece un sistema de análisis con modelos publicados.
 
@@ -383,7 +423,7 @@ En A1/A2, un fallo de descarga de imagen Docker o un OOM deja **cero** análisis
 
 ---
 
-## 10. Diseño y arquitectura
+## 10. Arquitectura lógica de la solución
 
 ### 10.1 Descripción general de la arquitectura
 
@@ -545,7 +585,7 @@ Falta una corrida documentada de inferencia real, con tiempos y captura de mapa,
 
 También falta pulir textos de error y estados vacíos en la web. Una escena de Colombia solo entra si el GeoTIFF trae las seis bandas y CRS. PostGIS, cola de trabajos y descarga automática desde Copernicus siguen fuera. El cierre no reabre el par experimental baseline frente a optimizado como requisito.
 
-El orden de esos pendientes es el de la sección 15. Primero una demo con dos escenas de ejemplo y pesos ya en caché. Después las capturas de uso. El pulido de textos y una escena local vienen si esa demo ya está estable. Añadir infraestructura nueva antes de esa evidencia repetiría el riesgo del primer ciclo: más piezas, y todavía ningún mapa que mostrar.
+El orden de esos pendientes es corto. Primero una demo con dos escenas de ejemplo y pesos ya en caché, en la máquina de la universidad (`make app-up-gpu`). De esa sesión salen la latencia, la captura del mapa y el identificador del análisis, que alimentan la sección 13.3. Después, el pulido de textos y una escena local, solo si esa demo ya está estable. No se añade PostGIS ni Copernicus, y no se reabre el par experimental como requisito.
 
 ---
 
@@ -602,24 +642,6 @@ El resultado parcial más importante no es una cifra de mIoU. Es que el sistema 
 El bloqueo de la imagen Docker en el laboratorio confirma el diagnóstico: un prototipo cuyo único entregable visible es una corrida de entrenamiento hereda todos los fallos de red, disco y VRAM. Mover el núcleo a inferencia publicada no anula el trabajo de arquitectura; lo usa. El riesgo que queda es otro: una demo con un GeoTIFF que no tenga las seis bandas o el CRS, o una primera corrida sin red para bajar pesos. Ambos se mitigan con escenas de ejemplo de los repositorios oficiales, cacheadas de antemano.
 
 Frente a los objetivos, los ítems 1–6 están implementados en el repositorio. El 7 (inferencia real documentada) y el 8 (este informe, en avance) son el trabajo de las semanas de cierre.
-
----
-
-## 15. Plan de cierre hacia la entrega final
-
-| Prioridad | Actividad | Riesgo si no se hace |
-|---|---|---|
-| 1 | Demo estable: un GeoTIFF de inundación y uno de cicatriz, pesos ya en caché | No hay resultado que mostrar |
-| 2 | Cerrar validación 13.3 con capturas y latencias | Informe sin evidencia de uso |
-| 3 | Revisar que las figuras 1 a 4 se vean al abrir el markdown | Ya están incrustadas en la sección 10 |
-| 4 | Ordenar el repositorio (docs vs código vs lab secundario) | El catálogo se lee como el proyecto v1 |
-| 5 | Laboratorio de fine-tuning: no tocar salvo que sobre tiempo | Desvía el cierre |
-
-Estrategia: congelar el contrato de API y de artefactos; no añadir PostGIS ni Copernicus; no reabrir el par experimental como requisito. El informe final ampliará resultados de la demo y afinará redacción; no redefinirá de nuevo el problema.
-
-La prioridad 1 se hace en la máquina de la universidad: `make app-up-gpu`, pesos en caché, un GeoTIFF de ejemplo de cada repositorio Hugging Face. De esa sesión salen latencia, captura del mapa y el identificador del análisis guardado. Eso cierra el objetivo 7 y alimenta la sección 13.3.
-
-La prioridad 3 ya está hecha en este documento. Las figuras 1 a 4 están en la sección 10 como diagramas del propio markdown, con la tabla de términos al lado. No dependen de abrir un HTML aparte.
 
 ---
 
