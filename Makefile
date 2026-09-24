@@ -1,6 +1,6 @@
 # App (núcleo). Laboratorio: make -C lab experiment  (atajos lab-* abajo).
 
-.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-logs gpu-down install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
+.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
 
 PYTHON ?= python
 export DOCKER_BUILDKIT ?= 1
@@ -12,6 +12,7 @@ help:
 	@echo "  app-up        — API Prithvi + web  http://localhost:8080 (CPU)"
 	@echo "  app-up-gpu    — igual, con GPU NVIDIA"
 	@echo "  gpu           — GPU vía Docker nativo (si Docker Desktop no ve la NVIDIA)"
+	@echo "  examples      — baja escenas GeoTIFF de ejemplo a examples/"
 	@echo "  app-down / app-logs / web-dev"
 	@echo "  install / test / lint"
 	@echo "LAB (secundario): make -C lab experiment   o   make lab-experiment"
@@ -63,6 +64,20 @@ gpu-logs:
 
 gpu-down:
 	$(GPU_COMPOSE) down
+
+HF := https://huggingface.co/ibm-nasa-geospatial
+EXAMPLES := \
+	Prithvi-EO-2.0-300M-TL-Sen1Floods11/resolve/main/examples/India_900498_S2Hand.tif \
+	Prithvi-EO-2.0-300M-TL-Sen1Floods11/resolve/main/examples/Spain_7370579_S2Hand.tif \
+	Prithvi-EO-2.0-300M-BurnScars/resolve/main/examples/subsetted_512x512_HLS.S30.T10SEH.2018190.v1.4_merged.tif
+
+# Escenas de ejemplo (~11 MB) en examples/ para subirlas desde la web.
+examples:
+	@for f in $(EXAMPLES); do \
+		out="examples/$$(basename $$f)"; \
+		test -s "$$out" || curl -fL --retry 3 -o "$$out" "$(HF)/$$f"; \
+	done
+	@ls -lh examples/*.tif
 
 app-down:
 	docker compose down
