@@ -98,6 +98,8 @@ def test_affine_coeffs_and_bounds_from_floats() -> None:
     assert abs(b.north - 10.5) < 1e-9
     assert abs(b.south - 10.0) < 1e-9
 
+
+def test_patch_torch_mps_adds_is_available(monkeypatch) -> None:
     import types
 
     import tune.infrastructure.inference.prithvi as prithvi
