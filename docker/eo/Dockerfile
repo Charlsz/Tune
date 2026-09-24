@@ -24,10 +24,10 @@ RUN printf '%s\n' \
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-# torch ya viene en la base; pip lo detecta y no lo reinstala.
-# pip más nuevo que 24.2 rompe site.py en esta imagen (traceback.format_exception).
-# editable_mode=compat evita el .pth con importador que dispara ese fallo.
-RUN python -m pip install --upgrade "pip==24.2" \
+# torch ya viene en la base; no reinstalarlo.
+# distutils-precedence.pth (setuptools de conda) hace que site.py muera
+# con "traceback.format_exception" en cuanto se llama a pip.
+RUN rm -f /opt/conda/lib/python3.*/site-packages/distutils-precedence.pth \
  && python -m pip install --config-settings editable_mode=compat -e ".[training,tracking,api]"
 
 VOLUME ["/app/data", "/app/artifacts"]
