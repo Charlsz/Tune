@@ -1,6 +1,6 @@
 # App (núcleo). Laboratorio: make -C lab experiment  (atajos lab-* abajo).
 
-.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
+.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-logs gpu-down install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
 
 PYTHON ?= python
 export DOCKER_BUILDKIT ?= 1
@@ -11,6 +11,7 @@ help:
 	@echo "APP:"
 	@echo "  app-up        — API Prithvi + web  http://localhost:8080 (CPU)"
 	@echo "  app-up-gpu    — igual, con GPU NVIDIA"
+	@echo "  gpu           — GPU vía Docker nativo (si Docker Desktop no ve la NVIDIA)"
 	@echo "  app-down / app-logs / web-dev"
 	@echo "  install / test / lint"
 	@echo "LAB (secundario): make -C lab experiment   o   make lab-experiment"
@@ -40,6 +41,28 @@ app-up-gpu: eo-pull-base
 	@test -f .env || cp .env.example .env
 	docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 	@echo "Web: http://localhost:$${WEB_PORT:-8080}   API: http://localhost:$${API_PORT:-8000}/docs"
+
+# GPU con Docker nativo (contexto default). Docker Desktop en Linux no expone NVIDIA.
+# Reusa las imágenes ya construidas en Docker Desktop para no repetir el pip.
+NATIVE := docker --context default
+GPU_COMPOSE := $(NATIVE) compose -f docker-compose.yml -f docker-compose.gpu.yml
+
+gpu:
+	@test -f .env || cp .env.example .env
+	@$(NATIVE) info --format '{{json .Runtimes}}' 2>/dev/null | grep -q nvidia || { \
+		echo "Docker nativo no responde o no tiene el runtime nvidia."; \
+		echo "Probar: $(NATIVE) info   (permission denied = pedir grupo docker)"; exit 1; }
+	@$(NATIVE) image inspect tune-eo-api >/dev/null 2>&1 || { \
+		echo "==> Copiando imágenes de Docker Desktop al Docker nativo"; \
+		docker --context desktop-linux save tune-eo-api tune-web | $(NATIVE) load; }
+	$(GPU_COMPOSE) up -d
+	@echo "Web: http://localhost:$${WEB_PORT:-8080}   Logs: make gpu-logs   Parar: make gpu-down"
+
+gpu-logs:
+	$(GPU_COMPOSE) logs -f eo-api
+
+gpu-down:
+	$(GPU_COMPOSE) down
 
 app-down:
 	docker compose down
