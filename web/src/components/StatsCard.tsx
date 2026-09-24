@@ -1,88 +1,74 @@
-import { fmt, insights, severity, TASK_META } from "../lib/insights";
+import { affectedKm2, crsLabel, fmt, TASK_META } from "../lib/insights";
 import type { Analysis, TaskInfo } from "../types";
 
 interface Props {
   analysis: Analysis;
   tasks: TaskInfo[];
+  onClose: () => void;
 }
 
-export function StatsCard({ analysis: a, tasks }: Props) {
-  const info = tasks.find((t) => t.id === a.task);
+export function StatsCard({ analysis: a, tasks, onClose }: Props) {
   const meta = TASK_META[a.task];
-  const ins = insights(a);
-  const sev = severity(a.affected_ratio);
-  const positive = info?.classes[1] ?? "Afectado";
+  const positive = tasks.find((t) => t.id === a.task)?.classes[1] ?? meta.name;
+  const area = affectedKm2(a);
 
   return (
-    <section className="panel readout" style={{ "--accent": meta.accent } as React.CSSProperties}>
-      <div className="readout-top">
-        <span className="eyebrow">03 · Resultado</span>
-        <span className="id">#{a.id}</span>
+    <section className="card result" style={{ "--accent": meta.accent } as React.CSSProperties}>
+      <div className="card-head">
+        <span className="tag">
+          <i className="dot" />
+          {meta.name}
+        </span>
+        <span className="muted">{fmt.ago(a.created_at)}</span>
+        <button type="button" className="close" aria-label="Cerrar resultado" onClick={onClose}>
+          ×
+        </button>
       </div>
 
-      <div className="hero">
-        <span className="hero-num">{fmt.pct(a.affected_ratio)}</span>
-        <span className="hero-unit">%</span>
+      <div className="figure">
+        <span className="figure-num num">{fmt.pct(a.affected_ratio)}</span>
+        <span className="figure-unit">%</span>
       </div>
-      <div className="hero-sub">
-        <span>{positive}</span>
-        <span className={`sev sev-${sev.level}`}>{sev.label}</span>
-      </div>
-
-      <div className="sevbar" aria-hidden>
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={i <= sev.level ? "lit" : ""} />
-        ))}
-        <i style={{ left: `${Math.min(a.affected_ratio, 1) * 100}%` }} />
+      <p className="muted">de los píxeles válidos son «{positive}»</p>
+      <div className="ratio" aria-hidden>
+        <i style={{ width: `${Math.min(a.affected_ratio, 1) * 100}%` }} />
       </div>
 
-      <div className="split">
-        <Split
-          label={ins.areaEstimated ? `${positive} · estimada` : positive}
-          km2={ins.affectedAreaKm2}
-          px={a.affected_pixels}
-          accent
-        />
-        <Split
-          label={info?.classes[0] ?? "Sin afectación"}
-          km2={ins.clearAreaKm2}
-          px={a.valid_pixels - a.affected_pixels}
-        />
-      </div>
-
-      <dl className="grid">
-        <Cell k="Cobertura válida" v={`${fmt.pct(ins.coverage, 0)}%`} />
-        <Cell k="Resolución" v={ins.gsdM ? `${ins.gsdM.toFixed(0)} m/px` : "—"} />
-        <Cell k="Extensión" v={ins.extentKm ? `${ins.extentKm.w.toFixed(1)} × ${ins.extentKm.h.toFixed(1)} km` : `${a.width}×${a.height} px`} />
-        <Cell k="Ventanas 512²" v={String(ins.windows)} />
-        <Cell k="Latencia" v={fmt.secs(a.latency_s)} />
-        <Cell k="Rendimiento" v={ins.throughputMpx ? `${ins.throughputMpx.toFixed(2)} Mpx/s` : "—"} />
+      <dl className="rows">
+        <Row k="Área afectada">
+          {area.value == null ? (
+            <span className="muted">Sin CRS</span>
+          ) : (
+            <>
+              {area.estimated && "≈ "}
+              {fmt.km2(area.value)} km²
+            </>
+          )}
+        </Row>
+        <Row k="Píxeles afectados">
+          {fmt.int(a.affected_pixels)} <span className="muted">/ {fmt.int(a.valid_pixels)}</span>
+        </Row>
+        <Row k="Escena">
+          <span className="ellipsis" title={a.input_filename}>
+            {a.input_filename}
+          </span>
+        </Row>
+        <Row k="Tamaño">
+          {a.width} × {a.height} px
+        </Row>
+        <Row k="CRS">{crsLabel(a.crs)}</Row>
+        <Row k="Modelo">
+          <a className="ellipsis" href={`https://huggingface.co/${a.model_id}`} target="_blank" rel="noreferrer">
+            {a.model_id.split("/")[1]}
+          </a>
+        </Row>
+        <Row k="Dataset">{meta.dataset}</Row>
+        <Row k="Latencia">{fmt.secs(a.latency_s)}</Row>
       </dl>
 
-      {(ins.scene.sensor || ins.scene.date || ins.scene.region) && (
-        <dl className="scene">
-          {ins.scene.region && <Row k="Región" v={ins.scene.region} />}
-          {ins.scene.sensor && <Row k="Sensor" v={ins.scene.sensor} />}
-          {ins.scene.tile && <Row k="Tile" v={ins.scene.tile} />}
-          {ins.scene.date && <Row k="Adquisición" v={ins.scene.date} />}
-          {ins.scene.source && <Row k="Origen" v={ins.scene.source} />}
-        </dl>
-      )}
-
-      <dl className="scene">
-        <Row k="CRS" v={ins.crsLabel} />
-        {ins.center && (
-          <Row
-            k="Centro"
-            v={`${fmt.coord(ins.center.lat, "N", "S")}  ${fmt.coord(ins.center.lon, "E", "W")}`}
-          />
-        )}
-        <Row k="Modelo" v={a.model_id.split("/")[1]} mono />
-      </dl>
-
-      <div className="downloads">
-        {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>Máscara GeoTIFF</a>}
-        <a href={a.artifacts.mask_png}>Máscara PNG</a>
+      <div className="chips">
+        {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
+        <a href={a.artifacts.mask_png}>PNG</a>
         {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
         <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
           JSON
@@ -92,33 +78,11 @@ export function StatsCard({ analysis: a, tasks }: Props) {
   );
 }
 
-function Split({ label, km2, px, accent }: { label: string; km2: number | null; px: number; accent?: boolean }) {
-  return (
-    <div className={`split-cell ${accent ? "accent" : ""}`}>
-      <span className="k">{label}</span>
-      <span className="v">
-        {fmt.km2(km2)}
-        <small> km²</small>
-      </span>
-      <span className="k num">{fmt.int(px)} px</span>
-    </div>
-  );
-}
-
-function Cell({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <dt>{k}</dt>
-      <dd className="num">{v}</dd>
-    </div>
-  );
-}
-
-function Row({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
+function Row({ k, children }: { k: string; children: React.ReactNode }) {
   return (
     <div className="row">
       <dt>{k}</dt>
-      <dd className={mono ? "mono" : ""}>{v}</dd>
+      <dd className="num">{children}</dd>
     </div>
   );
 }

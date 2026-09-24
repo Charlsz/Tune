@@ -55,52 +55,30 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar online={online} count={history.length} />
-      <div className="layout">
-        <aside className="rail">
-          <UploadPanel tasks={tasks} busy={busy} phase={phase} firstRun={firstRun} onSubmit={onAnalyze} />
-          {error && (
-            <div className="alert" role="alert">
-              <span className="eyebrow">Error</span>
-              <p>{error}</p>
-            </div>
-          )}
-          {selected && <StatsCard analysis={selected} tasks={tasks} />}
-          <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
-        </aside>
-        <main className="map">
-          <MapView analysis={selected} />
-        </main>
-      </div>
+      <MapView analysis={selected} />
+      <aside className="sheet">
+        <header className="sheet-head">
+          <span className="brand">Tune</span>
+          <span className={`status ${online ? "ok" : online === false ? "down" : ""}`}>
+            {online == null ? "Conectando" : online ? "En línea" : "Sin conexión"}
+          </span>
+          <a className="link" href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
+            API
+          </a>
+        </header>
+
+        <UploadPanel tasks={tasks} busy={busy} phase={phase} firstRun={firstRun} onSubmit={onAnalyze} />
+
+        {error && (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        )}
+
+        {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
+
+        <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
+      </aside>
     </div>
-  );
-}
-
-function TopBar({ online, count }: { online: boolean | null; count: number }) {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const status = online == null ? "Conectando" : online ? "Sistema en línea" : "API sin conexión";
-
-  return (
-    <header className="topbar">
-      <div className="brand">
-        <span className="wordmark">TUNE</span>
-        <span className="tagline">Análisis satelital · Prithvi-EO 2.0</span>
-      </div>
-      <div className="telemetry">
-        <span className={`status ${online ? "ok" : online === false ? "down" : ""}`}>
-          <i />
-          {status}
-        </span>
-        <span className="num">{count} análisis</span>
-        <span className="num">{now.toISOString().slice(11, 19)} UTC</span>
-        <a href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
-          API
-        </a>
-      </div>
-    </header>
   );
 }

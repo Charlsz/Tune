@@ -18,6 +18,7 @@ export function UploadPanel({ tasks, busy, phase, firstRun, onSubmit }: Props) {
   const [task, setTask] = useState<TaskId>("flood");
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const model = tasks.find((t) => t.id === task)?.model_id;
 
   function pick(f: File | undefined) {
     if (f && /\.tiff?$/i.test(f.name)) setFile(f);
@@ -25,37 +26,39 @@ export function UploadPanel({ tasks, busy, phase, firstRun, onSubmit }: Props) {
 
   return (
     <form
-      className="panel"
+      className="block"
       onSubmit={(e) => {
         e.preventDefault();
         if (file) onSubmit(file, task);
       }}
     >
-      <div className="eyebrow">01 · Tarea</div>
-      <div className="segmented" role="radiogroup">
-        {ORDER.map((id) => {
-          const info = tasks.find((t) => t.id === id);
-          const meta = TASK_META[id];
-          return (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={task === id}
-              className={`seg ${task === id ? "on" : ""}`}
-              style={{ "--accent": meta.accent } as React.CSSProperties}
-              disabled={busy}
-              onClick={() => setTask(id)}
-            >
-              <span className="seg-code">{meta.code}</span>
-              <span className="seg-name">{meta.name}</span>
-              <span className="seg-model">{info?.model_id.split("/")[1] ?? "…"}</span>
-            </button>
-          );
-        })}
+      <div className="segmented" role="radiogroup" data-index={ORDER.indexOf(task)}>
+        <span className="segmented-pill" aria-hidden />
+        {ORDER.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={task === id}
+            disabled={busy}
+            onClick={() => setTask(id)}
+          >
+            <i className="dot" style={{ background: TASK_META[id].accent }} />
+            {TASK_META[id].name}
+          </button>
+        ))}
       </div>
+      <p className="caption">
+        {model ? (
+          <a href={`https://huggingface.co/${model}`} target="_blank" rel="noreferrer">
+            {model.split("/")[1]}
+          </a>
+        ) : (
+          "Cargando modelo"
+        )}
+        <span> · {TASK_META[task].dataset}</span>
+      </p>
 
-      <div className="eyebrow">02 · Escena</div>
       <div
         className={`drop ${drag ? "drag" : ""} ${file ? "has" : ""}`}
         onClick={() => !busy && input.current?.click()}
@@ -70,73 +73,42 @@ export function UploadPanel({ tasks, busy, phase, firstRun, onSubmit }: Props) {
           if (!busy) pick(e.dataTransfer.files[0]);
         }}
       >
-        <input
-          ref={input}
-          type="file"
-          accept=".tif,.tiff,image/tiff"
-          hidden
-          onChange={(e) => pick(e.target.files?.[0])}
-        />
-        {file ? (
-          <>
-            <span className="drop-name">{file.name}</span>
-            <span className="drop-meta">{fmt.bytes(file.size)} · GeoTIFF</span>
-          </>
-        ) : (
-          <>
-            <span className="drop-name">Arrastra un GeoTIFF</span>
-            <span className="drop-meta">6 bandas Prithvi o Sentinel-2 L1C · máx. 200 MB</span>
-          </>
-        )}
+        <input ref={input} type="file" accept=".tif,.tiff,image/tiff" hidden onChange={(e) => pick(e.target.files?.[0])} />
+        <span className="drop-title">{file ? file.name : "Suelta un GeoTIFF o haz clic"}</span>
+        <span className="drop-meta">{file ? fmt.bytes(file.size) : "6 bandas Prithvi o Sentinel-2 L1C · hasta 200 MB"}</span>
       </div>
 
-      <button className="cta" type="submit" disabled={!file || busy}>
-        {busy ? "En curso" : "Ejecutar análisis"}
-      </button>
-
-      {busy && <RunStatus phase={phase} firstRun={firstRun} />}
+      {busy ? (
+        <Progress phase={phase} firstRun={firstRun} />
+      ) : (
+        <button className="primary" type="submit" disabled={!file}>
+          Analizar
+        </button>
+      )}
     </form>
   );
 }
 
-function RunStatus({ phase, firstRun }: { phase: AnalyzePhase | null; firstRun: boolean }) {
+function Progress({ phase, firstRun }: { phase: AnalyzePhase | null; firstRun: boolean }) {
   const [t0] = useState(() => Date.now());
   const [now, setNow] = useState(t0);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(id);
   }, []);
-  const elapsed = (now - t0) / 1000;
   const uploading = !phase || phase.phase === "upload";
-  const pct = phase?.phase === "upload" && phase.total ? phase.loaded / phase.total : 1;
+  const pct = phase?.phase === "upload" && phase.total ? phase.loaded / phase.total : 0;
 
   return (
-    <div className="run">
-      <div className="run-head">
-        <span className="pulse" />
-        <span>T+ {elapsed.toFixed(1)} s</span>
+    <div className="progress" aria-live="polite">
+      <div className="progress-row">
+        <span>{uploading ? "Subiendo escena" : firstRun ? "Descargando pesos y analizando" : "Analizando"}</span>
+        <span className="num muted">{uploading ? `${Math.round(pct * 100)}%` : `${((now - t0) / 1000).toFixed(1)} s`}</span>
       </div>
-      <ol className="stages">
-        <li className={uploading ? "active" : "done"}>
-          <span>Subida</span>
-          <span className="num">{Math.round(pct * 100)}%</span>
-        </li>
-        <li className={uploading ? "" : "active"}>
-          <span>{firstRun ? "Pesos + inferencia" : "Inferencia 512×512"}</span>
-          <span className="num">{uploading ? "—" : "GPU/CPU"}</span>
-        </li>
-        <li>
-          <span>Máscara + persistencia</span>
-          <span className="num">—</span>
-        </li>
-      </ol>
-      <div className="bar">
-        <div className="bar-fill" style={{ width: `${uploading ? pct * 33 : 33}%` }} />
-        {!uploading && <div className="bar-scan" />}
+      <div className={`track ${uploading ? "" : "indeterminate"}`}>
+        <i style={uploading ? { width: `${pct * 100}%` } : undefined} />
       </div>
-      {firstRun && !uploading && (
-        <p className="hint">Primera corrida de esta tarea: descarga ~1,2 GB de pesos una sola vez.</p>
-      )}
+      {firstRun && !uploading && <p className="caption">Solo la primera vez: ~1,2 GB desde Hugging Face.</p>}
     </div>
   );
 }
