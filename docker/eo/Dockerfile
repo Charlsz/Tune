@@ -3,8 +3,7 @@
 FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -22,10 +21,18 @@ RUN printf '%s\n' \
       libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Dependencias antes que el código: cambiar src/ no invalida esta capa.
+# El paquete vacío basta para la instalación editable (apunta a /app/src).
+# La caché de pip sobrevive entre builds aunque cambie pyproject.toml.
+# torch/torchvision quedan fijos en los de la base para no bajar otra CUDA (~2 GB).
 COPY pyproject.toml README.md LICENSE ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    mkdir -p src/tune && touch src/tune/__init__.py \
+    && python -c "import torch, torchvision; \
+print(f'torch=={torch.__version__}'); print(f'torchvision=={torchvision.__version__}')" \
+       > /tmp/base-torch.txt \
+    && python -m pip install -c /tmp/base-torch.txt -e ".[training,tracking,api]"
 COPY src ./src
-# torch ya viene en la base; pip lo detecta y no lo reinstala.
-RUN python -m pip install -e ".[training,tracking,api]"
 
 VOLUME ["/app/data", "/app/artifacts"]
 
