@@ -9,6 +9,7 @@ from tune.domain.analysis import HazardTask
 from tune.infrastructure.inference.prithvi import (
     MODEL_CARDS,
     _temporal_coords,
+    prepare_prithvi_input,
     rgb_indices_from_config,
     rgb_preview,
     select_prithvi_bands,
@@ -30,6 +31,26 @@ def test_select_bands_from_sentinel2_l1c_for_flood() -> None:
 def test_select_bands_rejects_wrong_count() -> None:
     with pytest.raises(ValueError, match="6"):
         select_prithvi_bands(np.zeros((4, 2, 2)), MODEL_CARDS[HazardTask.BURN_SCAR])
+
+
+def test_prepare_scales_reflectance_dn_with_spatial_mask() -> None:
+    # Reproduce el fallo de la demo: data (6,H,W) + valid (H,W).
+    data = np.full((6, 8, 8), 2500.0, dtype=np.float64)
+    valid = np.ones((8, 8), dtype=bool)
+    valid[0, 0] = False
+    data[:, 0, 0] = -9999
+    out = prepare_prithvi_input(data, valid)
+    assert out.dtype == np.float32
+    assert out.shape == (6, 8, 8)
+    assert out[0, 0, 0] == 0.0
+    assert abs(float(out[0, 1, 1]) - 0.25) < 1e-5
+
+
+def test_prepare_leaves_already_normalized() -> None:
+    data = np.full((6, 4, 4), 0.3, dtype=np.float32)
+    valid = np.ones((4, 4), dtype=bool)
+    out = prepare_prithvi_input(data, valid)
+    assert abs(float(out.mean()) - 0.3) < 1e-6
 
 
 def test_rgb_indices_from_burn_scars_config() -> None:

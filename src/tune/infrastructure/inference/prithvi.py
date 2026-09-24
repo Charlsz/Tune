@@ -82,9 +82,7 @@ class PrithviSegmenter:
         raster, meta, bounds, crs, pixel_area = read_geotiff(geotiff)
         data = select_prithvi_bands(raster, card)
         valid = np.all(data != NO_DATA, axis=0)
-        data = data.astype("float32")
-        if data[valid].mean() > 1:
-            data = data / 10000.0  # reflectancia 0-1, como el script oficial
+        data = prepare_prithvi_input(data, valid)
 
         # (bands, H, W) -> (1, C, T=1, H, W)
         x = data[:, None, :, :][None, ...]
@@ -210,6 +208,18 @@ def select_prithvi_bands(raster: np.ndarray, card: ModelCard) -> np.ndarray:
     )
 
 
+def prepare_prithvi_input(data: np.ndarray, valid: np.ndarray) -> np.ndarray:
+    """(C,H,W) float32 listo para el modelo: nodata→0 y escala 0-10000 → 0-1.
+
+    ``valid`` es (H,W). Hay que indexar como ``data[:, valid]``, no ``data[valid]``.
+    """
+    out = data.astype("float32", copy=True)
+    out = np.where(valid, out, 0.0)
+    if valid.any() and float(out[:, valid].mean()) > 1:
+        out = out / 10000.0
+    return out
+
+
 def rgb_indices_from_config(cfg: dict[str, Any]) -> tuple[int, int, int]:
     init = cfg.get("data", {}).get("init_args", {})
     if "rgb_indices" in init:
@@ -244,7 +254,9 @@ def sliding_window_predict(x: np.ndarray, model, datamodule, img_size: int, temp
     _, _, _, h, w = x.shape
     pad_h = (img_size - (h % img_size)) % img_size
     pad_w = (img_size - (w % img_size)) % img_size
-    x = np.pad(x, ((0, 0), (0, 0), (0, 0), (0, pad_h), (0, pad_w)), mode="reflect")
+    # reflect exige pad < tamaño del eje; en chips chicos (<256) falla.
+    pad_mode = "reflect" if pad_h < h and pad_w < w else "edge"
+    x = np.pad(x, ((0, 0), (0, 0), (0, 0), (0, pad_h), (0, pad_w)), mode=pad_mode)
 
     batch = torch.tensor(x)
     windows = batch.unfold(3, img_size, img_size).unfold(4, img_size, img_size)
