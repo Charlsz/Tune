@@ -78,7 +78,26 @@ def test_temporal_coords_from_filename() -> None:
     assert _temporal_coords("no-date.tif") is None
 
 
-def test_patch_torch_mps_adds_is_available(monkeypatch) -> None:
+def test_affine_coeffs_and_bounds_from_floats() -> None:
+    from types import SimpleNamespace
+
+    from tune.infrastructure.inference.prithvi import _affine_coeffs, _bounds_wgs84
+
+    # Affine-like: solo atributos a..f (como el que rompe al indexar en affine 3).
+    t = SimpleNamespace(a=0.01, b=0.0, c=-75.5, d=0.0, e=-0.01, f=10.5)
+    assert _affine_coeffs(t) == (0.01, 0.0, -75.5, 0.0, -0.01, 10.5)
+
+    class _Crs:
+        def to_epsg(self):
+            return 4326
+
+    src = SimpleNamespace(transform=t, width=100, height=50, crs=_Crs())
+    b = _bounds_wgs84(src)
+    assert abs(b.west - (-75.5)) < 1e-9
+    assert abs(b.east - (-74.5)) < 1e-9
+    assert abs(b.north - 10.5) < 1e-9
+    assert abs(b.south - 10.0) < 1e-9
+
     import types
 
     import tune.infrastructure.inference.prithvi as prithvi

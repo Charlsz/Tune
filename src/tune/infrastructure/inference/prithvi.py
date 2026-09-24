@@ -153,7 +153,6 @@ def _patch_torch_mps() -> None:
 def read_geotiff(path: Path):
     """(bands, H, W), meta, bounds EPSG:4326 | None, crs | None, área de píxel m² | None."""
     rasterio = _import("rasterio")
-    from rasterio.warp import transform_bounds  # noqa: PLC0415
 
     with rasterio.open(path) as src:
         if src.width * src.height > MAX_PIXELS:
@@ -162,22 +161,62 @@ def read_geotiff(path: Path):
                 f"{MAX_PIXELS:,} píxeles. Recorta la escena antes de analizarla."
             )
         img = src.read()
-        meta = dict(src.meta)
+        meta = _safe_raster_meta(src)
         crs = src.crs.to_string() if src.crs else None
         bounds = None
         pixel_area = None
         if src.crs is not None:
             try:
-                w, s, e, n = transform_bounds(src.crs, "EPSG:4326", *src.bounds, densify_pts=21)
-                bounds = GeoBounds(west=w, south=s, east=e, north=n)
+                bounds = _bounds_wgs84(src)
             except Exception as exc:  # CRS raro / sin transformación
                 log.warning("No se pudo reproyectar bounds: %s", exc)
             pixel_area = _pixel_area_m2(src, bounds)
     return img, meta, bounds, crs, pixel_area
 
 
+def _affine_coeffs(transform) -> tuple[float, float, float, float, float, float]:
+    """Lee a..f sin iterar el Affine (affine 3.x revienta al indexar / _astuple)."""
+    return (
+        float(transform.a),
+        float(transform.b),
+        float(transform.c),
+        float(transform.d),
+        float(transform.e),
+        float(transform.f),
+    )
+
+
+def _safe_raster_meta(src) -> dict[str, Any]:
+    meta = dict(src.meta)
+    if "transform" in meta and meta["transform"] is not None:
+        a, b, c, d, e, f = _affine_coeffs(meta["transform"])
+        rasterio = _import("rasterio")
+        meta["transform"] = rasterio.Affine(a, b, c, d, e, f)
+    return meta
+
+
+def _bounds_wgs84(src) -> GeoBounds:
+    """Caja del raster en EPSG:4326. No usa src.bounds (itera Affine y falla en affine 3)."""
+    a, b, c, d, e, f = _affine_coeffs(src.transform)
+    w, h = float(src.width), float(src.height)
+    xs = (c, c + a * w, c + b * h, c + a * w + b * h)
+    ys = (f, f + d * w, f + e * h, f + d * w + e * h)
+    west, east = min(xs), max(xs)
+    south, north = min(ys), max(ys)
+    epsg = src.crs.to_epsg() if src.crs else None
+    if epsg == 4326:
+        return GeoBounds(west=west, south=south, east=east, north=north)
+    from rasterio.warp import transform_bounds  # noqa: PLC0415
+
+    ww, ss, ee, nn = transform_bounds(
+        src.crs, "EPSG:4326", west, south, east, north, densify_pts=21
+    )
+    return GeoBounds(west=ww, south=ss, east=ee, north=nn)
+
+
 def _pixel_area_m2(src, bounds: GeoBounds | None) -> float | None:
-    xres, yres = abs(src.transform.a), abs(src.transform.e)
+    a, _b, _c, _d, e, _f = _affine_coeffs(src.transform)
+    xres, yres = abs(a), abs(e)
     if src.crs is None:
         return None
     if src.crs.is_projected:
