@@ -25,18 +25,18 @@ RUN printf '%s\n' \
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
 # torch ya viene en la base; no reinstalarlo.
-# Un .pth de conda ejecuta "import ..." al arrancar Python. Si esa linea falla,
-# site.py intenta reportarlo con traceback.format_exception y el proceso muere
-# (el modulo traceback que encuentra no es el de la stdlib). Se borran esos
-# .pth y pip se lanza con python -S, que no carga site.py.
+# Algunos .pth de conda ejecutan "import ..." al arrancar. Si esa linea falla,
+# site.py muere reportando traceback.format_exception. Se borran solo esos
+# .pth (los que agregan rutas, como los de torch, se quedan).
+# PYTHONSAFEPATH y /tmp evitan que /app tape modulos de la stdlib.
 ENV PYTHONSAFEPATH=1
 RUN find /opt/conda -name '*.pth' -print -exec grep -H . {} \; \
  && find /opt/conda -name '*.pth' -print0 \
     | xargs -0 grep -l '^import' \
     | xargs -r rm -fv \
- && PY_SITE="$(echo /opt/conda/lib/python3.*/site-packages)" \
  && cd /tmp \
- && /opt/conda/bin/python -S -c "import sys,runpy; sys.path.insert(0, '${PY_SITE}'); sys.argv=['pip','install','--config-settings','editable_mode=compat','-e','/app[training,tracking,api]']; runpy.run_module('pip', run_name='__main__')"
+ && /opt/conda/bin/python -c "import traceback, types; assert hasattr(traceback, 'format_exception'); assert hasattr(types, 'GenericAlias')" \
+ && /opt/conda/bin/python -m pip install --config-settings editable_mode=compat -e "/app[training,tracking,api]"
 
 VOLUME ["/app/data", "/app/artifacts"]
 
