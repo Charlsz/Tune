@@ -1,4 +1,4 @@
-import type { Analysis, TaskId, TaskInfo } from "./types";
+import type { Analysis, ExampleScene, TaskId, TaskInfo } from "./types";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -18,11 +18,23 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export type AnalyzePhase = { phase: "upload"; loaded: number; total: number } | { phase: "infer" };
+export type AnalyzePhase =
+  | { phase: "upload"; loaded: number; total: number }
+  | { phase: "fetch" }
+  | { phase: "infer" };
 
 export const api = {
   tasks: () => fetch("/api/tasks").then(json<TaskInfo[]>),
   analyses: (limit = 30) => fetch(`/api/analyses?limit=${limit}`).then(json<Analysis[]>),
+  examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
+
+  analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
+    onPhase({ phase: "fetch" });
+    return fetch(`/api/examples/${id}/analyze`, { method: "POST" }).then((res) => {
+      onPhase({ phase: "infer" });
+      return json<Analysis>(res);
+    });
+  },
 
   // XHR en vez de fetch: es la única forma de obtener progreso real de subida.
   analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {

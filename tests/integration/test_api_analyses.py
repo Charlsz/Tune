@@ -117,3 +117,34 @@ def test_analyze_maps_segmenter_errors(tmp_path: Path, exc, status):
 def test_missing_analysis_404(client):
     assert client.get("/api/analyses/nope").status_code == 404
     assert client.get("/api/analyses/nope/mask_png").status_code == 404
+
+
+def test_examples_lists_official_scenes(client):
+    r = client.get("/api/examples")
+    assert r.status_code == 200
+    body = r.json()
+    assert {s["id"] for s in body} == {"india", "spain", "usa", "t10seh", "t10sff", "t10sgf"}
+    assert {s["task"] for s in body} == {"flood", "burn_scar"}
+
+
+def test_analyze_unknown_example_404(client):
+    assert client.post("/api/examples/nope/analyze").status_code == 404
+
+
+def test_analyze_example_uses_cached_file(client, tmp_path, monkeypatch):
+    dest = tmp_path / "India_900498_S2Hand.tif"
+    dest.write_bytes(b"fake-tif")
+
+    def fake_fetch(scene, dest_dir):
+        assert scene.id == "india"
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        out = dest_dir / scene.filename
+        out.write_bytes(b"fake-tif")
+        return out
+
+    monkeypatch.setattr(analyses_api, "fetch", fake_fetch)
+    monkeypatch.setattr(analyses_api, "get_settings", lambda: type("S", (), {"tune_artifacts_dir": tmp_path})())
+    r = client.post("/api/examples/india/analyze")
+    assert r.status_code == 201, r.text
+    assert r.json()["input_filename"] == "India_900498_S2Hand.tif"
+    assert r.json()["task"] == "flood"

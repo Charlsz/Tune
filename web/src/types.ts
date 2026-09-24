@@ -9,6 +9,14 @@ export interface TaskInfo {
   classes: string[];
 }
 
+export interface ExampleScene {
+  id: string;
+  task: TaskId;
+  label: string;
+  filename: string;
+  size_bytes: number;
+}
+
 export interface Bounds {
   west: number;
   south: number;

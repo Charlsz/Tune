@@ -78,7 +78,10 @@ HF := https://huggingface.co/ibm-nasa-geospatial
 EXAMPLES := \
 	Prithvi-EO-2.0-300M-TL-Sen1Floods11/resolve/main/examples/India_900498_S2Hand.tif \
 	Prithvi-EO-2.0-300M-TL-Sen1Floods11/resolve/main/examples/Spain_7370579_S2Hand.tif \
-	Prithvi-EO-2.0-300M-BurnScars/resolve/main/examples/subsetted_512x512_HLS.S30.T10SEH.2018190.v1.4_merged.tif
+	Prithvi-EO-2.0-300M-TL-Sen1Floods11/resolve/main/examples/USA_430764_S2Hand.tif \
+	Prithvi-EO-2.0-300M-BurnScars/resolve/main/examples/subsetted_512x512_HLS.S30.T10SEH.2018190.v1.4_merged.tif \
+	Prithvi-EO-2.0-300M-BurnScars/resolve/main/examples/subsetted_512x512_HLS.S30.T10SFF.2018190.v1.4_merged.tif \
+	Prithvi-EO-2.0-300M-BurnScars/resolve/main/examples/subsetted_512x512_HLS.S30.T10SGF.2020217.v1.4_merged.tif
 
 # Escenas de ejemplo (~11 MB) en examples/ para subirlas desde la web.
 examples:

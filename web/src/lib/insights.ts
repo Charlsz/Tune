@@ -1,8 +1,8 @@
 import type { Analysis, TaskId } from "../types";
 
-export const TASK_META: Record<TaskId, { name: string; dataset: string; accent: string }> = {
-  flood: { name: "Inundación", dataset: "Sen1Floods11", accent: "var(--flood)" },
-  burn_scar: { name: "Cicatriz de incendio", dataset: "HLS Burn Scars", accent: "var(--burn)" },
+export const TASK_META: Record<TaskId, { name: string; dataset: string }> = {
+  flood: { name: "Inundación", dataset: "Sen1Floods11" },
+  burn_scar: { name: "Cicatriz de incendio", dataset: "HLS Burn Scars" },
 };
 
 // Sin área de la API (raster sin tamaño de píxel métrico) se aproxima con la caja WGS84.
@@ -23,10 +23,18 @@ export function crsLabel(crs: string | null): string {
   return crs.match(/^\w+\["([^"]+)"/)?.[1] ?? crs.slice(0, 24);
 }
 
+export function osmUrl(a: Analysis): string | null {
+  if (!a.bounds) return null;
+  const lat = (a.bounds.north + a.bounds.south) / 2;
+  const lon = (a.bounds.east + a.bounds.west) / 2;
+  return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=11/${lat}/${lon}`;
+}
+
 export const fmt = {
   pct: (r: number, digits = 1) => (r * 100).toFixed(digits),
   int: (n: number) => n.toLocaleString("es-CO"),
   km2: (n: number) => (n >= 100 ? n.toFixed(0) : n >= 10 ? n.toFixed(1) : n.toFixed(2)),
+  coord: (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(4)}° ${v >= 0 ? pos : neg}`,
   secs(s: number) {
     if (s < 60) return `${s.toFixed(1)} s`;
     const m = Math.floor(s / 60);

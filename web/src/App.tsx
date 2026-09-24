@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
-import { MapView } from "./components/MapView";
+import { SceneStage } from "./components/SceneStage";
 import { StatsCard } from "./components/StatsCard";
 import { UploadPanel } from "./components/UploadPanel";
 import type { Analysis, TaskId, TaskInfo } from "./types";
@@ -34,13 +34,13 @@ export function App() {
     refresh();
   }, [refresh]);
 
-  async function onAnalyze(file: File, task: TaskId) {
+  async function run(task: TaskId, work: (onPhase: (p: AnalyzePhase) => void) => Promise<Analysis>) {
     setBusy(true);
     setError(null);
     setPhase(null);
     setRunTask(task);
     try {
-      const a = await api.analyze(file, task, setPhase);
+      const a = await work(setPhase);
       setSelected(a);
       refresh();
     } catch (e) {
@@ -51,34 +51,49 @@ export function App() {
     }
   }
 
+  function onAnalyze(file: File, task: TaskId) {
+    return run(task, (onPhase) => api.analyze(file, task, onPhase));
+  }
+
+  function onExample(id: string, task: TaskId) {
+    return run(task, (onPhase) => api.analyzeExample(id, onPhase));
+  }
+
   const firstRun = runTask != null && !history.some((a) => a.task === runTask);
 
   return (
     <div className="app">
-      <MapView analysis={selected} />
-      <aside className="sheet">
-        <header className="sheet-head">
-          <span className="brand">Tune</span>
-          <span className={`status ${online ? "ok" : online === false ? "down" : ""}`}>
-            {online == null ? "Conectando" : online ? "En línea" : "Sin conexión"}
-          </span>
-          <a className="link" href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
-            API
-          </a>
-        </header>
+      <header className="top">
+        <span className="brand">Tune</span>
+        <span className="muted">Análisis satelital con Prithvi-EO 2.0</span>
+        <span className={`status ${online ? "ok" : ""}`}>
+          {online == null ? "Conectando" : online ? "API en línea" : "API sin conexión"}
+        </span>
+        <a href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
+          Documentación
+        </a>
+      </header>
 
-        <UploadPanel tasks={tasks} busy={busy} phase={phase} firstRun={firstRun} onSubmit={onAnalyze} />
-
-        {error && (
-          <p className="alert" role="alert">
-            {error}
-          </p>
-        )}
-
-        {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
-
-        <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
-      </aside>
+      <div className="body">
+        <aside className="side">
+          <UploadPanel
+            tasks={tasks}
+            busy={busy}
+            phase={phase}
+            firstRun={firstRun}
+            onSubmit={onAnalyze}
+            onExample={onExample}
+          />
+          {error && (
+            <p className="alert" role="alert">
+              {error}
+            </p>
+          )}
+          {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
+          <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
+        </aside>
+        <SceneStage analysis={selected} tasks={tasks} busy={busy} />
+      </div>
     </div>
   );
 }

@@ -14,8 +14,10 @@ from fastapi.responses import FileResponse
 from tune.application.analyze import AnalyzeUseCase
 from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
+from tune.infrastructure.config import get_settings
+from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
 from tune.infrastructure.inference.prithvi import MODEL_CARDS
-from tune.interfaces.api.schemas import AnalysisResponse, TaskInfo
+from tune.interfaces.api.schemas import AnalysisResponse, ExampleInfo, TaskInfo
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -56,6 +58,42 @@ def tasks() -> list[TaskInfo]:
     ]
 
 
+@router.get("/examples", response_model=list[ExampleInfo])
+def examples() -> list[ExampleInfo]:
+    return [
+        ExampleInfo(
+            id=s.id,
+            task=s.task,
+            label=s.label,
+            filename=s.filename,
+            size_bytes=s.size_bytes,
+        )
+        for s in CATALOG
+    ]
+
+
+@router.post("/examples/{example_id}/analyze", response_model=AnalysisResponse, status_code=201)
+async def analyze_example(
+    example_id: str,
+    use_case: AnalyzeUseCase = Depends(get_use_case),
+) -> AnalysisResponse:
+    try:
+        scene = by_id(example_id)
+    except KeyError as exc:
+        raise HTTPException(404, f"Escena de ejemplo desconocida: {example_id}") from exc
+    dest_dir = get_settings().tune_artifacts_dir / "examples"
+    try:
+        path = await run_in_threadpool(fetch, scene, dest_dir)
+        analysis = await run_in_threadpool(
+            use_case.execute, path, HazardTask(scene.task), filename=scene.filename
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _http_for(exc) from exc
+    return AnalysisResponse.from_domain(analysis)
+
+
 @router.post("/analyze", response_model=AnalysisResponse, status_code=201)
 async def analyze(
     file: UploadFile = File(...),
@@ -76,21 +114,24 @@ async def analyze(
                 fh.write(chunk)
         try:
             analysis = await run_in_threadpool(use_case.execute, dest, task, filename=file.filename)
-        except ImportError as exc:
-            raise HTTPException(503, str(exc)) from exc
-        except OSError as exc:
-            # rasterio.errors.RasterioIOError hereda de OSError: GeoTIFF ilegible.
-            raise HTTPException(422, f"GeoTIFF no válido: {exc}") from exc
-        except ValueError as exc:
-            # Bandas / tamaño / validación de dominio.
-            raise HTTPException(422, str(exc)) from exc
-        except MemoryError as exc:
-            raise HTTPException(413, "Imagen demasiado grande para la memoria disponible") from exc
         except Exception as exc:
-            # Fallos de TerraTorch/Lightning (mps, CUDA, checkpoint) → 503.
-            log.exception("Fallo de inferencia")
-            raise HTTPException(503, f"Fallo del modelo: {exc}") from exc
+            raise _http_for(exc) from exc
     return AnalysisResponse.from_domain(analysis)
+
+
+def _http_for(exc: Exception) -> HTTPException:
+    if isinstance(exc, ImportError):
+        return HTTPException(503, str(exc))
+    if isinstance(exc, ExampleDownloadError):
+        return HTTPException(503, str(exc))
+    if isinstance(exc, OSError):
+        return HTTPException(422, f"GeoTIFF no válido: {exc}")
+    if isinstance(exc, ValueError):
+        return HTTPException(422, str(exc))
+    if isinstance(exc, MemoryError):
+        return HTTPException(413, "Imagen demasiado grande para la memoria disponible")
+    log.exception("Fallo de inferencia")
+    return HTTPException(503, f"Fallo del modelo: {exc}")
 
 
 @router.get("/analyses", response_model=list[AnalysisResponse])

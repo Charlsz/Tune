@@ -1,4 +1,4 @@
-import { affectedKm2, crsLabel, fmt, TASK_META } from "../lib/insights";
+import { affectedKm2, crsLabel, fmt, osmUrl, TASK_META } from "../lib/insights";
 import type { Analysis, TaskInfo } from "../types";
 
 interface Props {
@@ -11,28 +11,22 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
   const meta = TASK_META[a.task];
   const positive = tasks.find((t) => t.id === a.task)?.classes[1] ?? meta.name;
   const area = affectedKm2(a);
+  const map = osmUrl(a);
 
   return (
-    <section className="card result" style={{ "--accent": meta.accent } as React.CSSProperties}>
-      <div className="card-head">
-        <span className="tag">
-          <i className="dot" />
-          {meta.name}
-        </span>
-        <span className="muted">{fmt.ago(a.created_at)}</span>
+    <section className="section result">
+      <div className="result-head">
+        <h2>{meta.name}</h2>
         <button type="button" className="close" aria-label="Cerrar resultado" onClick={onClose}>
-          ×
+          Cerrar
         </button>
       </div>
 
-      <div className="figure">
-        <span className="figure-num num">{fmt.pct(a.affected_ratio)}</span>
-        <span className="figure-unit">%</span>
+      <div className="figure num">
+        {fmt.pct(a.affected_ratio)}
+        <span>%</span>
       </div>
-      <p className="muted">de los píxeles válidos son «{positive}»</p>
-      <div className="ratio" aria-hidden>
-        <i style={{ width: `${Math.min(a.affected_ratio, 1) * 100}%` }} />
-      </div>
+      <p className="caption">de los píxeles válidos son «{positive}»</p>
 
       <dl className="rows">
         <Row k="Área afectada">
@@ -46,34 +40,38 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
           )}
         </Row>
         <Row k="Píxeles afectados">
-          {fmt.int(a.affected_pixels)} <span className="muted">/ {fmt.int(a.valid_pixels)}</span>
-        </Row>
-        <Row k="Escena">
-          <span className="ellipsis" title={a.input_filename}>
-            {a.input_filename}
-          </span>
+          {fmt.int(a.affected_pixels)} <span className="muted">de {fmt.int(a.valid_pixels)}</span>
         </Row>
         <Row k="Tamaño">
           {a.width} × {a.height} px
         </Row>
         <Row k="CRS">{crsLabel(a.crs)}</Row>
+        {map && (
+          <Row k="Ubicación">
+            <a href={map} target="_blank" rel="noreferrer">
+              OpenStreetMap
+            </a>
+          </Row>
+        )}
         <Row k="Modelo">
-          <a className="ellipsis" href={`https://huggingface.co/${a.model_id}`} target="_blank" rel="noreferrer">
+          <a className="ellipsis" href={`https://huggingface.co/${a.model_id}`} target="_blank" rel="noreferrer" title={a.model_id}>
             {a.model_id.split("/")[1]}
           </a>
         </Row>
         <Row k="Dataset">{meta.dataset}</Row>
         <Row k="Latencia">{fmt.secs(a.latency_s)}</Row>
+        <Row k="Fecha">{fmt.ago(a.created_at)}</Row>
       </dl>
 
-      <div className="chips">
+      <p className="downloads">
+        <span className="muted">Descargar</span>
         {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
         <a href={a.artifacts.mask_png}>PNG</a>
         {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
         <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
           JSON
         </a>
-      </div>
+      </p>
     </section>
   );
 }

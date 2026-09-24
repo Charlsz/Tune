@@ -35,6 +35,14 @@ class TaskInfo(BaseModel):
     classes: list[str]
 
 
+class ExampleInfo(BaseModel):
+    id: str
+    task: str
+    label: str
+    filename: str
+    size_bytes: int
+
+
 class BoundsSchema(BaseModel):
     west: float
     south: float
