@@ -92,9 +92,11 @@ class _RaisingSegmenter:
     ("exc", "status"),
     [
         (OSError("not a TIFF"), 422),
+        (ValueError("bandas incorrectas"), 422),
         (MemoryError(), 413),
         (RuntimeError("CUDA out of memory"), 503),
         (ImportError("no torch"), 503),
+        (TypeError("Does not validate"), 503),
     ],
 )
 def test_analyze_maps_segmenter_errors(tmp_path: Path, exc, status):

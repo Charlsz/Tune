@@ -78,13 +78,16 @@ async def analyze(
             analysis = await run_in_threadpool(use_case.execute, dest, task, filename=file.filename)
         except ImportError as exc:
             raise HTTPException(503, str(exc)) from exc
-        except (ValueError, OSError) as exc:
+        except OSError as exc:
             # rasterio.errors.RasterioIOError hereda de OSError: GeoTIFF ilegible.
             raise HTTPException(422, f"GeoTIFF no válido: {exc}") from exc
+        except ValueError as exc:
+            # Bandas / tamaño / validación de dominio.
+            raise HTTPException(422, str(exc)) from exc
         except MemoryError as exc:
             raise HTTPException(413, "Imagen demasiado grande para la memoria disponible") from exc
-        except RuntimeError as exc:
-            # torch.cuda.OutOfMemoryError y fallos de TerraTorch son RuntimeError.
+        except Exception as exc:
+            # Fallos de TerraTorch/Lightning (mps, CUDA, checkpoint) → 503.
             log.exception("Fallo de inferencia")
             raise HTTPException(503, f"Fallo del modelo: {exc}") from exc
     return AnalysisResponse.from_domain(analysis)

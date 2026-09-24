@@ -118,6 +118,7 @@ class PrithviSegmenter:
             return self._load(task)
 
     def _load(self, task: HazardTask):
+        _patch_torch_mps()
         yaml = _import("yaml")
         hub = _import("huggingface_hub")
         cli_tools = _import("terratorch.cli_tools")
@@ -125,13 +126,27 @@ class PrithviSegmenter:
         log.info("Descargando %s (config + pesos, cache HF)", card.repo_id)
         cfg_path = hub.hf_hub_download(card.repo_id, card.config_file)
         ckpt_path = hub.hf_hub_download(card.repo_id, card.checkpoint_file)
-        model = cli_tools.LightningInferenceModel.from_config(cfg_path, ckpt_path)
+        try:
+            model = cli_tools.LightningInferenceModel.from_config(cfg_path, ckpt_path)
+        except Exception as exc:
+            # jsonargparse/Lightning a veces envuelven el fallo de mps/CUDA como TypeError.
+            raise RuntimeError(f"No se pudo cargar el checkpoint Prithvi: {exc}") from exc
         model.model.eval()
         if self._device:
             model.model.to(self._device)
         self._models[task] = model
         self._configs[task] = yaml.safe_load(Path(cfg_path).read_text(encoding="utf-8"))
         return model
+
+
+def _patch_torch_mps() -> None:
+    """La imagen CUDA de torch 2.4 trae torch.mps sin is_available; Lightning lo pide."""
+    torch = _import("torch")
+    mps = getattr(torch, "mps", None)
+    if mps is None:
+        return
+    if not hasattr(mps, "is_available"):
+        mps.is_available = lambda: False  # type: ignore[attr-defined]
 
 
 # --- raster helpers -------------------------------------------------------------

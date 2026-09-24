@@ -55,3 +55,14 @@ def test_rgb_preview_shape_and_range() -> None:
 def test_temporal_coords_from_filename() -> None:
     assert _temporal_coords("S2_20200315T101031.tif") == [[2020, 75]]
     assert _temporal_coords("no-date.tif") is None
+
+
+def test_patch_torch_mps_adds_is_available(monkeypatch) -> None:
+    import types
+
+    import tune.infrastructure.inference.prithvi as prithvi
+
+    fake_torch = types.SimpleNamespace(mps=types.SimpleNamespace())
+    monkeypatch.setattr(prithvi, "_import", lambda name: fake_torch if name == "torch" else None)
+    prithvi._patch_torch_mps()
+    assert fake_torch.mps.is_available() is False
