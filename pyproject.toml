@@ -43,7 +43,9 @@ training = [
   "torchvision>=0.17",
   "lightning>=2.2",
   "peft>=0.10",
-  "transformers>=4.40",
+  # transformers 5.x falla al importar con torch 2.4: NameError nn no definido
+  # en integrations/accelerate.py (HuggingFace #43784).
+  "transformers>=4.40,<5",
   "numpy>=2.2",
   "psutil>=5.9",
   "huggingface_hub>=0.23",

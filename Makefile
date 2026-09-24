@@ -1,6 +1,6 @@
 # App (núcleo). Laboratorio: make -C lab experiment  (atajos lab-* abajo).
 
-.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
+.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-rebuild gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight
 
 PYTHON ?= python
 export DOCKER_BUILDKIT ?= 1
@@ -12,6 +12,7 @@ help:
 	@echo "  app-up        — API Prithvi + web  http://localhost:8080 (CPU)"
 	@echo "  app-up-gpu    — igual, con GPU NVIDIA"
 	@echo "  gpu           — GPU vía Docker nativo (si Docker Desktop no ve la NVIDIA)"
+	@echo "  gpu-rebuild   — reconstruye eo-api y la reinicia en GPU"
 	@echo "  examples      — baja escenas GeoTIFF de ejemplo a examples/"
 	@echo "  app-down / app-logs / web-dev"
 	@echo "  install / test / lint"
@@ -58,6 +59,14 @@ gpu:
 		docker --context desktop-linux save tune-eo-api tune-web | $(NATIVE) load; }
 	$(GPU_COMPOSE) up -d
 	@echo "Web: http://localhost:$${WEB_PORT:-8080}   Logs: make gpu-logs   Parar: make gpu-down"
+
+# Reconstruye en Docker Desktop (ahí está la caché de pip) y la pasa al Docker nativo.
+gpu-rebuild:
+	@test -f .env || cp .env.example .env
+	docker --context desktop-linux compose build eo-api
+	docker --context desktop-linux save tune-eo-api | $(NATIVE) load
+	$(GPU_COMPOSE) up -d --force-recreate eo-api
+	@echo "Listo. Logs: make gpu-logs"
 
 gpu-logs:
 	$(GPU_COMPOSE) logs -f eo-api
