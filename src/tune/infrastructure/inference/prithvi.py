@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +25,9 @@ log = logging.getLogger(__name__)
 NO_DATA = -9999
 NO_DATA_FLOAT = 0.0001
 PRITHVI_BANDS = 6
+# ~8000x8000. Por encima, el raster en float32 más las ventanas de 512 pasa de
+# varios GB y el contenedor muere por OOM en lugar de responder.
+MAX_PIXELS = 64_000_000
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,9 @@ class PrithviSegmenter:
         self._device = device
         self._models: dict[HazardTask, Any] = {}
         self._configs: dict[HazardTask, dict[str, Any]] = {}
+        # La API corre segment() en un threadpool: dos requests simultáneos no
+        # deben descargar ni cargar el mismo checkpoint dos veces.
+        self._load_lock = threading.Lock()
 
     def segment(self, geotiff: Path, task: HazardTask) -> SegmentationOutput:
         torch = _import("torch")
@@ -105,6 +112,12 @@ class PrithviSegmenter:
     def _model(self, task: HazardTask):
         if task in self._models:
             return self._models[task]
+        with self._load_lock:
+            if task in self._models:
+                return self._models[task]
+            return self._load(task)
+
+    def _load(self, task: HazardTask):
         yaml = _import("yaml")
         hub = _import("huggingface_hub")
         cli_tools = _import("terratorch.cli_tools")
@@ -130,6 +143,11 @@ def read_geotiff(path: Path):
     from rasterio.warp import transform_bounds  # noqa: PLC0415
 
     with rasterio.open(path) as src:
+        if src.width * src.height > MAX_PIXELS:
+            raise ValueError(
+                f"Raster de {src.width}x{src.height} píxeles; el máximo es "
+                f"{MAX_PIXELS:,} píxeles. Recorta la escena antes de analizarla."
+            )
         img = src.read()
         meta = dict(src.meta)
         crs = src.crs.to_string() if src.crs else None

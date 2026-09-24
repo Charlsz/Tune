@@ -70,6 +70,48 @@ def test_analyze_rejects_unknown_task(client):
     assert r.status_code == 422
 
 
+def test_analyze_rejects_oversized_upload(client, monkeypatch):
+    monkeypatch.setattr(analyses_api, "_MAX_UPLOAD_BYTES", 10)
+    r = client.post(
+        "/api/analyze",
+        data={"task": "flood"},
+        files={"file": ("a.tif", b"x" * 11, "image/tiff")},
+    )
+    assert r.status_code == 413
+
+
+class _RaisingSegmenter:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    def segment(self, geotiff, task):
+        raise self.exc
+
+
+@pytest.mark.parametrize(
+    ("exc", "status"),
+    [
+        (OSError("not a TIFF"), 422),
+        (MemoryError(), 413),
+        (RuntimeError("CUDA out of memory"), 503),
+        (ImportError("no torch"), 503),
+    ],
+)
+def test_analyze_maps_segmenter_errors(tmp_path: Path, exc, status):
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    use_case = AnalyzeUseCase(_RaisingSegmenter(exc), repo)
+    app.dependency_overrides[analyses_api.get_use_case] = lambda: use_case
+    try:
+        r = TestClient(app).post(
+            "/api/analyze",
+            data={"task": "flood"},
+            files={"file": ("a.tif", b"x", "image/tiff")},
+        )
+    finally:
+        app.dependency_overrides.clear()
+    assert r.status_code == status, r.text
+
+
 def test_missing_analysis_404(client):
     assert client.get("/api/analyses/nope").status_code == 404
     assert client.get("/api/analyses/nope/mask_png").status_code == 404

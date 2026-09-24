@@ -24,19 +24,8 @@ RUN printf '%s\n' \
 
 COPY pyproject.toml README.md LICENSE ./
 COPY src ./src
-# torch ya viene en la base; no reinstalarlo.
-# Algunos .pth de conda ejecutan "import ..." al arrancar. Si esa linea falla,
-# site.py muere reportando traceback.format_exception. Se borran solo esos
-# .pth (los que agregan rutas, como los de torch, se quedan).
-# PYTHONSAFEPATH y /tmp evitan que /app tape modulos de la stdlib.
-ENV PYTHONSAFEPATH=1
-RUN find /opt/conda -name '*.pth' -print -exec grep -H . {} \; \
- && find /opt/conda -name '*.pth' -print0 \
-    | xargs -0 grep -l '^import' \
-    | xargs -r rm -fv \
- && cd /tmp \
- && /opt/conda/bin/python -c "import traceback, types; assert hasattr(traceback, 'format_exception'); assert hasattr(types, 'GenericAlias')" \
- && /opt/conda/bin/python -m pip install --config-settings editable_mode=compat -e "/app[training,tracking,api]"
+# torch ya viene en la base; pip lo detecta y no lo reinstala.
+RUN python -m pip install -e ".[training,tracking,api]"
 
 VOLUME ["/app/data", "/app/artifacts"]
 

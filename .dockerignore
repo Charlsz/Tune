@@ -22,7 +22,7 @@ outputs
 logs
 notebooks
 docs
-demo
+web
 *.ckpt
 *.pt
 *.pth

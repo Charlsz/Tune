@@ -188,7 +188,7 @@ def _assert_burn_scars_layout(data_root: Path) -> None:
         if n_img == 0 or n_mask == 0:
             raise FileNotFoundError(
                 f"{data_dir} no tiene pares imagen/mascara (merged={n_img}, mask={n_mask}). "
-                "Borra data/hls_burn_scars/1.0 y vuelve a correr make lab-data."
+                f"Borra {data_dir} y vuelve a correr make lab-data."
             )
         return
     raise FileNotFoundError(

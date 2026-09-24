@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import shutil
+import logging
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from tune.application.analyze import AnalyzeUseCase
@@ -17,19 +19,28 @@ from tune.interfaces.api.schemas import AnalysisResponse, TaskInfo
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
+log = logging.getLogger(__name__)
+
 _MAX_UPLOAD_MB = 200
+_MAX_UPLOAD_BYTES = _MAX_UPLOAD_MB * 1024 * 1024
+_CHUNK = 1024 * 1024
+
+
+@lru_cache
+def _container():
+    # Un solo Container por proceso: el segmentador guarda los modelos (~1.2 GB)
+    # y recargarlos en cada request costaría minutos.
+    from tune.infrastructure.container import Container  # noqa: PLC0415
+
+    return Container()
 
 
 def get_use_case() -> AnalyzeUseCase:
-    from tune.infrastructure.container import Container  # noqa: PLC0415
-
-    return Container().analyze
+    return _container().analyze
 
 
 def get_repository() -> AnalysisRepository:
-    from tune.infrastructure.container import Container  # noqa: PLC0415
-
-    return Container().analyses
+    return _container().analyses
 
 
 @router.get("/tasks", response_model=list[TaskInfo])
@@ -56,16 +67,26 @@ async def analyze(
 
     with tempfile.TemporaryDirectory() as tmp:
         dest = Path(tmp) / Path(file.filename).name
+        written = 0
         with dest.open("wb") as fh:
-            shutil.copyfileobj(file.file, fh, length=1024 * 1024)
-        if dest.stat().st_size > _MAX_UPLOAD_MB * 1024 * 1024:
-            raise HTTPException(413, f"Archivo mayor a {_MAX_UPLOAD_MB} MB")
+            while chunk := await file.read(_CHUNK):
+                written += len(chunk)
+                if written > _MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"Archivo mayor a {_MAX_UPLOAD_MB} MB")
+                fh.write(chunk)
         try:
-            analysis = use_case.execute(dest, task, filename=file.filename)
+            analysis = await run_in_threadpool(use_case.execute, dest, task, filename=file.filename)
         except ImportError as exc:
             raise HTTPException(503, str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
+        except (ValueError, OSError) as exc:
+            # rasterio.errors.RasterioIOError hereda de OSError: GeoTIFF ilegible.
+            raise HTTPException(422, f"GeoTIFF no válido: {exc}") from exc
+        except MemoryError as exc:
+            raise HTTPException(413, "Imagen demasiado grande para la memoria disponible") from exc
+        except RuntimeError as exc:
+            # torch.cuda.OutOfMemoryError y fallos de TerraTorch son RuntimeError.
+            log.exception("Fallo de inferencia")
+            raise HTTPException(503, f"Fallo del modelo: {exc}") from exc
     return AnalysisResponse.from_domain(analysis)
 
 

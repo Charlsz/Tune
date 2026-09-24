@@ -15,10 +15,21 @@ help:
 	@echo "  install / test / lint"
 	@echo "LAB (secundario): make -C lab experiment   o   make lab-experiment"
 
+EO_BASE := pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+# Un pull cortado deja la stdlib de la base truncada y pip muere con errores de
+# traceback/types. Si pasa, se borra la imagen y se baja de nuevo una vez.
+EO_BASE_OK := docker run --rm $(EO_BASE) python -I -S -c \
+	"import traceback, types; traceback.format_exception; types.GenericAlias"
+
 eo-pull-base:
-	@echo "==> docker pull pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime"
+	@echo "==> docker pull $(EO_BASE)"
 	@echo "    Si en 20 minutos no baja el %, Ctrl+C (red)."
-	docker pull pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
+	docker pull $(EO_BASE)
+	@$(EO_BASE_OK) >/dev/null 2>&1 || { \
+		echo "==> Imagen base dañada; se borra y se vuelve a bajar"; \
+		docker rmi -f $(EO_BASE) && docker builder prune -af && docker pull $(EO_BASE) && \
+		$(EO_BASE_OK); \
+	}
 
 app-up: eo-pull-base
 	@test -f .env || cp .env.example .env

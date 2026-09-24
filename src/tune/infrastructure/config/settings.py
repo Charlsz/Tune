@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     tune_configs_dir: Path = Path("./lab/configs")
     tune_artifacts_dir: Path = Path("./artifacts")
 
-    # Tracker: "mlflow" (default) | "json" (smoke local sin servidor)
-    tune_tracker: str = "mlflow"
+    # Tracker: "json" (default, sin servidor) | "mlflow" (laboratorio con MLflow)
+    tune_tracker: str = "json"
 
     # App EO: dispositivo para Prithvi ("" = auto: cuda si hay, si no cpu)
     tune_device: str = ""
