@@ -12,7 +12,7 @@ help:
 	@echo "  app-up        — API Prithvi + web  http://localhost:8080 (CPU)"
 	@echo "  app-up-gpu    — igual, con GPU NVIDIA"
 	@echo "  gpu           — GPU vía Docker nativo (si Docker Desktop no ve la NVIDIA)"
-	@echo "  gpu-rebuild   — reconstruye eo-api y la reinicia en GPU"
+	@echo "  gpu-rebuild   — reconstruye eo-api + web y las reinicia en GPU"
 	@echo "  examples      — baja escenas GeoTIFF de ejemplo a examples/"
 	@echo "  app-down / app-logs / web-dev"
 	@echo "  install / test / lint"
@@ -63,9 +63,9 @@ gpu:
 # Reconstruye en Docker Desktop (ahí está la caché de pip) y la pasa al Docker nativo.
 gpu-rebuild:
 	@test -f .env || cp .env.example .env
-	docker --context desktop-linux compose build eo-api
-	docker --context desktop-linux save tune-eo-api | $(NATIVE) load
-	$(GPU_COMPOSE) up -d --force-recreate eo-api
+	docker --context desktop-linux compose build eo-api web
+	docker --context desktop-linux save tune-eo-api tune-web | $(NATIVE) load
+	$(GPU_COMPOSE) up -d --force-recreate
 	@echo "Listo. Logs: make gpu-logs"
 
 gpu-logs:
