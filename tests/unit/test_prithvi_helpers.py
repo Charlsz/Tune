@@ -9,6 +9,10 @@ from tune.domain.analysis import HazardTask
 from tune.infrastructure.inference.prithvi import (
     MODEL_CARDS,
     _temporal_coords,
+    band_summary,
+    guess_sensor,
+    model_band_indices,
+    parse_acquired_at,
     prepare_prithvi_input,
     rgb_indices_from_config,
     rgb_preview,
@@ -76,6 +80,38 @@ def test_rgb_preview_shape_and_range() -> None:
 def test_temporal_coords_from_filename() -> None:
     assert _temporal_coords("S2_20200315T101031.tif") == [[2020, 75]]
     assert _temporal_coords("no-date.tif") is None
+
+
+def test_acquired_at_from_hls_julian_filename() -> None:
+    name = "subsetted_512x512_HLS.S30.T10SEH.2018190.v1.4_merged.tif"
+    assert parse_acquired_at({}, name) == "2018-07-09"
+    assert guess_sensor(name, {}) == "HLS Sentinel-2 (S30)"
+
+
+def test_acquired_at_prefers_acquisition_tag_over_filename() -> None:
+    tags = {"acquisition_date": "2021-02-03T10:00:00Z"}
+    assert parse_acquired_at(tags, "S2_20200315T101031.tif") == "2021-02-03"
+    assert parse_acquired_at({}, "S2_20200315T101031.tif") == "2020-03-15"
+
+
+def test_acquired_at_falls_back_to_tifftag_datetime_then_none() -> None:
+    assert parse_acquired_at({"TIFFTAG_DATETIME": "2019:11:30 08:00:00"}, "x.tif") == "2019-11-30"
+    assert parse_acquired_at({}, "India_900498_S2Hand.tif") is None
+    assert parse_acquired_at({"TIFFTAG_DATETIME": "sin fecha"}, "x.tif") is None
+
+
+def test_band_summary_uses_only_valid_pixels_and_marks_model_bands() -> None:
+    raster = np.arange(13)[:, None, None] * np.ones((13, 2, 2))
+    raster[:, 0, 0] = 999
+    valid = np.ones((2, 2), dtype=bool)
+    valid[0, 0] = False
+    used = model_band_indices(raster, MODEL_CARDS[HazardTask.FLOOD])
+    bands = band_summary(raster, valid, [], used)
+    assert len(bands) == 13
+    assert bands[2]["max"] == 2.0 and bands[2]["mean"] == 2.0
+    assert [b["index"] for b in bands if b["used_by_model"]] == [2, 3, 4, 9, 12, 13]
+    assert bands[8]["model_band"] == "NIR_NARROW" and bands[0]["model_band"] is None
+    assert band_summary(raster, np.zeros((2, 2), dtype=bool), [], used)[0]["mean"] is None
 
 
 def test_affine_coeffs_and_bounds_from_floats() -> None:

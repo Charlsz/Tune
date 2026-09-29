@@ -46,6 +46,8 @@ class SegmentationOutput:
     pixel_area_m2: float | None
     raster_meta: dict[str, Any] = field(default_factory=dict)
     rgb_preview: Any | None = None  # (3, H, W) uint8 opcional para el mapa
+    acquired_at: str | None = None  # ISO 8601; de los tags del TIFF o del nombre del archivo
+    metadata: dict[str, Any] = field(default_factory=dict)  # JSON-serializable, para la UI
 
 
 @dataclass(frozen=True)
@@ -67,3 +69,5 @@ class Analysis:
     bounds: GeoBounds | None
     latency_s: float
     artifacts: dict[str, str] = field(default_factory=dict)  # nombre -> path relativo
+    acquired_at: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)

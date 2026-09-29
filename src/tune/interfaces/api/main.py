@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from functools import lru_cache
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from tune import __version__
@@ -21,9 +21,21 @@ app = FastAPI(
     title="Tune API",
     version=__version__,
     description=(
-        "Análisis de imágenes satelitales con Prithvi-EO 2.0 (inundaciones, cicatrices de "
-        "incendio) bajo /api. Endpoints legacy del laboratorio de fine-tuning en la raíz."
+        "Análisis de imágenes satelitales con Prithvi-EO 2.0. "
+        "Las rutas de la aplicación están bajo /api. "
+        "/health, /model y /predict son del laboratorio, no analizan un GeoTIFF."
     ),
+    openapi_tags=[
+        {
+            "name": "analysis",
+            "description": "App: GeoTIFF a máscara de inundación o cicatriz de incendio.",
+        },
+        {"name": "ops", "description": "Estado del proceso."},
+        {
+            "name": "model",
+            "description": "Laboratorio de fine-tuning. No es el análisis de la demo.",
+        },
+    ],
 )
 app.add_middleware(
     CORSMiddleware,
@@ -44,13 +56,17 @@ def _predictor():
     return RegistryPredictor(c.registry, c.settings.tune_model_name, c.settings.tune_model_alias)
 
 
-@app.get("/health", response_model=HealthResponse, tags=["ops"])
+@app.get("/health", response_model=HealthResponse, tags=["ops"], summary="Estado del proceso")
 def health() -> HealthResponse:
+    """Responde en cuanto el proceso está vivo. No comprueba Hugging Face ni la GPU."""
     return HealthResponse(version=__version__)
 
 
-@app.get("/model", response_model=ModelInfoResponse, tags=["model"])
+@app.get(
+    "/model", response_model=ModelInfoResponse, tags=["model"], summary="Modelo del laboratorio"
+)
 def model_info() -> ModelInfoResponse:
+    """Alias del Model Registry. La app usa los checkpoints de /api/tasks."""
     s = get_settings()
     try:
         p = _predictor()
@@ -63,9 +79,21 @@ def model_info() -> ModelInfoResponse:
         )
 
 
-@app.post("/predict", response_model=PredictResponse, tags=["model"])
-async def predict(file: UploadFile) -> PredictResponse:
-    """Input/output según la tarea del caso (ADR 001). Esqueleto hasta la Fase 5."""
+@app.post(
+    "/predict",
+    response_model=PredictResponse,
+    tags=["model"],
+    summary="Predecir con el modelo del laboratorio",
+    responses={
+        400: {"description": "No vino un archivo"},
+        501: {"description": "El predictor del laboratorio no está implementado"},
+        503: {"description": "No hay modelo aprobado en el registry"},
+    },
+)
+async def predict(
+    file: UploadFile = File(description="Archivo que espera el predictor del laboratorio"),
+) -> PredictResponse:
+    """Ruta del laboratorio de fine-tuning. Para inundación o incendio usa POST /api/analyze."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="Archivo vacío")
     try:

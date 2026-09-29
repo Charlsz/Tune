@@ -1,4 +1,4 @@
-import type { Analysis, ExampleScene, TaskId, TaskInfo } from "./types";
+import type { Analysis, ExampleScene, Forecast, Place, TaskId, TaskInfo } from "./types";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -25,7 +25,31 @@ export type AnalyzePhase =
 
 export const api = {
   tasks: () => fetch("/api/tasks").then(json<TaskInfo[]>),
-  analyses: (limit = 30) => fetch(`/api/analyses?limit=${limit}`).then(json<Analysis[]>),
+  analyses(q: { limit?: number; lat?: number; lon?: number; task?: TaskId } = {}) {
+    const p = new URLSearchParams({ limit: String(q.limit ?? 30) });
+    if (q.lat != null) p.set("lat", String(q.lat));
+    if (q.lon != null) p.set("lon", String(q.lon));
+    if (q.task) p.set("task", q.task);
+    return fetch(`/api/analyses?${p}`).then(json<Analysis[]>);
+  },
+  timeline(q: { analysisId?: string; lat?: number; lon?: number; task?: TaskId }) {
+    const p = new URLSearchParams();
+    if (q.analysisId) p.set("analysis_id", q.analysisId);
+    if (q.lat != null) p.set("lat", String(q.lat));
+    if (q.lon != null) p.set("lon", String(q.lon));
+    if (q.task) p.set("task", q.task);
+    return fetch(`/api/timeline?${p}`).then(json<Analysis[]>);
+  },
+  async remove(id: string) {
+    const res = await fetch(`/api/analyses/${id}`, { method: "DELETE" });
+    if (res.status === 204) return;
+    await json(res);
+  },
+  forecast: (task: TaskId, place: Place, start?: string | null) => {
+    const p = new URLSearchParams({ task, lat: String(place.lat), lon: String(place.lon) });
+    if (start) p.set("start", start.slice(0, 10));
+    return fetch(`/api/forecast?${p}`).then(json<Forecast>);
+  },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
   analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {

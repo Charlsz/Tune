@@ -65,6 +65,12 @@ class FileAnalysisRepository:
         items.sort(key=lambda a: a.created_at, reverse=True)
         return items[:limit]
 
+    def delete(self, analysis_id: str) -> None:
+        folder = (self.root / analysis_id).resolve()
+        if folder.parent != self.root.resolve() or not (folder / "analysis.json").is_file():
+            raise KeyError(f"Análisis no encontrado: {analysis_id}")
+        shutil.rmtree(folder)
+
     def artifact_path(self, analysis_id: str, name: str) -> Path:
         analysis = self.get(analysis_id)
         rel = analysis.artifacts.get(name)
