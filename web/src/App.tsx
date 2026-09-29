@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
+import { MetadataCard } from "./components/MetadataCard";
 import { SceneStage } from "./components/SceneStage";
 import { StatsCard } from "./components/StatsCard";
 import { UploadPanel } from "./components/UploadPanel";
@@ -90,6 +91,7 @@ export function App() {
             </p>
           )}
           {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
+          {selected && <MetadataCard key={`meta-${selected.id}`} analysis={selected} />}
           <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
         </aside>
         <SceneStage analysis={selected} tasks={tasks} busy={busy} />

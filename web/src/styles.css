@@ -164,6 +164,22 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 .row dd .ellipsis { margin-left: auto; }
 .downloads { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; font-size: 13px; }
 
+/* --- metadata -------------------------------------------------------------- */
+
+.meta > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
+.meta > summary::-webkit-details-marker { display: none; }
+.meta > summary h2::after { content: "+"; margin-left: 4px; color: var(--muted); font-weight: 400; }
+.meta[open] > summary h2::after { content: "−"; }
+.bands { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+.bands caption { text-align: left; padding-bottom: 6px; }
+.bands th, .bands td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; font-weight: 400; }
+.bands th { color: var(--muted); }
+.bands th:first-child, .bands td:first-child { width: 28px; text-align: left; }
+.bands th:nth-child(2), .bands td:nth-child(2) { width: 34%; text-align: left; }
+.bands tr:not(.used) td { color: var(--muted); }
+.bands tr.used td:first-child { font-weight: 600; }
+.tags summary { cursor: pointer; }
+
 /* --- history --------------------------------------------------------------- */
 
 .list { list-style: none; margin: 0 -8px; padding: 0; }

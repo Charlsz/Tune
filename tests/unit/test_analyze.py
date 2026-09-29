@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -88,6 +89,32 @@ def test_repository_list_is_newest_first_and_limited(tmp_path: Path) -> None:
     listed = repo.list(limit=2)
     assert len(listed) == 2
     assert listed[0].id == ids[-1]
+
+
+def test_use_case_keeps_acquisition_date_and_metadata(tmp_path: Path) -> None:
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    out = SegmentationOutput(
+        **{**fake_output().__dict__, "acquired_at": "2018-07-09", "metadata": {"band_count": 6}}
+    )
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    a = AnalyzeUseCase(FakeSegmenter(out), repo).execute(src, HazardTask.BURN_SCAR)
+    assert repo.get(a.id).acquired_at == "2018-07-09"
+    assert repo.get(a.id).metadata == {"band_count": 6}
+
+
+def test_old_analysis_json_without_metadata_still_loads(tmp_path: Path) -> None:
+    src = tmp_path / "x.tif"
+    src.write_bytes(b"x")
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    a = AnalyzeUseCase(FakeSegmenter(fake_output()), repo).execute(src, HazardTask.FLOOD)
+    path = tmp_path / "analyses" / a.id / "analysis.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    del raw["acquired_at"], raw["metadata"]
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    loaded = repo.get(a.id)
+    assert loaded.acquired_at is None
+    assert loaded.metadata == {}
 
 
 def test_repository_get_missing_raises(tmp_path: Path) -> None:

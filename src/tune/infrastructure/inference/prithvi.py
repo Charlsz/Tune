@@ -9,10 +9,11 @@ rasterio); los imports pesados son perezosos para que la API arranque sin ellos.
 from __future__ import annotations
 
 import logging
+import math
 import re
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ log = logging.getLogger(__name__)
 NO_DATA = -9999
 NO_DATA_FLOAT = 0.0001
 PRITHVI_BANDS = 6
+PRITHVI_BAND_NAMES = ("BLUE", "GREEN", "RED", "NIR_NARROW", "SWIR_1", "SWIR_2")
 # ~8000x8000. Por encima, el raster en float32 más las ventanas de 512 pasa de
 # varios GB y el contenedor muere por OOM en lugar de responder.
 MAX_PIXELS = 64_000_000
@@ -79,9 +81,11 @@ class PrithviSegmenter:
         model = self._model(task)
         cfg = self._configs[task]
 
-        raster, meta, bounds, crs, pixel_area = read_geotiff(geotiff)
+        raster, meta, bounds, crs, pixel_area, info = read_geotiff(geotiff)
         data = select_prithvi_bands(raster, card)
         valid = np.all(data != NO_DATA, axis=0)
+        info["bands"] = band_summary(raster, valid, info["bands"], model_band_indices(raster, card))
+        info["sensor"] = guess_sensor(geotiff.name, info["tags"])
         data = prepare_prithvi_input(data, valid)
 
         # (bands, H, W) -> (1, C, T=1, H, W)
@@ -105,6 +109,8 @@ class PrithviSegmenter:
             pixel_area_m2=pixel_area,
             raster_meta=meta,
             rgb_preview=rgb_preview(data, valid, rgb_indices_from_config(cfg)),
+            acquired_at=parse_acquired_at(info["tags"], geotiff.name),
+            metadata=info,
         )
 
     def _model(self, task: HazardTask):
@@ -151,7 +157,10 @@ def _patch_torch_mps() -> None:
 
 
 def read_geotiff(path: Path):
-    """(bands, H, W), meta, bounds EPSG:4326 | None, crs | None, área de píxel m² | None."""
+    """(bands, H, W), meta, bounds EPSG:4326 | None, crs | None, área de píxel m² | None, info.
+
+    ``info`` son los metadatos del archivo para la UI (JSON-serializable).
+    """
     rasterio = _import("rasterio")
 
     with rasterio.open(path) as src:
@@ -171,7 +180,142 @@ def read_geotiff(path: Path):
             except Exception as exc:  # CRS raro / sin transformación
                 log.warning("No se pudo reproyectar bounds: %s", exc)
             pixel_area = _pixel_area_m2(src, bounds)
-    return img, meta, bounds, crs, pixel_area
+        info = _raster_info(src, bounds)
+    return img, meta, bounds, crs, pixel_area, info
+
+
+_MAX_TAGS = 40
+_MAX_TAG_LEN = 200
+
+
+def _clip_tags(tags: dict[str, Any]) -> dict[str, str]:
+    return {str(k): str(v)[:_MAX_TAG_LEN] for k, v in list(tags.items())[:_MAX_TAGS]}
+
+
+def _json_number(v: Any) -> float | None:
+    if v is None:
+        return None
+    f = float(v)
+    return f if math.isfinite(f) else None
+
+
+def _raster_info(src, bounds: GeoBounds | None) -> dict[str, Any]:
+    a, _b, _c, _d, e, _f = _affine_coeffs(src.transform)
+    unit = None
+    epsg = None
+    if src.crs is not None:
+        unit = "m" if src.crs.is_projected else "°"
+        epsg = src.crs.to_epsg()
+    center = None
+    if bounds is not None:
+        center = {
+            "lat": (bounds.north + bounds.south) / 2,
+            "lon": (bounds.east + bounds.west) / 2,
+        }
+    tags = _clip_tags(src.tags())
+    # Algunos productos guardan la fecha solo en los tags de la banda 1.
+    if src.count:
+        tags = {**_clip_tags(src.tags(1)), **tags}
+    return {
+        "driver": src.driver,
+        "dtype": src.dtypes[0] if src.dtypes else None,
+        "band_count": src.count,
+        "width": src.width,
+        "height": src.height,
+        "nodata": _json_number(src.nodata),
+        "compression": getattr(src.compression, "value", None),
+        "resolution": [abs(a), abs(e)],
+        "resolution_unit": unit,
+        "epsg": epsg,
+        "center": center,
+        "tags": tags,
+        "bands": [
+            {"index": i + 1, "description": desc, "tags": _clip_tags(src.tags(i + 1))}
+            for i, desc in enumerate(src.descriptions)
+        ],
+    }
+
+
+def model_band_indices(raster: np.ndarray, card: ModelCard) -> tuple[int, ...]:
+    """Índices 0-based de las bandas que entran al modelo (criterio de select_prithvi_bands)."""
+    if raster.shape[0] == PRITHVI_BANDS or not card.wide_input_indices:
+        return tuple(range(PRITHVI_BANDS))
+    return card.wide_input_indices
+
+
+def band_summary(
+    raster: np.ndarray,
+    valid: np.ndarray,
+    bands: list[dict[str, Any]],
+    used: tuple[int, ...],
+) -> list[dict[str, Any]]:
+    """Añade mínimo, máximo y media sobre píxeles válidos a cada banda."""
+    out = []
+    for i in range(raster.shape[0]):
+        base = bands[i] if i < len(bands) else {"index": i + 1, "description": None, "tags": {}}
+        values = raster[i][valid]
+        stats = {"min": None, "max": None, "mean": None}
+        if values.size:
+            stats = {
+                "min": _json_number(values.min()),
+                "max": _json_number(values.max()),
+                "mean": _json_number(values.mean(dtype=np.float64)),
+            }
+        model_band = PRITHVI_BAND_NAMES[used.index(i)] if i in used else None
+        out.append({**base, **stats, "used_by_model": i in used, "model_band": model_band})
+    return out
+
+
+def guess_sensor(filename: str, tags: dict[str, str]) -> str | None:
+    for key in ("SPACECRAFT_NAME", "SPACECRAFT", "PLATFORM", "SENSOR"):
+        for k, v in tags.items():
+            if k.upper() == key and v.strip():
+                return v.strip()
+    name = filename.upper()
+    if "HLS.S30" in name:
+        return "HLS Sentinel-2 (S30)"
+    if "HLS.L30" in name:
+        return "HLS Landsat 8/9 (L30)"
+    if "S2HAND" in name or "S2_" in name or "SENTINEL2" in name:
+        return "Sentinel-2"
+    return None
+
+
+_ACQUISITION_TAGS = ("ACQUISITION_DATE", "SENSING_TIME", "DATE_ACQUIRED", "SENSING_DATE")
+
+
+def parse_acquired_at(tags: dict[str, str], filename: str) -> str | None:
+    """Fecha de adquisición ISO (YYYY-MM-DD) o None.
+
+    Orden: tags de adquisición, nombre del archivo y, al final, ``TIFFTAG_DATETIME``,
+    que muchas veces es la fecha de procesado y no la de la toma.
+    """
+    upper = {k.upper(): v for k, v in tags.items()}
+    for key in _ACQUISITION_TAGS:
+        if key in upper and (d := _date_in(upper[key])):
+            return d
+    name = Path(filename).name
+    if d := _date_in(name, require_boundary=True):
+        return d
+    m = re.search(r"(?<!\d)((?:19|20)\d{2})(\d{3})(?!\d)", name)  # HLS: YYYYDDD
+    if m and 1 <= int(m.group(2)) <= 366:
+        return (date(int(m.group(1)), 1, 1) + timedelta(days=int(m.group(2)) - 1)).isoformat()
+    if "TIFFTAG_DATETIME" in upper:
+        return _date_in(upper["TIFFTAG_DATETIME"])
+    return None
+
+
+def _date_in(text: str, *, require_boundary: bool = False) -> str | None:
+    sep = "" if require_boundary else "[-:/]?"
+    edge = r"(?<!\d)" if require_boundary else ""
+    tail = r"(?:T\d{6})?(?!\d)" if require_boundary else ""
+    m = re.search(rf"{edge}((?:19|20)\d{{2}}){sep}(\d{{2}}){sep}(\d{{2}}){tail}", text)
+    if not m:
+        return None
+    try:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3))).isoformat()
+    except ValueError:
+        return None
 
 
 def _affine_coeffs(transform) -> tuple[float, float, float, float, float, float]:

@@ -41,6 +41,13 @@ export const fmt = {
     return `${m} min ${Math.round(s - m * 60)} s`;
   },
   bytes: (n: number) => (n < 1024 * 1024 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`),
+  day: (iso: string) =>
+    new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" }),
+  num(n: number | null) {
+    if (n == null) return "—";
+    const a = Math.abs(n);
+    return a >= 1000 ? n.toFixed(0) : a >= 1 ? n.toFixed(2) : n.toPrecision(3);
+  },
   ago(iso: string) {
     const s = (Date.now() - new Date(iso).getTime()) / 1000;
     if (s < 60) return "Ahora";

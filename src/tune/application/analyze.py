@@ -42,6 +42,8 @@ class AnalyzeUseCase:
             crs=output.crs,
             bounds=output.bounds,
             latency_s=time.perf_counter() - t0,
+            acquired_at=output.acquired_at,
+            metadata=output.metadata,
         )
         return self.analyses.save(analysis, output, geotiff)
 

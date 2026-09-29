@@ -66,6 +66,8 @@ class AnalysisResponse(BaseModel):
     bounds: BoundsSchema | None
     latency_s: float
     artifacts: dict[str, str] = Field(description="nombre -> URL relativa bajo /api/analyses/{id}/")
+    acquired_at: str | None = Field(None, description="Fecha de adquisición (YYYY-MM-DD)")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Metadatos del GeoTIFF")
 
     @classmethod
     def from_domain(cls, a: Analysis) -> AnalysisResponse:
@@ -85,4 +87,6 @@ class AnalysisResponse(BaseModel):
             bounds=BoundsSchema(**asdict(a.bounds)) if a.bounds else None,
             latency_s=a.latency_s,
             artifacts={k: f"/api/analyses/{a.id}/{k}" for k in a.artifacts},
+            acquired_at=a.acquired_at,
+            metadata=a.metadata,
         )

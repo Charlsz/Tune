@@ -29,7 +29,7 @@ export function AnalysisList({ items, selectedId, onSelect }: Props) {
                 <span className="list-main">
                   <span className="ellipsis">{a.input_filename}</span>
                   <span className="muted">
-                    {TASK_META[a.task].name} · {fmt.ago(a.created_at)}
+                    {TASK_META[a.task].name} · {a.acquired_at ? fmt.day(a.acquired_at) : fmt.ago(a.created_at)}
                   </span>
                 </span>
                 <span className="num">{fmt.pct(a.affected_ratio, 0)}%</span>

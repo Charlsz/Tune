@@ -42,6 +42,7 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
         <Row k="Píxeles afectados">
           {fmt.int(a.affected_pixels)} <span className="muted">de {fmt.int(a.valid_pixels)}</span>
         </Row>
+        <Row k="Adquisición">{a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}</Row>
         <Row k="Tamaño">
           {a.width} × {a.height} px
         </Row>
