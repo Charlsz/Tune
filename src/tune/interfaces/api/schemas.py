@@ -54,7 +54,7 @@ class ForecastResponse(BaseModel):
     source: str = Field(description="GloFAS v4 o Hot-Dry-Windy, vía Open-Meteo")
     note: str = Field(description="Aviso de que Prithvi no calcula este número")
     cell: ForecastCell
-    horizon_days: int = Field(description="30 días en inundación, 16 en incendio")
+    horizon_days: int = Field(description="Días del pronóstico. Las dos tareas usan 15")
     probability: float | None = Field(
         None, description="Fracción de miembros que superan el caudal algún día. Solo inundación"
     )

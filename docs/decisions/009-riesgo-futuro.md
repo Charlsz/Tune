@@ -10,8 +10,8 @@ Prithvi clasifica el agua o la cicatriz que hay en el GeoTIFF de hoy. No pronost
 
 `GET /api/forecast?task=&lat=&lon=` no carga Prithvi.
 
-- **Inundación.** Caudal GloFAS v4 vía Open-Meteo Flood API (`flood-api.open-meteo.com`), 30 días, 50 miembros (`river_discharge_member01`…`50`). La probabilidad de un día es la fracción de miembros que supera el umbral; la del horizonte es la fracción que lo supera al menos un día. El umbral es el percentil 90 del caudal diario entre 1984-01-01 y 2022-07-31 de la celda (el río más grande a unos 5 km), cacheado por celda en el proceso.
-- **Incendio.** Hot-Dry-Windy en superficie: máximo diario de VPD × viento a 10 m, 16 días (`api.open-meteo.com`). Open-Meteo entrega el VPD en kPa; el índice se define en hPa, así que se multiplica por 10. Niveles absolutos, en hPa·m/s: bajo por debajo de 50, medio por debajo de 150, alto por debajo de 300, extremo desde 300.
+- **Inundación.** Caudal GloFAS v4 vía Open-Meteo Flood API (`flood-api.open-meteo.com`), 15 días, 50 miembros (`river_discharge_member01`…`50`). La probabilidad de un día es la fracción de miembros que supera el umbral; la del horizonte es la fracción que lo supera al menos un día. El umbral es el percentil 90 del caudal diario entre 1984-01-01 y 2022-07-31 de la celda (el río más grande a unos 5 km), cacheado por celda en el proceso.
+- **Incendio.** Hot-Dry-Windy en superficie: máximo diario de VPD × viento a 10 m, 15 días (`api.open-meteo.com`). Open-Meteo entrega el VPD en kPa; el índice se define en hPa, así que se multiplica por 10. Niveles absolutos, en hPa·m/s: bajo por debajo de 50, medio por debajo de 150, alto por debajo de 300, extremo desde 300.
 
 Si Open-Meteo falla, la API responde 503 y el historial no se toca. La tarjeta dice que Prithvi no calcula ese número.
 

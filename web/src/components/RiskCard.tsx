@@ -8,7 +8,7 @@ const LEVEL = { bajo: "Bajo", medio: "Medio", alto: "Alto", extremo: "Extremo" }
 type Level = keyof typeof LEVEL;
 const RANK: Record<Level, number> = { bajo: 0, medio: 1, alto: 2, extremo: 3 };
 
-const SKEL_SPARK = [40, 70, 55, 80, 35, 65, 50];
+const HORIZON = 15;
 
 function floodLevel(probability: number): Level {
   if (probability >= 0.6) return "extremo";
@@ -39,45 +39,49 @@ export function RiskCard({
     setOutlook(null);
     setError(null);
     api
-      .forecast(task, place)
+      .forecast(task, place, acquiredAt)
       .then(setOutlook)
       .catch((e: Error) => setError(e.message));
-  }, [task, place.lat, place.lon]);
+  }, [task, place.lat, place.lon, acquiredAt]);
 
   const days = outlook?.daily ?? [];
-  const peak = days.reduce<Level | null>((best, day) => {
-    const level = dayLevel(task, day);
-    return best == null || RANK[level] > RANK[best] ? level : best;
+  const peakAt = days.reduce<number | null>((best, day, index) => {
+    if (best == null) return index;
+    return RANK[dayLevel(task, day)] > RANK[dayLevel(task, days[best])] ? index : best;
   }, null);
 
   return (
     <section className="risk" aria-label="Riesgo en los próximos días">
-      <div className="result-head">
-        <h3>Riesgo en los próximos días</h3>
-        <button type="button" className="close" onClick={() => setHow(true)}>
-          Cómo se calcula
-        </button>
-      </div>
+      <button type="button" className="how" aria-label="Cómo se calcula el riesgo en los próximos días" onClick={() => setHow(true)}>
+        <span className="how-title">
+          <span>Riesgo en los</span>
+          <span>próximos días</span>
+        </span>
+        <InfoMark />
+      </button>
       <p className="caption">
         {acquiredAt
-          ? `La escena es del ${fmt.day(acquiredAt)}. El pronóstico cuenta desde ahora, no desde esa toma.`
-          : "El pronóstico cuenta los próximos días a partir de ahora."}
+          ? `Día 1 es la toma del ${fmt.day(acquiredAt)}. Los siguientes son los días después de esa imagen.`
+          : "La imagen no trae fecha de toma. Día 1 es hoy."}
       </p>
       {error && <p className="caption">{error}</p>}
       {!outlook && !error && (
-        <div style={{ display: "flex", gap: 6 }}>
-          {SKEL_SPARK.map((h, i) => (
-            <Skeleton key={i} style={{ width: 52, height: 48, borderRadius: 8, opacity: h / 100 }} />
+        <ol className="chips" aria-hidden="true">
+          {Array.from({ length: HORIZON }, (_, i) => (
+            <li key={i}>
+              <Skeleton style={{ height: 11, width: 14, margin: "0 auto" }} />
+              <Skeleton style={{ height: 11, width: 28, margin: "4px auto 0" }} />
+            </li>
           ))}
-        </div>
+        </ol>
       )}
-      {outlook && peak && (
+      {outlook && peakAt != null && (
         <>
           <p className="caption">
-            El día más alto es <strong>{LEVEL[peak]}</strong>, en {outlook.horizon_days} días.
+            El más alto es el día {peakAt + 1}, {LEVEL[dayLevel(task, days[peakAt])]}.
           </p>
           <ol className="chips">
-            {days.map((day) => {
+            {days.map((day, index) => {
               const level = dayLevel(task, day);
               const horizon =
                 task === "flood" && outlook.probability != null
@@ -88,8 +92,8 @@ export function RiskCard({
                   ? `${fmt.pct(day.probability ?? 0, 0)} % ese día${horizon}`
                   : fmt.num(day.value);
               return (
-                <li key={day.date} className={level} title={`${fmt.day(day.date)} · ${detail}`}>
-                  <span className="num">{day.date.slice(8)}</span>
+                <li key={day.date} className={level} title={`Día ${index + 1} · ${fmt.day(day.date)} · ${detail}`}>
+                  <span className="num">{index + 1}</span>
                   {LEVEL[level]}
                 </li>
               );
@@ -154,12 +158,22 @@ function HowModal({ task, onClose }: { task: TaskId; onClose: () => void }) {
   );
 }
 
+function InfoMark() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 11v6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="8" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
 function FloodHow() {
   return (
     <>
       <p>
         GloFAS simula el caudal del río más grande a unos 5 km del punto. El pronóstico trae 50 versiones
-        posibles de los próximos 30 días.
+        posibles de los próximos 15 días.
       </p>
       <p>
         Cada día se compara con el percentil 90 del caudal diario de esa celda entre 1984 y 2022. El chip es
@@ -176,7 +190,7 @@ function BurnHow() {
       <p>
         El índice Hot-Dry-Windy multiplica el déficit de vapor de agua por el viento a 10 m. El pronóstico
         horario viene en kilopascales; el índice usa hectopascales, así que ese valor se multiplica por 10. El
-        día se queda con la hora más alta. Son 16 días.
+        día se queda con la hora más alta. Son 15 días.
       </p>
       <p>Los cortes, en esa unidad, son 50 (medio), 150 (alto) y 300 (extremo). Por debajo de 50 es bajo.</p>
     </>

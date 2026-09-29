@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import tempfile
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -178,14 +179,25 @@ def forecast(
     task: HazardTask = Query(description="flood usa GloFAS; burn_scar usa Hot-Dry-Windy"),
     lat: float = Query(ge=-90, le=90, description="Latitud WGS84 del punto"),
     lon: float = Query(ge=-180, le=180, description="Longitud WGS84 del punto"),
+    start: str | None = Query(
+        None, description="Día 1, YYYY-MM-DD. La fecha de la imagen. Si falta, hoy."
+    ),
 ) -> ForecastResponse:
-    """Pronóstico meteorológico del punto. No lo calcula Prithvi.
+    """15 días desde la fecha de la imagen. El día 1 es esa toma, no hoy.
 
-    Inundación: 30 días, 50 miembros de caudal, umbral en el percentil 90 de 1984 a 2022.
-    Incendio: 16 días de VPD por viento. La escena puede ser vieja; el pronóstico parte de ahora.
+    Inundación: caudal GloFAS frente al percentil 90 de 1984 a 2022.
+    Incendio: VPD por viento. Si la toma es vieja se usa el archivo, no el pronóstico de ahora.
     """
     try:
-        outlook = flood_outlook(lat, lon) if task is HazardTask.FLOOD else burn_outlook(lat, lon)
+        day = date.fromisoformat(start[:10]) if start else date.today()
+    except ValueError as exc:
+        raise HTTPException(422, "start debe ser YYYY-MM-DD") from exc
+    try:
+        outlook = (
+            flood_outlook(lat, lon, day)
+            if task is HazardTask.FLOOD
+            else burn_outlook(lat, lon, day)
+        )
     except ForecastError as exc:
         raise HTTPException(503, str(exc)) from exc
     return ForecastResponse.model_validate(outlook)

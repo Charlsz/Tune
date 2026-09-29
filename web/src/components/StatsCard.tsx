@@ -61,11 +61,11 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
               </span>
               <a
                 className="map-btn"
-                href={`https://www.google.com/maps?q=${point.lat},${point.lon}`}
+                href={`https://www.openstreetmap.org/?mlat=${point.lat}&mlon=${point.lon}#map=12/${point.lat}/${point.lon}`}
                 target="_blank"
                 rel="noreferrer"
               >
-                Google Maps
+                OpenStreetMap
               </a>
             </span>
           ) : (

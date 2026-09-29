@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import json
 import statistics
+from datetime import date, timedelta
 from functools import lru_cache
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+HORIZON_DAYS = 15
 FLOOD_API = "https://flood-api.open-meteo.com/v1/flood"
 WEATHER_API = "https://api.open-meteo.com/v1/forecast"
+ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive"
 # ponytail: cortes absolutos de HDW (hPa·m/s). Lo correcto es el percentil local
 # con la API histórica de Open-Meteo; estos números solo ordenan la demo.
 HDW_MEDIO = 50
@@ -133,51 +136,107 @@ def _discharge_p90(lat: float, lon: float) -> float:
         raise ForecastError("El histórico de caudal no trae datos") from exc
 
 
-def flood_outlook(lat: float, lon: float) -> dict:
-    url = (
+def _span(start: date) -> tuple[str, str]:
+    end = start + timedelta(days=HORIZON_DAYS - 1)
+    return start.isoformat(), end.isoformat()
+
+
+def _flood_members(
+    lat: float, lon: float, start: str, end: str
+) -> tuple[dict, list[list[float | None]]]:
+    base = (
         f"{FLOOD_API}?latitude={lat}&longitude={lon}"
-        "&daily=river_discharge&ensemble=true&forecast_days=30"
+        f"&start_date={start}&end_date={end}&daily=river_discharge"
     )
-    payload = _get_json(url)
+    payload = _get_json(base + "&ensemble=true")
+    try:
+        return payload, ensemble_members(payload["daily"])
+    except ForecastError:
+        series = list(payload["daily"].get("river_discharge") or [])
+        if not series:
+            raise
+        return payload, [series]
+
+
+def flood_outlook(lat: float, lon: float, start: date | None = None) -> dict:
+    start = start or date.today()
+    begin, end = _span(start)
+    payload, members = _flood_members(lat, lon, begin, end)
     daily = payload["daily"]
-    members = ensemble_members(daily)
     cell_lat = round(float(payload["latitude"]), 4)
     cell_lon = round(float(payload["longitude"]), 4)
     threshold = _discharge_p90(cell_lat, cell_lon)
+    times = list(daily["time"])[:HORIZON_DAYS]
+    members = [member[:HORIZON_DAYS] for member in members]
     probabilities, horizon = flood_probability(members, threshold)
     return {
         "task": "flood",
         "source": "GloFAS v4 (Open-Meteo)",
         "note": "GloFAS, río más grande a unos 5 km. Prithvi no calcula este pronóstico.",
         "cell": {"lat": payload["latitude"], "lon": payload["longitude"]},
-        "horizon_days": len(daily["time"]),
+        "horizon_days": len(times),
         "probability": horizon,
         "level": None,
         "threshold": threshold,
         "threshold_unit": "m³/s",
         "daily": [
             {"date": day, "probability": probability, "value": None, "level": None}
-            for day, probability in zip(daily["time"], probabilities, strict=False)
+            for day, probability in zip(times, probabilities, strict=False)
         ],
     }
 
 
-def burn_outlook(lat: float, lon: float) -> dict:
-    url = (
-        f"{WEATHER_API}?latitude={lat}&longitude={lon}"
-        "&hourly=vapour_pressure_deficit,wind_speed_10m"
-        "&wind_speed_unit=ms&forecast_days=16&timezone=GMT"
-    )
-    payload = _get_json(url)
-    hourly = payload["hourly"]
-    days = hdw_daily(hourly["time"], hourly["vapour_pressure_deficit"], hourly["wind_speed_10m"])
+def _burn_hours(lat: float, lon: float, start: date) -> tuple[dict, list[tuple[str, float]]]:
+    end = start + timedelta(days=HORIZON_DAYS - 1)
+    today = date.today()
+    hourly = "hourly=vapour_pressure_deficit,wind_speed_10m&wind_speed_unit=ms"
+    if end <= today:
+        url = (
+            f"{ARCHIVE_API}?latitude={lat}&longitude={lon}&start_date={start.isoformat()}"
+            f"&end_date={end.isoformat()}&{hourly}&timezone=GMT"
+        )
+        payload = _get_json(url)
+    elif start >= today:
+        url = (
+            f"{WEATHER_API}?latitude={lat}&longitude={lon}&{hourly}"
+            f"&forecast_days={HORIZON_DAYS}&timezone=GMT"
+        )
+        payload = _get_json(url)
+    else:
+        past = _get_json(
+            f"{ARCHIVE_API}?latitude={lat}&longitude={lon}&start_date={start.isoformat()}"
+            f"&end_date={(today - timedelta(days=1)).isoformat()}&{hourly}&timezone=GMT"
+        )
+        future = _get_json(
+            f"{WEATHER_API}?latitude={lat}&longitude={lon}&{hourly}"
+            f"&forecast_days={(end - today).days + 1}&timezone=GMT"
+        )
+        payload = past
+        days = hdw_daily(
+            past["hourly"]["time"],
+            past["hourly"]["vapour_pressure_deficit"],
+            past["hourly"]["wind_speed_10m"],
+        ) + hdw_daily(
+            future["hourly"]["time"],
+            future["hourly"]["vapour_pressure_deficit"],
+            future["hourly"]["wind_speed_10m"],
+        )
+        return payload, days[:HORIZON_DAYS]
+    hours = payload["hourly"]
+    return payload, hdw_daily(
+        hours["time"], hours["vapour_pressure_deficit"], hours["wind_speed_10m"]
+    )[:HORIZON_DAYS]
+
+
+def burn_outlook(lat: float, lon: float, start: date | None = None) -> dict:
+    payload, days = _burn_hours(lat, lon, start or date.today())
     if not days:
         raise ForecastError("El pronóstico de viento y sequedad no trae horas válidas")
     levels = [hdw_level(value) for _, value in days]
     return {
         "task": "burn_scar",
         "source": "Hot-Dry-Windy (Open-Meteo)",
-        "note": "VPD de superficie por viento, 16 días. Prithvi no calcula este pronóstico.",
+        "note": "VPD de superficie por viento, 15 días. Prithvi no calcula este pronóstico.",
         "cell": {"lat": payload["latitude"], "lon": payload["longitude"]},
         "horizon_days": len(days),
         "probability": None,

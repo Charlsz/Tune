@@ -45,8 +45,11 @@ export const api = {
     if (res.status === 204) return;
     await json(res);
   },
-  forecast: (task: TaskId, place: Place) =>
-    fetch(`/api/forecast?task=${task}&lat=${place.lat}&lon=${place.lon}`).then(json<Forecast>),
+  forecast: (task: TaskId, place: Place, start?: string | null) => {
+    const p = new URLSearchParams({ task, lat: String(place.lat), lon: String(place.lon) });
+    if (start) p.set("start", start.slice(0, 10));
+    return fetch(`/api/forecast?${p}`).then(json<Forecast>);
+  },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
   analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {

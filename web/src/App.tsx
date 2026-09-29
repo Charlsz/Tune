@@ -146,8 +146,8 @@ export function App() {
             <Timeline analysis={selected} place={place} onSelect={setSelected} />
           )}
         </div>
-        <Footer />
       </div>
+      <Footer />
     </div>
   );
 }

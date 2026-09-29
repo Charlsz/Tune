@@ -50,7 +50,15 @@ export function CoordinateSearch({
           <span className="num">
             {place.lat}, {place.lon}
           </span>
-          <button type="button" className="close" onClick={onClear}>
+          <button
+            type="button"
+            className="close"
+            onClick={() => {
+              setText("");
+              setError(null);
+              onClear();
+            }}
+          >
             Quitar
           </button>
         </p>
