@@ -5,16 +5,17 @@ interface Props {
   items: Analysis[];
   selectedId?: string;
   onSelect: (a: Analysis) => void;
+  empty?: string;
 }
 
-export function AnalysisList({ items, selectedId, onSelect }: Props) {
+export function AnalysisList({ items, selectedId, onSelect, empty }: Props) {
   return (
     <section className="section">
       <h2>
         Historial <span className="muted num">{items.length}</span>
       </h2>
       {items.length === 0 ? (
-        <p className="caption">Aún no hay análisis. Prueba con las escenas de `make examples`.</p>
+        <p className="caption">{empty ?? "Aún no hay análisis. Prueba con las escenas de `make examples`."}</p>
       ) : (
         <ul className="list">
           {items.map((a) => (

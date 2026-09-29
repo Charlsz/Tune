@@ -176,6 +176,16 @@ def test_timeline_groups_the_same_box_oldest_first(client):
     assert [a["id"] for a in floods.json()] == [second["id"]]
 
 
+def test_analyses_can_be_filtered_by_coordinate(client):
+    body = _post(client, "scene.tif")
+    inside = client.get("/api/analyses", params={"lat": 4.05, "lon": -74.95})
+    assert inside.status_code == 200
+    assert [a["id"] for a in inside.json()] == [body["id"]]
+    assert client.get("/api/analyses", params={"lat": 0, "lon": 0}).json() == []
+    assert client.get("/api/analyses", params={"lat": 91, "lon": 0}).status_code == 422
+    assert client.get("/api/analyses", params={"lat": 4.05}).status_code == 422
+
+
 def test_timeline_rejects_a_missing_anchor_or_no_place(client):
     assert client.get("/api/timeline", params={"analysis_id": "nope"}).status_code == 404
     assert client.get("/api/timeline").status_code == 422

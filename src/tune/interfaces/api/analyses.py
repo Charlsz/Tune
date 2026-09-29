@@ -12,6 +12,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from tune.application.analyze import AnalyzeUseCase
+from tune.application.territory import covers
 from tune.application.territory import timeline as territory_timeline
 from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
@@ -166,9 +167,24 @@ def timeline(
 
 @router.get("/analyses", response_model=list[AnalysisResponse])
 def list_analyses(
-    limit: int = 50, repo: AnalysisRepository = Depends(get_repository)
+    limit: int = 50,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lon: float | None = Query(None, ge=-180, le=180),
+    task: HazardTask | None = None,
+    repo: AnalysisRepository = Depends(get_repository),
 ) -> list[AnalysisResponse]:
-    return [AnalysisResponse.from_domain(a) for a in repo.list(limit=limit)]
+    if (lat is None) != (lon is None):
+        raise HTTPException(422, "lat y lon van juntos")
+    scanning = lat is not None or task is not None
+    # ponytail: con filtro se leen todos los analysis.json. PostGIS si el historial crece.
+    found = repo.list(limit=10_000 if scanning else limit)
+    if task is not None:
+        found = [a for a in found if a.task is task]
+    if lat is not None and lon is not None:
+        found = [a for a in found if a.bounds is not None and covers(a.bounds, lat, lon)]
+    if scanning:
+        found = found[:limit]
+    return [AnalysisResponse.from_domain(a) for a in found]
 
 
 @router.get("/analyses/{analysis_id}", response_model=AnalysisResponse)

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
+import { CoordinateSearch } from "./components/CoordinateSearch";
 import { MetadataCard } from "./components/MetadataCard";
 import { SceneStage } from "./components/SceneStage";
 import { StatsCard } from "./components/StatsCard";
 import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
-import type { Analysis, TaskId, TaskInfo } from "./types";
+import type { Analysis, Place, TaskId, TaskInfo } from "./types";
 
 export function App() {
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
@@ -17,10 +18,12 @@ export function App() {
   const [phase, setPhase] = useState<AnalyzePhase | null>(null);
   const [runTask, setRunTask] = useState<TaskId | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [place, setPlace] = useState<Place | null>(null);
 
   const refresh = useCallback(() => {
-    api.analyses().then(setHistory).catch((e: Error) => setError(e.message));
-  }, []);
+    const query = place ? { lat: place.lat, lon: place.lon } : {};
+    api.analyses(query).then(setHistory).catch((e: Error) => setError(e.message));
+  }, [place]);
 
   useEffect(() => {
     api
@@ -93,11 +96,19 @@ export function App() {
           )}
           {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
           {selected && <MetadataCard key={`meta-${selected.id}`} analysis={selected} />}
-          <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
+          <CoordinateSearch place={place} onSearch={setPlace} onClear={() => setPlace(null)} />
+          <AnalysisList
+            items={history}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+            empty={place ? "Ningún análisis cubre ese punto." : undefined}
+          />
         </aside>
         <div className="view">
           <SceneStage analysis={selected} tasks={tasks} busy={busy} />
-          {selected && !busy && <Timeline analysis={selected} onSelect={setSelected} />}
+          {(place || (selected && !busy)) && (
+            <Timeline analysis={selected} place={place} onSelect={setSelected} />
+          )}
         </div>
       </div>
     </div>

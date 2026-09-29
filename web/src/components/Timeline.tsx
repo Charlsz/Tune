@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { fmt, TASK_META } from "../lib/insights";
-import type { Analysis, TaskId } from "../types";
+import type { Analysis, Place, TaskId } from "../types";
 
 type Filter = "all" | TaskId;
 
@@ -11,20 +11,31 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "burn_scar", label: "Incendio" },
 ];
 
-export function Timeline({ analysis, onSelect }: { analysis: Analysis; onSelect: (a: Analysis) => void }) {
+export function Timeline({
+  analysis,
+  place,
+  onSelect,
+}: {
+  analysis: Analysis | null;
+  place: Place | null;
+  onSelect: (a: Analysis) => void;
+}) {
   const [items, setItems] = useState<Analysis[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
-    if (!analysis.bounds) return;
+    if (!place && !analysis?.bounds) return;
     setItems(null);
     setError(null);
+    const query = place
+      ? { lat: place.lat, lon: place.lon }
+      : { analysisId: analysis!.id };
     api
-      .timeline({ analysisId: analysis.id })
+      .timeline(query)
       .then(setItems)
       .catch((e: Error) => setError(e.message));
-  }, [analysis.id, analysis.bounds]);
+  }, [place, analysis]);
 
   const shown = (items ?? []).filter((a) => filter === "all" || a.task === filter);
 
@@ -47,9 +58,13 @@ export function Timeline({ analysis, onSelect }: { analysis: Analysis; onSelect:
         </div>
       </div>
 
-      {!analysis.bounds && <p className="caption">Esta escena no tiene coordenadas, así que no se puede agrupar.</p>}
+      {!place && analysis && !analysis.bounds && (
+        <p className="caption">Esta escena no tiene coordenadas, así que no se puede agrupar.</p>
+      )}
       {error && <p className="caption">{error}</p>}
-      {analysis.bounds && !items && !error && <p className="caption">Buscando análisis del mismo territorio</p>}
+      {(place || analysis?.bounds) && !items && !error && (
+        <p className="caption">Buscando análisis del mismo territorio</p>
+      )}
       {items && shown.length === 0 && (
         <p className="caption">
           Ningún análisis
@@ -63,7 +78,7 @@ export function Timeline({ analysis, onSelect }: { analysis: Analysis; onSelect:
             <li key={a.id}>
               <button
                 type="button"
-                aria-current={a.id === analysis.id ? "true" : undefined}
+                aria-current={a.id === analysis?.id ? "true" : undefined}
                 title={`${a.input_filename} · ${fmt.pct(a.affected_ratio)} %`}
                 onClick={() => onSelect(a)}
               >

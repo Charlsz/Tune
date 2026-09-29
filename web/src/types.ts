@@ -2,6 +2,11 @@
 
 export type TaskId = "flood" | "burn_scar";
 
+export interface Place {
+  lat: number;
+  lon: number;
+}
+
 export interface TaskInfo {
   id: TaskId;
   label: string;

@@ -138,6 +138,19 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 
 .alert { margin: 0; padding-left: 12px; border-left: 2px solid var(--ink); font-size: 13px; }
 
+.search { display: flex; gap: 8px; }
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+}
+.search .primary { padding: 0 14px; }
+.section > .caption .close { margin-left: 8px; }
+
 /* --- result ---------------------------------------------------------------- */
 
 .result { animation: rise 0.45s var(--ease); }
