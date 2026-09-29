@@ -40,6 +40,11 @@ export const api = {
     if (q.task) p.set("task", q.task);
     return fetch(`/api/timeline?${p}`).then(json<Analysis[]>);
   },
+  async remove(id: string) {
+    const res = await fetch(`/api/analyses/${id}`, { method: "DELETE" });
+    if (res.status === 204) return;
+    await json(res);
+  },
   forecast: (task: TaskId, place: Place) =>
     fetch(`/api/forecast?task=${task}&lat=${place.lat}&lon=${place.lon}`).then(json<Forecast>),
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),

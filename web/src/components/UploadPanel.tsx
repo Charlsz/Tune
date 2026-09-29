@@ -39,7 +39,6 @@ export function UploadPanel({ tasks, busy, phase, firstRun, onSubmit, onExample 
         if (file) onSubmit(file, task);
       }}
     >
-      <h2>Nuevo análisis</h2>
       <div className="choice" role="radiogroup" aria-label="Tarea">
         {ORDER.map((id) => (
           <button

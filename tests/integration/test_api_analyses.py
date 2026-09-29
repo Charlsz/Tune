@@ -176,6 +176,14 @@ def test_timeline_groups_the_same_box_oldest_first(client):
     assert [a["id"] for a in floods.json()] == [second["id"]]
 
 
+def test_delete_analysis_removes_it_from_the_list(client):
+    body = _post(client, "borrar.tif")
+    assert client.delete(f"/api/analyses/{body['id']}").status_code == 204
+    assert client.get(f"/api/analyses/{body['id']}").status_code == 404
+    assert client.get("/api/analyses").json() == []
+    assert client.delete(f"/api/analyses/{body['id']}").status_code == 404
+
+
 def test_analyses_can_be_filtered_by_coordinate(client):
     body = _post(client, "scene.tif")
     inside = client.get("/api/analyses", params={"lat": 4.05, "lon": -74.95})

@@ -3,24 +3,13 @@ import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
 import { CoordinateSearch } from "./components/CoordinateSearch";
 import { Footer } from "./components/Footer";
-import { MetadataCard } from "./components/MetadataCard";
 import { RiskCard } from "./components/RiskCard";
 import { SceneStage } from "./components/SceneStage";
 import { Skeleton } from "./components/Skeleton";
-import { StatsCard } from "./components/StatsCard";
+import { sceneCenter, StatsCard } from "./components/StatsCard";
 import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
 import type { Analysis, Place, TaskId, TaskInfo } from "./types";
-
-function scenePoint(analysis: Analysis | null): Place | null {
-  if (!analysis?.bounds) return null;
-  const center = (analysis.metadata as { center?: Place }).center;
-  if (center) return center;
-  return {
-    lat: (analysis.bounds.north + analysis.bounds.south) / 2,
-    lon: (analysis.bounds.east + analysis.bounds.west) / 2,
-  };
-}
 
 export function App() {
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
@@ -84,7 +73,18 @@ export function App() {
   }
 
   const firstRun = runTask != null && !(history ?? []).some((a) => a.task === runTask);
-  const point = place ?? scenePoint(selected);
+  const point = place ?? (selected ? sceneCenter(selected) : null);
+
+  async function onRemove(analysis: Analysis) {
+    if (!window.confirm(`¿Quitar ${analysis.input_filename} del historial?`)) return;
+    try {
+      await api.remove(analysis.id);
+      if (selected?.id === analysis.id) setSelected(null);
+      refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   return (
     <div className="app">
@@ -105,29 +105,40 @@ export function App() {
 
       <div className="body">
         <aside className="side">
-          <UploadPanel
-            tasks={tasks}
-            busy={busy}
-            phase={phase}
-            firstRun={firstRun}
-            onSubmit={onAnalyze}
-            onExample={onExample}
-          />
+          <section className="region">
+            <h2>Analizar</h2>
+            <UploadPanel
+              tasks={tasks}
+              busy={busy}
+              phase={phase}
+              firstRun={firstRun}
+              onSubmit={onAnalyze}
+              onExample={onExample}
+            />
+          </section>
           {error && (
             <p className="alert" role="alert">
               {error}
             </p>
           )}
-          {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
-          {selected && point && <RiskCard task={selected.task} place={point} />}
-          {selected && <MetadataCard key={`meta-${selected.id}`} analysis={selected} />}
-          <CoordinateSearch place={place} onSearch={setPlace} onClear={() => setPlace(null)} />
-          <AnalysisList
-            items={history}
-            selectedId={selected?.id}
-            onSelect={setSelected}
-            empty={place ? "Ningún análisis cubre ese punto." : undefined}
-          />
+          {selected && (
+            <section className="region">
+              <h2>Resultado</h2>
+              <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />
+              {point && <RiskCard task={selected.task} place={point} acquiredAt={selected.acquired_at} />}
+            </section>
+          )}
+          <section className="region">
+            <h2>Encontrar</h2>
+            <CoordinateSearch place={place} onSearch={setPlace} onClear={() => setPlace(null)} />
+            <AnalysisList
+              items={history}
+              selectedId={selected?.id}
+              onSelect={setSelected}
+              onRemove={onRemove}
+              empty={place ? "Ningún análisis cubre ese punto." : undefined}
+            />
+          </section>
         </aside>
         <div className="view">
           <SceneStage analysis={selected} tasks={tasks} busy={busy} loading={online === null} />

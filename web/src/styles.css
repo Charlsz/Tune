@@ -25,7 +25,7 @@ button:disabled { cursor: default; }
 a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 a:hover { text-decoration-color: currentColor; }
 :focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
-h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; }
+h2, h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; }
 
 .num { font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
@@ -61,13 +61,15 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 .side {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
   padding: 24px;
   border-right: 1px solid var(--line);
   overflow-y: auto;
   scrollbar-width: thin;
 }
 .section { display: flex; flex-direction: column; gap: 12px; }
+.region { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.region > h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 
 /* --- new analysis ---------------------------------------------------------- */
 
@@ -176,6 +178,42 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 .row dd { margin: 0; text-align: right; min-width: 0; }
 .row dd .ellipsis { margin-left: auto; }
 .downloads { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; font-size: 13px; }
+.where { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.map-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 12px;
+}
+.detail > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
+.detail .meta { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.risk { display: flex; flex-direction: column; gap: 12px; }
+.history-row { display: flex; align-items: center; gap: 4px; }
+.history-row > button:first-child { flex: 1; min-width: 0; }
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 17, 17, 0.28);
+}
+.modal {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.modal p { margin: 0; }
 
 /* --- forecast -------------------------------------------------------------- */
 
@@ -200,9 +238,6 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 /* --- metadata -------------------------------------------------------------- */
 
 .meta > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }
-.meta > summary::-webkit-details-marker { display: none; }
-.meta > summary h2::after { content: "+"; margin-left: 4px; color: var(--muted); font-weight: 400; }
-.meta[open] > summary h2::after { content: "−"; }
 .bands { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
 .bands caption { text-align: left; padding-bottom: 6px; }
 .bands th, .bands td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; font-weight: 400; }
@@ -228,6 +263,7 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
   transition: background 0.15s;
 }
 .list button:hover, .list button[aria-current="true"] { background: var(--wash); }
+.history-row .close { width: auto; flex: none; padding: 8px; background: transparent; }
 .list-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .list-main .muted { font-size: 12px; }
 .thumb {

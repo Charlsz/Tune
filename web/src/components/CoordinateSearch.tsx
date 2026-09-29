@@ -32,7 +32,7 @@ export function CoordinateSearch({
 
   return (
     <form className="section" onSubmit={submit}>
-      <h2>Buscar por coordenada</h2>
+      <h3>Coordenada</h3>
       <div className="search">
         <input
           aria-label="Latitud y longitud"

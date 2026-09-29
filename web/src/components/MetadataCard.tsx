@@ -4,24 +4,14 @@ import type { Analysis, RasterMetadata } from "../types";
 export function MetadataCard({ analysis: a }: { analysis: Analysis }) {
   const m = "driver" in a.metadata ? (a.metadata as RasterMetadata) : null;
   if (!m) {
-    return (
-      <section className="section">
-        <h2>Metadatos</h2>
-        <p className="caption">Este análisis es anterior a la lectura de metadatos. Vuelve a analizar la escena para verlos.</p>
-      </section>
-    );
+    return <p className="caption">Este análisis es anterior a la lectura de metadatos. Vuelve a analizar la escena para verlos.</p>;
   }
   const tags = Object.entries(m.tags);
 
   return (
-    <details className="section meta">
-      <summary>
-        <h2>Metadatos del GeoTIFF</h2>
-        <span className="muted">{m.band_count} bandas</span>
-      </summary>
-
+    <div className="meta">
+      <p className="caption">GeoTIFF · {m.band_count} bandas</p>
       <dl className="rows">
-        <Row k="Adquisición">{a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}</Row>
         <Row k="Sensor">{m.sensor ?? <span className="muted">Sin identificar</span>}</Row>
         <Row k="Resolución">
           {m.resolution_unit
@@ -80,7 +70,7 @@ export function MetadataCard({ analysis: a }: { analysis: Analysis }) {
           </dl>
         </details>
       )}
-    </details>
+    </div>
   );
 }
 

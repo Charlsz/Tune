@@ -6,16 +6,16 @@ interface Props {
   items: Analysis[] | null;
   selectedId?: string;
   onSelect: (a: Analysis) => void;
+  onRemove: (a: Analysis) => void;
   empty?: string;
 }
 
-export function AnalysisList({ items, selectedId, onSelect, empty }: Props) {
+export function AnalysisList({ items, selectedId, onSelect, onRemove, empty }: Props) {
   return (
     <section className="section">
-      <h2>
-        Historial{" "}
-        {items !== null && <span className="muted num">{items.length}</span>}
-      </h2>
+      <h3>
+        Historial {items !== null && <span className="muted num">{items.length}</span>}
+      </h3>
       {items === null ? (
         <ul className="list" aria-busy="true">
           {[0, 1, 2].map((i) => (
@@ -34,7 +34,7 @@ export function AnalysisList({ items, selectedId, onSelect, empty }: Props) {
       ) : (
         <ul className="list">
           {items.map((a) => (
-            <li key={a.id}>
+            <li key={a.id} className="history-row">
               <button
                 type="button"
                 aria-current={a.id === selectedId ? "true" : undefined}
@@ -49,6 +49,9 @@ export function AnalysisList({ items, selectedId, onSelect, empty }: Props) {
                   </span>
                 </span>
                 <span className="num">{fmt.pct(a.affected_ratio, 0)}%</span>
+              </button>
+              <button type="button" className="close" onClick={() => onRemove(a)}>
+                Quitar
               </button>
             </li>
           ))}

@@ -7,7 +7,7 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
@@ -210,6 +210,17 @@ def get_analysis(
         return AnalysisResponse.from_domain(repo.get(analysis_id))
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.delete("/analyses/{analysis_id}", status_code=204)
+def delete_analysis(
+    analysis_id: str, repo: AnalysisRepository = Depends(get_repository)
+) -> Response:
+    try:
+        repo.delete(analysis_id)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(status_code=204)
 
 
 @router.get("/analyses/{analysis_id}/{artifact}")
