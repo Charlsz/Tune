@@ -1,4 +1,4 @@
-import type { Analysis, ExampleScene, TaskId, TaskInfo } from "./types";
+import type { Analysis, ExampleScene, Forecast, Place, TaskId, TaskInfo } from "./types";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -40,6 +40,8 @@ export const api = {
     if (q.task) p.set("task", q.task);
     return fetch(`/api/timeline?${p}`).then(json<Analysis[]>);
   },
+  forecast: (task: TaskId, place: Place) =>
+    fetch(`/api/forecast?task=${task}&lat=${place.lat}&lon=${place.lon}`).then(json<Forecast>),
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
   analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {

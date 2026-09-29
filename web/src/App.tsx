@@ -3,11 +3,22 @@ import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
 import { CoordinateSearch } from "./components/CoordinateSearch";
 import { MetadataCard } from "./components/MetadataCard";
+import { RiskCard } from "./components/RiskCard";
 import { SceneStage } from "./components/SceneStage";
 import { StatsCard } from "./components/StatsCard";
 import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
 import type { Analysis, Place, TaskId, TaskInfo } from "./types";
+
+function scenePoint(analysis: Analysis | null): Place | null {
+  if (!analysis?.bounds) return null;
+  const center = (analysis.metadata as { center?: Place }).center;
+  if (center) return center;
+  return {
+    lat: (analysis.bounds.north + analysis.bounds.south) / 2,
+    lon: (analysis.bounds.east + analysis.bounds.west) / 2,
+  };
+}
 
 export function App() {
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
@@ -65,6 +76,7 @@ export function App() {
   }
 
   const firstRun = runTask != null && !history.some((a) => a.task === runTask);
+  const point = place ?? scenePoint(selected);
 
   return (
     <div className="app">
@@ -95,6 +107,7 @@ export function App() {
             </p>
           )}
           {selected && <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />}
+          {selected && point && <RiskCard task={selected.task} place={point} />}
           {selected && <MetadataCard key={`meta-${selected.id}`} analysis={selected} />}
           <CoordinateSearch place={place} onSearch={setPlace} onClear={() => setPlace(null)} />
           <AnalysisList

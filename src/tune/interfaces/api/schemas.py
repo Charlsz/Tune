@@ -35,6 +35,31 @@ class TaskInfo(BaseModel):
     classes: list[str]
 
 
+class ForecastDay(BaseModel):
+    date: str
+    probability: float | None = None
+    value: float | None = None
+    level: str | None = None
+
+
+class ForecastCell(BaseModel):
+    lat: float
+    lon: float
+
+
+class ForecastResponse(BaseModel):
+    task: str
+    source: str
+    note: str
+    cell: ForecastCell
+    horizon_days: int
+    probability: float | None = None
+    level: str | None = None
+    threshold: float | None = None
+    threshold_unit: str | None = None
+    daily: list[ForecastDay]
+
+
 class ExampleInfo(BaseModel):
     id: str
     task: str

@@ -177,6 +177,26 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
 .row dd .ellipsis { margin-left: auto; }
 .downloads { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; font-size: 13px; }
 
+/* --- forecast -------------------------------------------------------------- */
+
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 36px; margin: 0; padding: 0; list-style: none; }
+.spark i { display: block; width: 100%; background: var(--ink); border-radius: 1px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.chips li {
+  display: flex;
+  flex-direction: column;
+  width: 52px;
+  padding: 6px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--muted);
+}
+.chips li.medio { color: var(--ink); }
+.chips li.alto, .chips li.extremo { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chips li.extremo { font-weight: 650; }
+
 /* --- metadata -------------------------------------------------------------- */
 
 .meta > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; list-style: none; }

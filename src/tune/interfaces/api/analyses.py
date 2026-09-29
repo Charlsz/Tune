@@ -18,8 +18,9 @@ from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
 from tune.infrastructure.config import get_settings
 from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
+from tune.infrastructure.forecast import ForecastError, burn_outlook, flood_outlook
 from tune.infrastructure.inference.prithvi import MODEL_CARDS
-from tune.interfaces.api.schemas import AnalysisResponse, ExampleInfo, TaskInfo
+from tune.interfaces.api.schemas import AnalysisResponse, ExampleInfo, ForecastResponse, TaskInfo
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -134,6 +135,20 @@ def _http_for(exc: Exception) -> HTTPException:
         return HTTPException(413, "Imagen demasiado grande para la memoria disponible")
     log.exception("Fallo de inferencia")
     return HTTPException(503, f"Fallo del modelo: {exc}")
+
+
+@router.get("/forecast", response_model=ForecastResponse)
+def forecast(
+    task: HazardTask,
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+) -> ForecastResponse:
+    """Riesgo futuro en el punto: GloFAS si es inundación, Hot-Dry-Windy si es incendio."""
+    try:
+        outlook = flood_outlook(lat, lon) if task is HazardTask.FLOOD else burn_outlook(lat, lon)
+    except ForecastError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return ForecastResponse.model_validate(outlook)
 
 
 @router.get("/timeline", response_model=list[AnalysisResponse])
