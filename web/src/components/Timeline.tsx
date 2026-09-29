@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { fmt, TASK_META } from "../lib/insights";
 import type { Analysis, Place, TaskId } from "../types";
+import { Skeleton } from "./Skeleton";
 
 type Filter = "all" | TaskId;
 
@@ -10,6 +11,8 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "flood", label: "Inundación" },
   { id: "burn_scar", label: "Incendio" },
 ];
+
+const SKEL_HEIGHTS = [48, 72, 36, 60];
 
 export function Timeline({
   analysis,
@@ -62,9 +65,30 @@ export function Timeline({
         <p className="caption">Esta escena no tiene coordenadas, así que no se puede agrupar.</p>
       )}
       {error && <p className="caption">{error}</p>}
-      {(place || analysis?.bounds) && !items && !error && (
-        <p className="caption">Buscando análisis del mismo territorio</p>
+
+      {(place || analysis?.bounds) && items === null && !error && (
+        <ol className="marks" aria-busy="true" aria-label="Cargando historial de territorio">
+          {SKEL_HEIGHTS.map((h, i) => (
+            <li
+              key={i}
+              style={{
+                width: 72,
+                height: 96,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 0",
+              }}
+            >
+              <Skeleton style={{ width: 8, height: `${h}%`, borderRadius: 2, flexShrink: 0 }} />
+              <Skeleton style={{ width: 44, height: 11 }} />
+            </li>
+          ))}
+        </ol>
       )}
+
       {items && shown.length === 0 && (
         <p className="caption">
           Ningún análisis

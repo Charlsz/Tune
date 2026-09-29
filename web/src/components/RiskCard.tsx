@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { fmt } from "../lib/insights";
 import type { Forecast, Place, TaskId } from "../types";
+import { Skeleton } from "./Skeleton";
 
 const LEVEL = { bajo: "Bajo", medio: "Medio", alto: "Alto", extremo: "Extremo" } as const;
+
+const SKEL_SPARK = [40, 70, 55, 80, 35, 65, 50];
 
 export function RiskCard({ task, place }: { task: TaskId; place: Place }) {
   const [outlook, setOutlook] = useState<Forecast | null>(null);
@@ -23,7 +26,17 @@ export function RiskCard({ task, place }: { task: TaskId; place: Place }) {
       <h2>Riesgo futuro</h2>
       <p className="caption">Prithvi mira la imagen de hoy. Esto es un pronóstico meteorológico del punto.</p>
       {error && <p className="caption">{error}</p>}
-      {!outlook && !error && <p className="caption">Consultando el pronóstico</p>}
+      {!outlook && !error && (
+        <>
+          <Skeleton style={{ height: 56, width: 120, borderRadius: 6 }} />
+          <Skeleton style={{ height: 12, width: "80%", marginTop: 4 }} />
+          <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 36, marginTop: 4 }}>
+            {SKEL_SPARK.map((h, i) => (
+              <Skeleton key={i} style={{ flex: 1, height: `${h}%`, borderRadius: 1 }} />
+            ))}
+          </div>
+        </>
+      )}
       {outlook?.task === "flood" && outlook.probability != null && (
         <>
           <div className="figure num">

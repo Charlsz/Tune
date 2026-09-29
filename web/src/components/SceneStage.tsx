@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fmt } from "../lib/insights";
 import { type Scene, useScene } from "../lib/scene";
 import type { Analysis, TaskInfo } from "../types";
+import { Skeleton } from "./Skeleton";
 
 type View = "scene" | "classes";
 
@@ -9,9 +10,10 @@ interface Props {
   analysis: Analysis | null;
   tasks: TaskInfo[];
   busy: boolean;
+  loading?: boolean;
 }
 
-export function SceneStage({ analysis, tasks, busy }: Props) {
+export function SceneStage({ analysis, tasks, busy, loading }: Props) {
   const { scene, error } = useScene(analysis);
   const [view, setView] = useState<View>("scene");
   const [paint, setPaint] = useState(true);
@@ -33,7 +35,15 @@ export function SceneStage({ analysis, tasks, busy }: Props) {
     return (
       <main className="stage">
         <div className="placeholder">
-          <span>Sube un GeoTIFF. Tune pinta cada píxel con la clase que predice el modelo.</span>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "60%", padding: "8px 12px", background: "var(--paper)" }}>
+              <Skeleton style={{ height: 12, width: "100%" }} />
+              <Skeleton style={{ height: 12, width: "80%" }} />
+              <Skeleton style={{ height: 12, width: "55%" }} />
+            </div>
+          ) : (
+            <span>Sube un GeoTIFF. Tune pinta cada píxel con la clase que predice el modelo.</span>
+          )}
         </div>
       </main>
     );
@@ -59,6 +69,7 @@ export function SceneStage({ analysis, tasks, busy }: Props) {
 
       <div className="stage-body" ref={box}>
         {error && <p className="muted">{error}</p>}
+        {!scene && !error && <Skeleton className="canvas-skel" />}
         {scene && size && (
           <figure className="plate" style={{ width: size.w + 44 }}>
             <Profile values={scene.cols} axis="x" mark={hover?.x} size={size.w} />
@@ -237,7 +248,7 @@ function Readout({
   classes: string[];
 }) {
   if (!scene || !hover) {
-    return <span className="muted">{scene ? "Pasa el cursor sobre un píxel" : "Pintando…"}</span>;
+    return <span className="muted">{scene ? "Pasa el cursor sobre un píxel" : ""}</span>;
   }
   const i = hover.y * scene.w + hover.x;
   const label = !scene.valid[i] ? "Sin dato" : scene.positive[i] ? classes[1] : classes[0];

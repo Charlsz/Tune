@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
 import { CoordinateSearch } from "./components/CoordinateSearch";
+import { Footer } from "./components/Footer";
 import { MetadataCard } from "./components/MetadataCard";
 import { RiskCard } from "./components/RiskCard";
 import { SceneStage } from "./components/SceneStage";
+import { Skeleton } from "./components/Skeleton";
 import { StatsCard } from "./components/StatsCard";
 import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
@@ -23,7 +25,7 @@ function scenePoint(analysis: Analysis | null): Place | null {
 export function App() {
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
-  const [history, setHistory] = useState<Analysis[]>([]);
+  const [history, setHistory] = useState<Analysis[] | null>(null);
   const [selected, setSelected] = useState<Analysis | null>(null);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<AnalyzePhase | null>(null);
@@ -33,7 +35,13 @@ export function App() {
 
   const refresh = useCallback(() => {
     const query = place ? { lat: place.lat, lon: place.lon } : {};
-    api.analyses(query).then(setHistory).catch((e: Error) => setError(e.message));
+    api
+      .analyses(query)
+      .then(setHistory)
+      .catch((e: Error) => {
+        setError(e.message);
+        setHistory((prev) => prev ?? []);
+      });
   }, [place]);
 
   useEffect(() => {
@@ -75,7 +83,7 @@ export function App() {
     return run(task, (onPhase) => api.analyzeExample(id, onPhase));
   }
 
-  const firstRun = runTask != null && !history.some((a) => a.task === runTask);
+  const firstRun = runTask != null && !(history ?? []).some((a) => a.task === runTask);
   const point = place ?? scenePoint(selected);
 
   return (
@@ -83,9 +91,13 @@ export function App() {
       <header className="top">
         <span className="brand">Tune</span>
         <span className="muted">Análisis satelital con Prithvi-EO 2.0</span>
-        <span className={`status ${online ? "ok" : ""}`}>
-          {online == null ? "Conectando" : online ? "API en línea" : "API sin conexión"}
-        </span>
+        {online === null ? (
+          <Skeleton style={{ marginLeft: "auto", width: 80, height: 11, borderRadius: 3 }} />
+        ) : (
+          <span className={`status${online ? " ok" : ""}`}>
+            {online ? "API en línea" : "API sin conexión"}
+          </span>
+        )}
         <a href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
           Documentación
         </a>
@@ -118,11 +130,12 @@ export function App() {
           />
         </aside>
         <div className="view">
-          <SceneStage analysis={selected} tasks={tasks} busy={busy} />
+          <SceneStage analysis={selected} tasks={tasks} busy={busy} loading={online === null} />
           {(place || (selected && !busy)) && (
             <Timeline analysis={selected} place={place} onSelect={setSelected} />
           )}
         </div>
+        <Footer />
       </div>
     </div>
   );
