@@ -26,6 +26,14 @@ export type AnalyzePhase =
 export const api = {
   tasks: () => fetch("/api/tasks").then(json<TaskInfo[]>),
   analyses: (limit = 30) => fetch(`/api/analyses?limit=${limit}`).then(json<Analysis[]>),
+  timeline(q: { analysisId?: string; lat?: number; lon?: number; task?: TaskId }) {
+    const p = new URLSearchParams();
+    if (q.analysisId) p.set("analysis_id", q.analysisId);
+    if (q.lat != null) p.set("lat", String(q.lat));
+    if (q.lon != null) p.set("lon", String(q.lon));
+    if (q.task) p.set("task", q.task);
+    return fetch(`/api/timeline?${p}`).then(json<Analysis[]>);
+  },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
   analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {

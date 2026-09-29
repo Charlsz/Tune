@@ -287,6 +287,31 @@ h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; f
   to { top: 100%; }
 }
 
+/* --- timeline -------------------------------------------------------------- */
+
+.view { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.view .stage { flex: 1; }
+.timeline { display: flex; flex-direction: column; gap: 10px; padding: 14px 24px 18px; border-top: 1px solid var(--line); }
+.timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.filters { display: flex; gap: 16px; }
+.filters button { font-size: 13px; color: var(--muted); }
+.filters button[aria-selected="true"] { color: var(--ink); }
+.marks { display: flex; gap: 16px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
+.marks button {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  width: 72px;
+  height: 96px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.marks button[aria-current="true"] { color: var(--ink); }
+.marks i { display: block; width: 8px; background: var(--ink); border-radius: 2px; }
+.marks i.burn_scar { background: transparent; box-shadow: inset 0 0 0 1.5px var(--ink); }
+
 /* --- small screens --------------------------------------------------------- */
 
 @media (max-width: 860px) {

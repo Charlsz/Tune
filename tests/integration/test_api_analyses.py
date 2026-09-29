@@ -143,8 +143,40 @@ def test_analyze_example_uses_cached_file(client, tmp_path, monkeypatch):
         return out
 
     monkeypatch.setattr(analyses_api, "fetch", fake_fetch)
-    monkeypatch.setattr(analyses_api, "get_settings", lambda: type("S", (), {"tune_artifacts_dir": tmp_path})())
+    monkeypatch.setattr(
+        analyses_api, "get_settings", lambda: type("S", (), {"tune_artifacts_dir": tmp_path})()
+    )
     r = client.post("/api/examples/india/analyze")
     assert r.status_code == 201, r.text
     assert r.json()["input_filename"] == "India_900498_S2Hand.tif"
     assert r.json()["task"] == "flood"
+
+
+def _post(client, name: str, task: str = "flood"):
+    r = client.post(
+        "/api/analyze",
+        data={"task": task},
+        files={"file": (name, b"fake-bytes", "image/tiff")},
+    )
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def test_timeline_groups_the_same_box_oldest_first(client):
+    first = _post(client, "old.tif", "burn_scar")
+    second = _post(client, "new.tif", "flood")
+    r = client.get("/api/timeline", params={"analysis_id": second["id"]})
+    assert r.status_code == 200
+    assert [a["id"] for a in r.json()] == [first["id"], second["id"]]
+
+    inside = client.get("/api/timeline", params={"lat": 4.05, "lon": -74.95})
+    assert [a["id"] for a in inside.json()] == [first["id"], second["id"]]
+    assert client.get("/api/timeline", params={"lat": 0, "lon": 0}).json() == []
+    floods = client.get("/api/timeline", params={"analysis_id": first["id"], "task": "flood"})
+    assert [a["id"] for a in floods.json()] == [second["id"]]
+
+
+def test_timeline_rejects_a_missing_anchor_or_no_place(client):
+    assert client.get("/api/timeline", params={"analysis_id": "nope"}).status_code == 404
+    assert client.get("/api/timeline").status_code == 422
+    assert client.get("/api/timeline", params={"lat": 4}).status_code == 422

@@ -7,11 +7,12 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from tune.application.analyze import AnalyzeUseCase
+from tune.application.territory import timeline as territory_timeline
 from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
 from tune.infrastructure.config import get_settings
@@ -132,6 +133,35 @@ def _http_for(exc: Exception) -> HTTPException:
         return HTTPException(413, "Imagen demasiado grande para la memoria disponible")
     log.exception("Fallo de inferencia")
     return HTTPException(503, f"Fallo del modelo: {exc}")
+
+
+@router.get("/timeline", response_model=list[AnalysisResponse])
+def timeline(
+    analysis_id: str | None = None,
+    lat: float | None = Query(None, ge=-90, le=90),
+    lon: float | None = Query(None, ge=-180, le=180),
+    task: HazardTask | None = None,
+    repo: AnalysisRepository = Depends(get_repository),
+) -> list[AnalysisResponse]:
+    """Análisis del mismo territorio, del más antiguo al más reciente."""
+    point = None
+    bounds = None
+    if analysis_id:
+        try:
+            anchor = repo.get(analysis_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        bounds = anchor.bounds
+        if bounds is None:
+            only = [anchor] if task in (None, anchor.task) else []
+            return [AnalysisResponse.from_domain(a) for a in only]
+    elif lat is not None and lon is not None:
+        point = (lat, lon)
+    else:
+        raise HTTPException(422, "Indica analysis_id, o lat y lon")
+    # ponytail: O(n) sobre analysis.json en disco. PostGIS si el historial crece.
+    found = territory_timeline(repo.list(limit=10_000), bounds=bounds, point=point, task=task)
+    return [AnalysisResponse.from_domain(a) for a in found]
 
 
 @router.get("/analyses", response_model=list[AnalysisResponse])

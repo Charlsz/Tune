@@ -4,6 +4,7 @@ import { AnalysisList } from "./components/AnalysisList";
 import { MetadataCard } from "./components/MetadataCard";
 import { SceneStage } from "./components/SceneStage";
 import { StatsCard } from "./components/StatsCard";
+import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
 import type { Analysis, TaskId, TaskInfo } from "./types";
 
@@ -94,7 +95,10 @@ export function App() {
           {selected && <MetadataCard key={`meta-${selected.id}`} analysis={selected} />}
           <AnalysisList items={history} selectedId={selected?.id} onSelect={setSelected} />
         </aside>
-        <SceneStage analysis={selected} tasks={tasks} busy={busy} />
+        <div className="view">
+          <SceneStage analysis={selected} tasks={tasks} busy={busy} />
+          {selected && !busy && <Timeline analysis={selected} onSelect={setSelected} />}
+        </div>
       </div>
     </div>
   );
