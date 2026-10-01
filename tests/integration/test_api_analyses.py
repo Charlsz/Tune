@@ -204,7 +204,7 @@ def test_forecast_returns_the_outlook_and_503_when_it_fails(client, monkeypatch)
     monkeypatch.setattr(
         analyses_api,
         "flood_outlook",
-        lambda lat, lon: {
+        lambda lat, lon, start=None: {
             "task": "flood",
             "source": "GloFAS v4 (Open-Meteo)",
             "note": "prueba",
@@ -221,7 +221,7 @@ def test_forecast_returns_the_outlook_and_503_when_it_fails(client, monkeypatch)
     assert ok.status_code == 200
     assert ok.json()["probability"] == 0.2
 
-    def down(lat, lon):
+    def down(lat, lon, start=None):
         raise analyses_api.ForecastError("caído")
 
     monkeypatch.setattr(analyses_api, "flood_outlook", down)
