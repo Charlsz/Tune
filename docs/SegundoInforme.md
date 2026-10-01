@@ -6,270 +6,262 @@
 
 ## Resumen / Abstract
 
-Obtener un mapa de inundación o de cicatriz de incendio a partir de una imagen satelital exige coordinar un raster de varias bandas, un modelo de segmentación, georreferenciación y un servicio que deje el resultado usable. En un prototipo académico, repetir el fine-tuning de un foundation model geoespacial para cada resultado es costoso en tiempo y GPU, difícil de reproducir y frágil de calendario: una corrida bloqueada deja el proyecto sin evidencia. El primer informe planteó Tune como laboratorio MLOps para comparar una estrategia baseline con una optimizada. Esa comparación se implementó como pipeline, pero las corridas largas en la máquina de la universidad no produjeron un experimento cerrado a tiempo.
+Obtener un análisis de inundación o de cicatriz de incendio a partir de una imagen satelital exige coordinar un raster de varias bandas, una inferencia fiel al procedimiento del modelo, georreferencia cuando existe, y un servicio que deje el resultado recuperable. Existen foundation models geoespaciales y checkpoints ya especializados; lo que suele faltar, a escala de un prototipo académico, es el sistema que convierte esos pesos en un análisis consultable: validación de entrada, máscara, métricas, historial, API y despliegue repetible.
 
-El proyecto, denominado **Tune**, se redefine como **aplicación de análisis de imágenes satelitales**. El usuario sube un GeoTIFF, elige la tarea (inundación o cicatriz de incendio) y el sistema ejecuta un checkpoint de **Prithvi-EO 2.0** que IBM-NASA ya publicó fine-tuneado en Hugging Face: `Prithvi-EO-2.0-300M-TL-Sen1Floods11` (Sen1Floods11, Sentinel-2) o `Prithvi-EO-2.0-300M-BurnScars` (HLS Burn Scars). Ambos esperan las mismas seis bandas, de modo que un solo pipeline cubre las dos tareas. La salida es una máscara georreferenciada sobre un mapa, con porcentaje y área afectada, historial de análisis, API documentada y despliegue en Docker.
+**Tune** es una aplicación de análisis de imágenes satelitales. El usuario elige la tarea (inundación o cicatriz de incendio), carga un GeoTIFF o una escena oficial, y el sistema ejecuta un checkpoint de **Prithvi-EO 2.0** publicado por IBM-NASA en Hugging Face: `Prithvi-EO-2.0-300M-TL-Sen1Floods11` (Sen1Floods11) o `Prithvi-EO-2.0-300M-BurnScars` (HLS Burn Scars). Ambos esperan las mismas seis bandas, de modo que un solo pipeline cubre las dos tareas. La salida es una máscara con porcentaje y área afectada cuando hay tamaño de píxel, historial, API documentada, CLI y despliegue en Docker.
 
-El estado actual es un prototipo funcional: backend FastAPI con TerraTorch, frontend Vite + React + Leaflet, persistencia de artefactos en disco, CLI `tune analyze` y pruebas de API y de estadísticas de máscara. La primera inferencia descarga los pesos (~1,2 GB) y luego corre en CPU; GPU acelera. Quedan pendientes una demo con escenas de ejemplo estables, pulido de usabilidad, y el informe de cierre. El laboratorio de fine-tuning se conserva como componente secundario (rama `backup/mlops-finetuning-lab`); no es lo que se demuestra como resultado principal.
+El estado actual es un prototipo funcional: backend FastAPI con TerraTorch, frontend Vite + React, persistencia de artefactos en disco, CLI `tune analyze` y pruebas automáticas de API y de estadísticas de máscara. La primera inferencia descarga los pesos (~1,2 GB) y los cachea; luego corre en CPU y GPU acelera. Quedan pendientes documentar la corrida de cierre con escenas oficiales y el informe final. El aporte del equipo es el contrato de entrada y salida y la arquitectura que sirve el análisis, no un detector nuevo ni una cifra de mIoU propia.
 
 ---
+
+
 
 ## 1. Introducción
 
 El desarrollo de modelos fundacionales para observación de la Tierra ha desplazado una parte del esfuerzo práctico desde el entrenamiento masivo hacia el **uso** de modelos ya especializados. En investigación y en formación en ingeniería de sistemas, el software que rodea al modelo (ingesta del raster, inferencia, georreferencia, API y visualización) es lo que convierte un checkpoint publicado en un análisis que alguien puede inspeccionar. Tendencias como Prithvi-EO 2.0, TerraTorch y los repositorios de Hugging Face de IBM-NASA reflejan esa transición: existen pesos fine-tuneados para inundación y para cicatriz de incendio, y el trabajo de ingeniería es integrarlos de forma reproducible.
 
-En la situación actual, quienes necesitan un mapa de agua o de área quemada a partir de Sentinel-2 o HLS suelen enfrentarse a un mercado polarizado. En un extremo están plataformas cloud y flujos de fine-tuning propios, capaces de adaptar un foundation model, pero con costo, duración y dependencia de GPU desproporcionados para un equipo académico con plazo fijo. En el otro, notebooks y scripts de inferencia aislados producen una máscara, pero rara vez dejan historial, API, mapa ni un despliegue repetible. El impacto recae sobre estudiantes e ingenieros que, para “tener un resultado”, se ven obligados a esperar corridas de entrenamiento que pueden no terminar.
+En la situación actual, quienes necesitan un mapa de agua o de área quemada a partir de Sentinel-2 o HLS suelen enfrentarse a un mercado polarizado. En un extremo están plataformas cloud y flujos de fine-tuning propios, capaces de adaptar un foundation model, pero con costo, duración y dependencia de GPU desproporcionados para un equipo académico con plazo fijo. En el otro, notebooks y scripts de inferencia aislados producen una máscara, pero rara vez dejan historial, API, visor ni un despliegue repetible. El impacto recae sobre estudiantes e ingenieros que, para “tener un resultado”, se ven obligados a esperar corridas de entrenamiento que pueden no terminar, o a quedarse con un archivo suelto en disco.
 
-La necesidad técnica identificada no es la ausencia de un modelo. Existen Prithvi-EO 2.0, Sen1Floods11, HLS Burn Scars y TerraTorch. Lo que falta con frecuencia, al alcance de un prototipo de grado, es una **aplicación acotada** que reciba un GeoTIFF, ejecute el checkpoint publicado de la tarea elegida y devuelva una máscara ubicable en un mapa, con métricas de área y un registro recuperable. Esa carencia abre una oportunidad de diseño: un sistema pequeño, defendible y demostrable, que separe la infraestructura de análisis (qué entra, qué sale, cómo se sirve) del entrenamiento del foundation model (que ya ocurrió y está publicado).
+La necesidad técnica identificada no es la ausencia de un modelo. Existen Prithvi-EO 2.0, Sen1Floods11, HLS Burn Scars y TerraTorch. Lo que falta con frecuencia, al alcance de un prototipo de grado, es una **aplicación acotada** que reciba un GeoTIFF, ejecute el checkpoint publicado de la tarea elegida y devuelva una máscara con métricas de área y un registro recuperable. Esa carencia abre una oportunidad de diseño: un sistema pequeño, defendible y demostrable, que separe la infraestructura de análisis (qué entra, qué sale, cómo se sirve) del entrenamiento del foundation model (que ya ocurrió y está publicado).
 
-A partir de esta oportunidad se propone **Tune**, un prototipo de aplicación de análisis satelital. Sus funcionalidades clave son la selección de tarea, la inferencia con ventana deslizante sobre el checkpoint IBM-NASA correspondiente, el cálculo de porcentaje y km² afectados, el mapa con overlay, el historial y el despliegue en Docker. El impacto esperado es disponer de un flujo verificable (imagen entra, análisis sale) sin depender de una corrida de fine-tuning de varios días en GPU para cada demostración.
-
-El estado del trabajo, a la fecha de este avance, es el de un sistema ya cableado de extremo a extremo en código (API, web, persistencia, Docker) y validado con pruebas automáticas del flujo de análisis (sin cargar PyTorch en CI). La demostración con pesos reales y una escena de ejemplo es el hito inmediato hacia la entrega.
+A partir de esta oportunidad se propone **Tune**, un prototipo de aplicación de análisis satelital. Sus funcionalidades clave son la selección de tarea, la inferencia con ventana deslizante sobre el checkpoint IBM-NASA correspondiente, el cálculo de porcentaje y km² afectados, el visor de la máscara sobre la escena, el historial y el despliegue en Docker. El impacto esperado es un flujo verificable: imagen válida entra, análisis persistido sale. El estado del trabajo, a la fecha de este avance, es un sistema cableado de extremo a extremo (API, web, persistencia, Docker) y validado con pruebas automáticas del flujo de análisis. La demostración documentada con pesos reales y escenas oficiales es el hito inmediato hacia la entrega.
 
 ---
 
-## 2. Marco teórico (segunda versión)
 
-Esta es la segunda versión del marco. La primera, en el [PrimerInforme.md](./PrimerInforme.md) (apartado 5), organizaba Tune como laboratorio de fine-tuning: baseline frente a estrategia optimizada, tracking, model registry y una API al final del experimento. El caso satelital era un ejemplo posible, no el producto.
 
-La segunda versión cambia el centro. El objeto ya no es medir si LoRA gasta menos GPU que un entrenamiento completo. El objeto es usar un foundation model ya especializado, publicado, y servir su máscara. Entran conceptos que la primera versión no necesitaba como contrato: raster de seis bandas, GeoTIFF, CRS, segmentación semántica, checkpoint de Hugging Face, ventana de 512×512 y arquitectura hexagonal para no atar la interfaz a TerraTorch.
+## 2. Marco conceptual
 
-Lo que se conserva de la primera versión es el vocabulario de cierre de ciclo: el modelo no queda como archivo suelto, hay artefactos y hay un servicio. Lo que deja de ser marco del producto es PEFT, el par experimental y el registry de promoción. Ese lenguaje sigue en `lab/` como componente secundario.
+Este apartado fija el vocabulario necesario para entender el problema, la solución y las decisiones técnicas de Tune: raster, segmentación, checkpoint publicado, inferencia por ventana y arquitectura hexagonal.
 
 ### 2.1 Observación de la Tierra, raster y segmentación semántica
 
 Una imagen satelital operativa no es una fotografía RGB. Es un **raster** georreferenciado: una o más bandas espectrales alineadas a una grilla, con un sistema de coordenadas (CRS) y una transformación que relaciona píxel y terreno. Sentinel-2 aporta, entre otras, las bandas visibles, el infrarrojo cercano estrecho (8A) y los SWIR (11 y 12). HLS (Harmonized Landsat and Sentinel-2) ofrece una serie armonizada a 30 m. Prithvi-EO 2.0, el modelo que consume Tune, no lee las trece bandas de un producto L1C: espera **seis**: BLUE, GREEN, RED, NIR_NARROW, SWIR_1 y SWIR_2. Esa convención es el contrato de entrada del sistema.
 
-La **segmentación semántica** asigna una clase a cada píxel. En inundación, las clases del checkpoint publicado son “sin agua” y “agua / inundación”. En cicatriz de incendio, “no quemado” y “cicatriz”. El resultado es una **máscara**: una matriz de enteros del mismo tamaño que la escena. Si el raster tiene CRS, esa máscara puede reproyectarse a una caja en EPSG:4326 y dibujarse sobre un mapa web. Si no tiene CRS, la máscara sigue siendo un arreglo de clases, pero no hay dónde ubicarla geográficamente. El área en km² se obtiene del tamaño de píxel (metros si el CRS es proyectado; aproximación por latitud media si es geográfico) multiplicado por el recuento de píxeles de la clase positiva, excluyendo nodata.
+La **segmentación semántica** asigna una clase a cada píxel. En inundación, las clases del checkpoint publicado son “sin agua” y “agua / inundación”. En cicatriz de incendio, “no quemado” y “cicatriz”. El resultado es una **máscara**: una matriz de enteros del mismo tamaño que la escena. Si el raster tiene CRS, esa máscara puede asociarse a una caja en EPSG:4326. Si no tiene CRS, la máscara sigue siendo un arreglo de clases, pero no hay ubicación geográfica. El área en km² se obtiene del tamaño de píxel (metros si el CRS es proyectado; aproximación por latitud media si es geográfico) multiplicado por el recuento de píxeles de la clase positiva, excluyendo nodata.
 
-Este marco fija tres consecuencias de diseño. Primera: Tune no “detecta inundación en cualquier JPG”. Acepta GeoTIFF con las seis bandas Prithvi o, en la tarea de inundación, un Sentinel-2 L1C completo del que se extraen los índices 2, 3, 4, 8A, 11 y 12 (0-based: 1, 2, 3, 8, 11, 12). Segunda: el porcentaje afectado se calcula solo sobre píxeles válidos, no sobre el recorte entero. Tercera: el mapa es un visor de un resultado georreferenciado, no un GIS de propósito general.
+Este marco fija tres consecuencias de diseño. Primera: Tune no “detecta inundación en cualquier JPG”. Acepta GeoTIFF con las seis bandas Prithvi o, en la tarea de inundación, un Sentinel-2 L1C completo del que se extraen los índices 2, 3, 4, 8A, 11 y 12 (0-based: 1, 2, 3, 8, 11, 12). Segunda: el porcentaje afectado se calcula solo sobre píxeles válidos, no sobre el recorte entero. Tercera: la interfaz es un visor del resultado de la segmentación (escena y máscara), no un GIS de propósito general.
 
 ### 2.2 Foundation models geoespaciales y checkpoints publicados
 
-Un **foundation model** de observación de la Tierra aprende representaciones sobre grandes volúmenes de series temporales satelitales y se especializa después en una tarea etiquetada. **Prithvi-EO 2.0** (IBM-NASA) es un modelo de ese tipo, con variantes de 300 M de parámetros, entrenado sobre series HLS y publicado junto con configuraciones de fine-tuning para tareas de desastre. El fine-tuning consiste en continuar el entrenamiento sobre un dataset de la tarea (por ejemplo Sen1Floods11 o HLS Burn Scars) hasta obtener un **checkpoint**: un archivo de pesos más un `config.yaml` que describe bandas, tamaño de parche y cabezal de segmentación.
+Un **foundation model** de observación de la Tierra aprende representaciones sobre grandes volúmenes de series temporales satelitales y se especializa después en una tarea etiquetada. **Prithvi-EO 2.0** (IBM-NASA) es un modelo de ese tipo, con variantes de 300 M de parámetros, entrenado sobre series HLS y publicado junto con configuraciones y pesos para tareas de desastre. Un **checkpoint** es un archivo de pesos más un `config.yaml` que describe bandas, tamaño de parche y cabezal de segmentación.
 
 IBM-NASA publicó en Hugging Face, ya fine-tuneados, dos checkpoints que Tune consume de forma directa:
 
-| Tarea en Tune | Dataset de especialización | Repositorio Hugging Face | Entrada |
-|---|---|---|---|
-| Inundación (`flood`) | Sen1Floods11 (eventos de inundación; el checkpoint usa óptico Sentinel-2) | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` | 6 bandas Prithvi, o L1C amplio |
-| Cicatriz de incendio (`burn_scar`) | HLS Burn Scars (escenas 2018–2021, EE. UU. contiguo) | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars` | 6 bandas Prithvi |
 
-**Sen1Floods11** es un conjunto georreferenciado de chips de inundación publicado para entrenar y evaluar algoritmos de agua superficial; el checkpoint de Prithvi que se usa aquí se especializó sobre la vía óptica Sentinel-2 de ese ecosistema. **HLS Burn Scars** reúne escenas HLS de 512×512 con máscaras de área quemada. En ambos casos el dataset está versionado fuera de Git, en Hugging Face o en el repositorio original del dataset, y Tune no lo reentrena: lo usa como **procedencia** del modelo servido.
+| Tarea en Tune                      | Dataset de especialización           | Repositorio Hugging Face                                  | Entrada                        |
+| ---------------------------------- | ------------------------------------ | --------------------------------------------------------- | ------------------------------ |
+| Inundación (`flood`)               | Sen1Floods11 (vía óptica Sentinel-2) | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` | 6 bandas Prithvi, o L1C amplio |
+| Cicatriz de incendio (`burn_scar`) | HLS Burn Scars (EE. UU. contiguo)    | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars`       | 6 bandas Prithvi               |
 
-La distinción que organiza el proyecto es esta. **Entrenar** un Prithvi-300M sobre esos datasets es un experimento de adaptación: exige GPU, horas de reloj, un protocolo de comparación y umbrales de calidad. **Inferir** con el checkpoint ya publicado es un problema de ingeniería de software: descargar pesos, respetar el preprocesado oficial (reflectancia 0–1, ventana 512×512, coordenadas temporales y de ubicación cuando el modelo las pide) y persistir la máscara. El primer informe se situaba en lo primero. Este segundo informe se sitúa en lo segundo, porque lo primero no produjo un resultado demostrable en el plazo y porque lo segundo sí compromete tarea, dataset y modelo de forma verificable.
 
-### 2.3 Inferencia por ventana deslizante, MLOps acotado y servicio
+**Sen1Floods11** y **HLS Burn Scars** son la **procedencia** de esos pesos. Tune no los reentrena: los cita como origen del modelo servido. La distinción que organiza el proyecto es esta. **Entrenar** un Prithvi-300M sobre esos datasets es un experimento de adaptación. **Inferir** con el checkpoint ya publicado es un problema de ingeniería de software: descargar pesos, respetar el preprocesado oficial (reflectancia 0–1, ventana 512×512) y persistir la máscara. Tune se sitúa en lo segundo.
 
-Los checkpoints oficiales de Prithvi documentan un `inference.py` que no pasa la escena entera por la red: recorta **ventanas de 512×512** con solapamiento de padding reflectante, infiere cada parche y recompone la máscara. Tune porta esa lógica a través de TerraTorch (`LightningInferenceModel.from_config`) para no divergir del procedimiento publicado. El dispositivo puede ser CPU o CUDA; la semántica de la máscara no cambia.
+### 2.3 Inferencia por ventana deslizante y servicio de análisis
 
-Alrededor de esa inferencia hay prácticas de **MLOps** en sentido acotado: versionar el modelo que se está usando (el `repo_id` de Hugging Face viaja en cada análisis), registrar artefactos (GeoTIFF de entrada, máscara PNG y GeoTIFF, preview RGB, JSON de metadatos) y exponer el resultado por **API** y por **CLI**. Eso no es un laboratorio de comparación de LoRA contra full fine-tuning. Es el cierre de ciclo que el primer informe ya pedía (el modelo no queda como archivo suelto), aplicado ahora a un checkpoint ajeno y publicado.
+Los checkpoints oficiales de Prithvi documentan un `inference.py` que no pasa la escena entera por la red: recorta **ventanas de 512×512**, infiere cada parche y recompone la máscara. Tune porta esa lógica a través de TerraTorch (`LightningInferenceModel.from_config`) para no divergir del procedimiento publicado. El dispositivo puede ser CPU o CUDA; la semántica de la máscara no cambia.
 
-La **arquitectura hexagonal** (puertos y adaptadores) separa el dominio (tarea de peligro, análisis y estadísticas) de TerraTorch, rasterio y FastAPI. El segmentador es un puerto (`HazardSegmenter`); la persistencia es otro (`AnalysisRepository`). Esa separación es el concepto que permite cambiar de checkpoint sin reescribir la interfaz, y el que permite probar la API con un segmentador falso, sin GPU y sin descargar 1,2 GB de pesos.
+Alrededor de esa inferencia el sistema fija un **contrato de ingeniería**: el `repo_id` de Hugging Face viaja en cada análisis; se registran artefactos (GeoTIFF de entrada, máscara PNG y GeoTIFF, preview RGB, JSON de metadatos); y el resultado se expone por **API** y por **CLI**. Así el modelo no queda como archivo suelto después de un comando.
 
-En conjunto, el marco conceptual del segundo informe es: raster de seis bandas → foundation model ya especializado → máscara georreferenciada → sistema que la sirve. Fine-tuning, PEFT y GPU-hours siguen existiendo como vocabulario del componente secundario y como explicación de por qué no se reentrena; no son la métrica de éxito de la aplicación.
+La **arquitectura hexagonal** (puertos y adaptadores) separa el dominio (tarea, análisis y estadísticas) de TerraTorch, rasterio y FastAPI. El segmentador es un puerto (`HazardSegmenter`); la persistencia es otro (`AnalysisRepository`). Esa separación permite cambiar de checkpoint sin reescribir la interfaz, y probar la API con un segmentador falso, sin GPU y sin descargar 1,2 GB de pesos.
+
+En conjunto, el marco conceptual es: raster de seis bandas → foundation model ya especializado → máscara y estadísticas → sistema que las sirve.
 
 ---
 
+
+
 ## 3. Planteamiento del problema
+
+
 
 ### 3.1 Descripción del problema
 
-Producir un análisis de inundación o de cicatriz de incendio a partir de una escena satelital implica coordinar un GeoTIFF de varias bandas, un modelo de segmentación, georreferencia y un modo de consultar el resultado. En equipos académicos de alcance limitado, ese proceso suele quedar partido: o se invierte el semestre en fine-tunear el foundation model y no se llega a un producto usable, o se corre un script de inferencia una vez y no queda sistema.
+Producir un análisis de inundación o de cicatriz de incendio a partir de una escena satelital implica coordinar un GeoTIFF de varias bandas, un modelo de segmentación, georreferencia y un modo de consultar el resultado. En equipos académicos de alcance limitado, ese proceso suele quedar partido: o se invierte el semestre en adaptar el foundation model y no se llega a un producto usable, o se corre un script de inferencia una vez y no queda sistema.
 
-Las causas principales son tres. Primera, el costo y la duración del fine-tuning de un modelo del orden de 300 M de parámetros desalientan iterar y empujan a aceptar “cuando la corrida termine”, si es que termina. Segunda, las herramientas existentes cubren fragmentos (TerraTorch entrena o infiere; Hugging Face aloja pesos; Leaflet dibuja mapas) pero no obligan a un flujo único de subir escena, elegir tarea, persistir máscara y recuperarla. Tercera, depender de la GPU del laboratorio o de una imagen Docker de PyTorch+CUDA de varios gigabytes introduce un punto único de fallo de infraestructura: si la descarga o la cola se bloquean, no hay resultado que mostrar.
+Las causas principales son tres. Primera, el costo y la duración del fine-tuning de un modelo del orden de 300 M de parámetros desalientan iterar y empujan a aceptar “cuando la corrida termine”, si es que termina. Segunda, las herramientas existentes cubren fragmentos (TerraTorch entrena o infiere; Hugging Face aloja pesos; un GIS dibuja capas) pero no obligan a un flujo único de subir escena, elegir tarea, persistir máscara y recuperarla. Tercera, depender de GPU dedicada o de una imagen Docker de PyTorch+CUDA de varios gigabytes introduce un punto único de fallo de infraestructura: si la descarga o la cola se bloquean, no hay resultado que mostrar.
 
-La población afectada son estudiantes, ingenieros e investigadores que necesitan un análisis satelital demostrable **sin** una plataforma enterprise y **sin** semanas de GPU dedicada. El estado negativo es un ciclo en el que el modelo fundacional existe, los datasets existen, y aun así no hay una aplicación que, dada una escena válida, devuelva una máscara ubicable y un historial.
+La población afectada son estudiantes, ingenieros e investigadores que necesitan un análisis satelital demostrable **sin** una plataforma enterprise y **sin** semanas de GPU dedicada. El estado negativo es un ciclo en el que el modelo fundacional existe, los datasets existen, y aun así no hay una aplicación que, dada una escena válida, devuelva una máscara y un historial recuperables.
 
 El problema puede sintetizarse así:
 
-> **Disponer de un foundation model geoespacial y de datasets de inundación o incendio no produce, por sí solo, un análisis usable. Quienes dependen de reentrenar el modelo para cada resultado quedan expuestos a corridas largas, a fallos de infraestructura GPU y a un quiebre entre el notebook de inferencia y un servicio consultable. Falta un sistema acotado que, con checkpoints ya publicados, transforme un GeoTIFF en una máscara georreferenciada recuperable.**
+> **Disponer de un foundation model geoespacial y de datasets de inundación o incendio no produce, por sí solo, un análisis usable. Quienes dependen de reentrenar el modelo para cada resultado quedan expuestos a corridas largas y a fallos de infraestructura. Quienes solo corren un script quedan con un archivo en disco. Falta un sistema acotado que, con checkpoints ya publicados, transforme un GeoTIFF en una máscara recuperable.**
 
-La problemática no consiste en hacer falta un foundation model nuevo, ni en la inexistencia de SageMaker. Existen Prithvi-EO 2.0 y los dos checkpoints fine-tuneados. La oportunidad es **organizar el uso** de esos modelos en un prototipo de ingeniería verificable.
-
-La retroalimentación del primer informe pedía comprometer tarea, dataset, modelo y un objetivo que se pueda comprobar. Ese pedido se atiende aquí nombrando las dos tareas, los dos datasets de procedencia y los dos repositorios de Hugging Face, y definiendo el resultado como “escena válida → análisis persistido”, no como “tabla de GPU-hours”.
+La problemática no consiste en hacer falta un foundation model nuevo. Existen Prithvi-EO 2.0 y los dos checkpoints fine-tuneados. La oportunidad es **organizar el uso** de esos modelos en un prototipo de ingeniería verificable: tarea, dataset de procedencia y modelo nombrados, y un resultado que se pueda comprobar (“escena válida → análisis persistido”).
 
 ### 3.2 Justificación
 
-Atender este problema es pertinente en lo técnico porque los checkpoints de inundación y de cicatriz ya existen y están publicados. Repetir el fine-tuning para tener un mapa consume el plazo en una corrida que puede no terminar, y no agrega un modelo que el equipo pueda mostrar. Usar el checkpoint publicado, y dejar máscara, área e historial, produce una evidencia que se puede abrir en un navegador.
+Atender este problema es pertinente en lo técnico porque los checkpoints de inundación y de cicatriz **ya existen y están publicados**. La carencia no es “falta de un detector”: es la ausencia, al alcance de un prototipo de grado, de un flujo único que valide la entrada, ejecute el procedimiento oficial de inferencia, calcule estadísticas sobre píxeles válidos, persista artefactos y permita recuperar el análisis. Usar el checkpoint publicado y dejar máscara, área e historial produce una evidencia que se puede abrir en un navegador y repetir con Docker.
 
-Es pertinente en Ingeniería de Sistemas porque el aporte no es un detector nuevo. Es la arquitectura que une ingesta del raster, inferencia, persistencia, API y mapa. Esas piezas convierten un archivo de pesos en un análisis consultable. Sin ese sistema, el modelo publicado sigue siendo un comando suelto.
+Es pertinente en Ingeniería de Sistemas porque el aporte **no es Prithvi ni IBM-NASA**. El aporte es el sistema que une contrato de bandas, inferencia, persistencia, API, CLI e interfaz. Esas piezas convierten un archivo de pesos en un análisis consultable. Sin ese sistema, el modelo publicado sigue siendo un comando suelto o un notebook. Lo que se evalúa es que el prototipo respete el contrato de entrada y entrega, no que el equipo haya inventado un foundation model.
 
-Es defendible en este ciclo porque el tutor aceptó desplazar el núcleo desde el laboratorio de comparación hacia los checkpoints publicados, después de que la imagen de entrenamiento no cerró en la máquina de la universidad. La justificación no dice que el fine-tuning sea inútil. Dice que, con el calendario y la infraestructura observados, el resultado verificable es el análisis servido, no una tabla de mIoU que no llegó a existir.
+Es defendible en este ciclo porque el objetivo verificable es concreto: un GeoTIFF válido produce un análisis con el `model_id` del checkpoint usado; una entrada inválida se rechaza; el historial y la API permiten recuperar el resultado. No se exige una cifra nueva de mIoU. La calidad del detector es la que IBM-NASA ya publicó con esos pesos.
 
 ### 3.3 Restricciones y supuestos de diseño
 
 El proyecto está condicionado por las siguientes restricciones y supuestos:
 
-* Carácter académico y de prototipo funcional. No se busca disponibilidad, autenticación ni escala de una plataforma comercial.
-* Los pesos de los modelos se descargan de Hugging Face en la primera inferencia (~1,2 GB por checkpoint) y se cachean. Sin red en esa primera corrida, el sistema no infiere.
-* La entrada válida es un GeoTIFF con las seis bandas Prithvi o, en inundación, un Sentinel-2 L1C con suficientes bandas. Una escena RGB de tres canales o un recorte sin esas bandas se rechaza.
-* Sin CRS, la máscara se calcula y no se ubica en el mapa; el área en km² puede faltar.
-* CPU es suficiente para demostrar el flujo; GPU es opcional y acelera. El éxito del prototipo no depende de la máquina de la universidad.
-* Un análisis a la vez es la carga esperada de la demo. No hay cola de trabajos ni usuarios concurrentes de producción.
-* Datasets y pesos son públicos, con licencias de uso académico de sus publicadores. No se versionan en Git.
-* El laboratorio de fine-tuning (baseline versus optimizado) queda fuera del camino crítico. Se conserva en el repositorio como componente secundario.
-* No se preentrena un foundation model. No se reentrena Prithvi como requisito de la entrega.
-* PostGIS, autenticación, descarga automática desde Copernicus y operación 24/7 quedan fuera de este ciclo.
+- Carácter académico y de prototipo funcional. No se busca disponibilidad, autenticación ni escala de una plataforma comercial.
+- Los pesos de los modelos se descargan de Hugging Face en la primera inferencia (~1,2 GB por checkpoint) y se cachean. Sin red en esa primera corrida, el sistema no infiere.
+- La entrada válida es un GeoTIFF con las seis bandas Prithvi o, en inundación, un Sentinel-2 L1C con suficientes bandas. Una escena RGB de tres canales o un recorte sin esas bandas se rechaza.
+- Sin CRS, la máscara se calcula y no hay ubicación geográfica; el área en km² puede faltar.
+- CPU es suficiente para demostrar el flujo; GPU es opcional y acelera.
+- Un análisis a la vez es la carga esperada de la demo. No hay cola de trabajos ni usuarios concurrentes de producción.
+- Datasets y pesos son públicos. No se versionan en Git.
+- No se preentrena un foundation model. No se reentrena Prithvi como requisito de la entrega.
+- PostGIS, autenticación, descarga automática desde Copernicus y operación 24/7 quedan fuera de este ciclo.
 
-Esas restricciones fijan el contrato que el jurado puede comprobar. La entrada es un GeoTIFF de seis bandas (o un L1C amplio en inundación). La salida es una máscara, un porcentaje y, si hay CRS, un área y un overlay. El modelo no se entrena en la demo: se descarga el checkpoint publicado y se cachea. Si falta red la primera vez, o si el archivo no trae las bandas, el sistema rechaza o no infiere, y el historial ya guardado sigue en disco.
+Esas restricciones fijan el contrato que el jurado puede comprobar. La entrada es un GeoTIFF de seis bandas (o un L1C amplio en inundación). La salida es una máscara, un porcentaje y, si hay tamaño de píxel, un área. El modelo no se entrena en la demo: se descarga el checkpoint publicado y se cachea.
 
-El supuesto de carga es el de una sustentación, no el de un servicio. Un operador, un análisis, una máquina con Docker. CPU basta para mostrar el flujo. GPU solo acorta el recorrido de ventanas. Por eso el diseño no incluye cola, login ni base espacial: cada una de esas piezas añadiría un fallo posible sin cambiar el resultado que se enseña.
+El supuesto de carga es el de una sustentación, no el de un servicio. Un operador, un análisis, una máquina con Docker. CPU basta para mostrar el flujo. GPU solo acorta el recorrido de ventanas. Por eso el diseño no incluye cola, login ni base espacial.
 
 ### 3.4 Alcance actualizado
 
-Respecto del primer informe, el alcance **cambia de eje**. Allí Tune era un laboratorio que ejecutaba dos estrategias de fine-tuning, registraba GPU-hours y promovía un modelo. Aquí Tune es una aplicación que ejecuta dos checkpoints publicados y muestra el análisis.
+El alcance de este avance es el de la aplicación de análisis satelital descrita en este documento. Respecto del planteamiento inicial del semestre hubo un ajuste: el núcleo entregable es el servicio de inferencia con checkpoints publicados, no un experimento de comparación de estrategias de entrenamiento. Ese ajuste se refleja aquí como alcance vigente, no como relato del trabajo anterior.
 
 **Incluye**
 
-* Ingesta de GeoTIFF (hasta 200 MB) y selección de tarea `flood` o `burn_scar`.
-* Inferencia con el checkpoint IBM-NASA correspondiente, siguiendo el procedimiento oficial de ventana 512×512.
-* Cálculo de píxeles válidos, píxeles afectados, razón y área en km² cuando hay tamaño de píxel.
-* Persistencia por análisis: `analysis.json`, `input.tif`, `mask.png`, `preview.png`, `mask.tif`.
-* API REST (`GET /api/tasks`, `POST /api/analyze`, historial y descarga de artefactos) y CLI `tune analyze`.
-* Interfaz web: carga, mapa Leaflet con overlay, estadísticas e historial.
-* Despliegue `docker compose --profile app` (CPU) y perfil GPU opcional.
-* Pruebas automáticas del caso de uso y de la API con segmentador inyectado.
+- Ingesta de GeoTIFF (hasta 200 MB) y selección de tarea `flood` o `burn_scar`.
+- Inferencia con el checkpoint IBM-NASA correspondiente, siguiendo el procedimiento oficial de ventana 512×512.
+- Cálculo de píxeles válidos, píxeles afectados, razón y área en km² cuando hay tamaño de píxel.
+- Persistencia por análisis: `analysis.json`, `input.tif`, `mask.png`, `preview.png`, `mask.tif`.
+- API REST (`GET /api/tasks`, `POST /api/analyze`, historial, escenas oficiales y descarga de artefactos) y CLI `tune analyze`.
+- Interfaz web: carga, escenas oficiales, visor de la máscara sobre la escena, estadísticas e historial.
+- Despliegue Docker Compose (CPU por defecto; GPU opcional).
+- Pruebas automáticas del caso de uso y de la API con segmentador inyectado.
 
 **No incluye**
 
-* Fine-tuning propio como entregable principal, ni tabla baseline versus LoRA como evidencia de éxito.
-* PostGIS, autenticación, colas, multi-usuario, SLA.
-* Descarga automática de escenas Copernicus o un catálogo nacional de inundaciones.
-* Reentrenamiento de Prithvi, preentrenamiento, o un tercer dominio (cultivos, deslizamientos, etc.).
-* Alta disponibilidad, Kubernetes, facturación.
+- Fine-tuning propio como entregable principal ni tabla de mIoU nueva del detector.
+- PostGIS, autenticación, colas, multi-usuario, SLA.
+- Descarga automática de escenas Copernicus o un catálogo nacional de inundaciones.
+- Reentrenamiento de Prithvi, preentrenamiento, o un tercer dominio.
+- Alta disponibilidad, Kubernetes, facturación.
 
 **Usuarios previstos.** El equipo opera la aplicación y carga escenas de ejemplo. El tutor o el jurado usa la interfaz o la API para ver una máscara y el historial. No hay base de usuarios productivos.
 
-**Resultado esperado.** Prototipo validado de análisis satelital, con dos tareas comprometidas, dos modelos publicados y un flujo demostrable en CPU. El laboratorio de fine-tuning permanece como respaldo, no como condición de cierre.
+**Resultado esperado.** Prototipo validado de análisis satelital: dos tareas, dos modelos publicados, rechazo de entradas inválidas, análisis persistido con `model_id` y flujo demostrable en CPU (GPU opcional).
 
 ---
 
+
+
 ## 4. Objetivos
 
-Los objetivos se formulan como logros verificables y recogen la retroalimentación del primer informe: una tarea (en la práctica dos, con el mismo contrato de entrada), datasets y modelos nombrados, y un resultado que se puede comprobar sin reinterpretar umbrales a posteriori.
+Los objetivos se formulan como logros verificables: tareas, datasets de procedencia y modelos nombrados, y un resultado que se puede comprobar sin reinterpretar umbrales a posteriori.
 
 ### 4.1 Objetivo general
 
-**Diseñar e implementar Tune, un prototipo de aplicación de análisis de imágenes satelitales que, dado un GeoTIFF con las bandas que espera Prithvi-EO 2.0, ejecute el checkpoint publicado de inundación o de cicatriz de incendio, devuelva la máscara georreferenciada con porcentaje y área afectada, y deje el análisis recuperable mediante API, CLI e interfaz de mapa.**
+**Diseñar e implementar Tune, un prototipo de aplicación de análisis de imágenes satelitales que, dado un GeoTIFF con las bandas que espera Prithvi-EO 2.0, ejecute el checkpoint publicado de inundación o de cicatriz de incendio, devuelva la máscara con porcentaje y área afectada cuando sea calculable, y deje el análisis recuperable mediante API, CLI e interfaz.**
 
-El compromiso concreto, en los términos de la retroalimentación del primer informe, queda así. La tarea es segmentación de inundación (`flood`) y de cicatriz de incendio (`burn_scar`). Los datasets versionados fuera de Git son Sen1Floods11 y HLS Burn Scars, citados como procedencia de los pesos. Los modelos preentrenados y ya fine-tuneados son `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` y `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars`.
+El compromiso concreto queda así. La tarea es segmentación de inundación (`flood`) y de cicatriz de incendio (`burn_scar`). Los datasets versionados fuera de Git son Sen1Floods11 y HLS Burn Scars, citados como procedencia de los pesos. Los modelos preentrenados y ya fine-tuneados son `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` y `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars`.
 
-El objetivo se considera cumplido cuando un GeoTIFF válido produce un análisis persistido con el `model_id` de ese checkpoint, y cuando la API sirve la máscara y las estadísticas. No se exige una nueva cifra de mIoU ni una corrida de fine-tuning.
+El objetivo se considera cumplido cuando un GeoTIFF válido produce un análisis persistido con el `model_id` de ese checkpoint, cuando la API sirve la máscara y las estadísticas, y cuando una entrada inválida se rechaza de forma explícita. No se exige una nueva cifra de mIoU ni una corrida de fine-tuning. La calidad del detector es la que IBM-NASA ya publicó con esos pesos; lo que se valida aquí es el sistema.
 
-* **Específico:** sistema de ingesta, inferencia, persistencia y visualización; no un detector comercial ni un laboratorio de PEFT.
-* **Medible:** existencia de los dos checkpoints cableados, de `POST /api/analyze`, del historial y de la máscara sobre el mapa para una escena de ejemplo.
-* **Alcanzable:** CPU para la demo; GPU opcional; un análisis a la vez.
-* **Relevante:** responde al quiebre entre modelo publicado y análisis usable, y al riesgo de depender de corridas largas de fine-tuning.
-* **Con plazo:** acotado a este ciclo de proyecto de grado.
+- **Específico:** sistema de ingesta, inferencia, persistencia y visualización; no un detector comercial ni un reentrenamiento de foundation models.
+- **Medible:** dos checkpoints cableados, `POST /api/analyze`, historial, rechazo de entradas inválidas y al menos una escena oficial documentada por tarea.
+- **Alcanzable:** CPU para la demo; GPU opcional; un análisis a la vez.
+- **Relevante:** responde al quiebre entre modelo publicado y análisis usable.
+- **Con plazo:** acotado a este ciclo de proyecto de grado.
+
+
 
 ### 4.2 Objetivos específicos
 
 1. **Fijar** el contrato de entrada (seis bandas Prithvi; L1C amplio solo en inundación) y el de salida (máscara, bounds EPSG:4326, estadísticas, `model_id`).
-
 2. **Integrar** los checkpoints `Prithvi-EO-2.0-300M-TL-Sen1Floods11` y `Prithvi-EO-2.0-300M-BurnScars` mediante TerraTorch, sin reentrenar.
-
 3. **Implementar** el caso de uso de análisis (segmentar, calcular estadísticas, persistir artefactos) compartido por API y CLI.
-
 4. **Exponer** una API documentada que liste tareas, reciba un GeoTIFF, rechace entradas inválidas y sirva historial y archivos.
-
-5. **Construir** una interfaz que permita elegir tarea, subir la escena y ver máscara, porcentaje, km² e historial sobre un mapa.
-
+5. **Construir** una interfaz que permita elegir tarea, cargar o seleccionar una escena, y ver máscara, porcentaje, km² e historial.
 6. **Empaquetar** el sistema en Docker Compose de modo que una máquina sin NVIDIA pueda demostrar el flujo (tras cachear pesos).
-
 7. **Validar** el prototipo con pruebas del cálculo de estadísticas, de la API y de una inferencia real sobre una escena de ejemplo de Hugging Face.
 
-8. **Documentar** el cambio de alcance respecto del primer informe, las alternativas descartadas y el laboratorio de fine-tuning como componente secundario.
+Un enunciado verificable es:
 
-Un enunciado verificable, en la forma que pidió la retroalimentación, es:
-
-> Ejecutar el checkpoint publicado de la tarea elegida sobre un GeoTIFF válido, persistir el análisis con el identificador del modelo y servir la máscara y las estadísticas por la API comprometida; rechazar archivos que no sean GeoTIFF o tareas desconocidas.
+> Ejecutar el checkpoint publicado de la tarea elegida sobre un GeoTIFF válido, persistir el análisis con el identificador del modelo y servir la máscara y las estadísticas por la API; rechazar archivos que no sean GeoTIFF o tareas desconocidas.
 
 ---
 
-## 5. Bibliografía inicial y revisión de la literatura
 
-### 5.0 Bibliografía inicial
 
-La revisión parte de un corpus corto, el que el proyecto ya tenía comprometido al redefinir el núcleo. No es una lista abierta de todo lo publicado sobre incendios o inundaciones. Son las fuentes sin las cuales no se puede decir qué modelo se usa, sobre qué dataset se especializó y qué práctica de ingeniería rodea al servicio.
+## 5. Estado del arte / soluciones relacionadas
 
-| Fuente | Para qué entra al corpus |
-|---|---|
-| Szwarcman et al., 2024, Prithvi-EO 2.0 | Define el foundation model, las seis bandas y el tamaño de 300 M. |
-| Fichas de Hugging Face Sen1Floods11 y Burn Scars | Son los checkpoints que Tune ejecuta, con config y pesos. |
-| Bonafilia et al., 2020, Sen1Floods11 | Procedencia del dataset de inundación. |
-| Phillips et al., 2023, HLS Burn Scars | Procedencia del dataset de cicatriz. |
-| Rojas Sánchez, 2025 | Uso académico reciente de Prithvi en una arquitectura de software, no solo en un notebook. |
-| Nogare y Silveira, 2024; Sculley et al., 2015 | Marco de MLOps y de deuda técnica: por qué el modelo no puede quedar suelto. |
-| Documentación de MLflow | Solo para el laboratorio secundario de fine-tuning. |
 
-La ficha completa de cada fuente está en la sección 16. Esa sección es la bibliografía citada. Esta tabla es la bibliografía inicial: el conjunto con el que se decidió qué leer y qué dejar fuera.
 
-### 5.1 Revisión sistemática de la literatura
+### 5.1 Fuentes de referencia
 
-La pregunta de la revisión es cuál camino permite, en este plazo, un análisis de inundación o de cicatriz verificable: reentrenar Prithvi, cambiar solo de dataset, usar un clasificador pequeño, o servir el checkpoint ya publicado. La búsqueda no recorrió una base bibliográfica completa. Se limitó a las fuentes de la bibliografía inicial, a las fichas oficiales de los dos modelos en Hugging Face y al planteamiento del primer informe. Eso se declara para no presentar como sistemática una lectura que no contó cientos de artículos.
+La revisión parte de un corpus corto: las fuentes sin las cuales no se puede decir qué modelo se usa, sobre qué dataset se especializó y qué práctica de ingeniería rodea al servicio.
 
-Criterio de inclusión: la fuente describe el modelo que se va a ejecutar, el dataset del que proviene, o el sistema de software que lo sirve. Criterio de exclusión: plataformas que el equipo no puede operar (SageMaker, Copernicus como servicio), técnicas de fine-tuning que exigen una corrida cerrada que este ciclo no tiene, y tareas que no producen una máscara georreferenciada. Con ese filtro quedan dentro Prithvi-EO 2.0, TerraTorch, Sen1Floods11, HLS Burn Scars, el script oficial de inferencia y el laboratorio MLOps del primer informe, que se conserva como antecedente y no como resultado.
 
-El resultado de la revisión es el posicionamiento de los apartados siguientes. El modelo y el toolkit resuelven la inferencia. Los datasets nombran la procedencia. El script oficial y el GIS no dejan aplicación. El laboratorio v1 reentrena y no mostró un mapa a tiempo. Tune ocupa el hueco que esos antecedentes dejan: checkpoint publicado, más historial y mapa.
+| Fuente                                           | Para qué entra al corpus                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Szwarcman et al., 2024, Prithvi-EO 2.0           | Define el foundation model, las seis bandas y el tamaño de 300 M.                          |
+| Fichas de Hugging Face Sen1Floods11 y Burn Scars | Son los checkpoints que Tune ejecuta, con config y pesos.                                  |
+| Bonafilia et al., 2020, Sen1Floods11             | Procedencia del dataset de inundación.                                                     |
+| Phillips et al., 2023, HLS Burn Scars            | Procedencia del dataset de cicatriz.                                                       |
+| Rojas Sánchez, 2025                              | Uso académico reciente de Prithvi en una arquitectura de software, no solo en un notebook. |
+| Nogare y Silveira, 2024; Sculley et al., 2015    | Marco de MLOps y de deuda técnica: por qué el modelo no puede quedar suelto.               |
+
+
+La ficha completa de cada fuente está en la sección 16.
 
 ### 5.2 Prithvi-EO 2.0 y TerraTorch
 
-Prithvi-EO 2.0 es un foundation model geoespacial de IBM-NASA, con pesos y recetas de fine-tuning públicas. TerraTorch es el toolkit con el que esos recetarios se ejecutan. Resuelven el “cómo adaptar o cómo inferir el modelo”. No resuelven, por sí solos, una aplicación con historial, mapa y Docker listo para una demo académica. Tune los usa como motor de inferencia, no como producto.
+Prithvi-EO 2.0 es un foundation model geoespacial de IBM-NASA, con pesos y recetas públicas. TerraTorch es el toolkit con el que esos recetarios se ejecutan. Resuelven el “cómo inferir el modelo”. No resuelven, por sí solos, una aplicación con historial, visor y Docker listo para una demo académica. Tune los usa como motor de inferencia, no como producto.
 
-El valor de esa pareja para este proyecto es de contrato, no de entrenamiento. Cada checkpoint trae un `config.yaml` y un archivo de pesos. El script oficial describe bandas, tamaño de ventana y el modo de recomponer la máscara. Reimplementar esa red en otro framework habría alejado el prototipo del procedimiento publicado y habría hecho imposible decir que se usa el modelo de IBM-NASA tal como está. TerraTorch (`LightningInferenceModel`) es el adaptador que mantiene esa fidelidad.
+El valor de esa pareja para este proyecto es de contrato. Cada checkpoint trae un `config.yaml` y un archivo de pesos. El script oficial describe bandas, tamaño de ventana y el modo de recomponer la máscara. Reimplementar esa red en otro framework habría alejado el prototipo del procedimiento publicado. TerraTorch (`LightningInferenceModel`) es el adaptador que mantiene esa fidelidad.
 
-La limitación también queda nombrada. Prithvi y TerraTorch no saben de usuarios, de historial ni de un mapa web. Si el proyecto se quedara en el repositorio del modelo, el resultado sería un archivo en disco después de un comando. El estado del arte cubre el modelo. Tune cubre el sistema que lo vuelve consultable.
+La limitación también queda nombrada. Prithvi y TerraTorch no saben de usuarios, de historial ni de un visor web. Si el proyecto se quedara en el repositorio del modelo, el resultado sería un archivo en disco después de un comando. El estado del arte cubre el modelo. Tune cubre el sistema que lo vuelve consultable.
 
 ### 5.3 Datasets de desastre
 
-Sen1Floods11 y HLS Burn Scars son conjuntos de referencia para agua en inundación y para cicatriz de incendio. Permiten entrenar y reportar mIoU. Tune no reporta una nueva cifra de mIoU sobre esos conjuntos en este ciclo: reporta que los modelos **ya evaluados y publicados** por IBM-NASA se pueden consumir en un flujo de ingeniería. El dataset queda como procedencia del checkpoint, que es lo que la retroalimentación pedía nombrar.
+Sen1Floods11 y HLS Burn Scars son conjuntos de referencia para agua en inundación y para cicatriz de incendio. Permiten entrenar y reportar mIoU. Tune no reporta una nueva cifra de mIoU sobre esos conjuntos en este ciclo: reporta que los modelos **ya evaluados y publicados** por IBM-NASA se pueden consumir en un flujo de ingeniería. El dataset queda como procedencia del checkpoint.
 
-Sen1Floods11 reúne eventos de inundación en varios continentes. El checkpoint que Tune sirve se especializó en la vía óptica de Sentinel-2, no en un reentrenamiento propio. HLS Burn Scars reúne escenas HLS de 512×512 con máscaras de área quemada sobre el territorio contiguo de Estados Unidos. En ambos casos el conjunto está versionado fuera de Git, en Hugging Face o en la publicación original, y se cita como origen del modelo, no como corpus que este equipo vuelve a partir.
+Sen1Floods11 reúne eventos de inundación en varios continentes. El checkpoint que Tune sirve se especializó en la vía óptica de Sentinel-2. HLS Burn Scars reúne escenas HLS de 512×512 con máscaras de área quemada sobre el territorio contiguo de Estados Unidos. En ambos casos el conjunto está versionado fuera de Git y se cita como origen del modelo, no como corpus que este equipo vuelve a partir.
 
-Esa decisión evita confundir “usar el dataset” con “volver a entrenar sobre el dataset”. Un lector del primer informe podría esperar una tabla de mIoU. Este informe declara que la métrica de éxito es otra: una escena válida produce un análisis persistido con el identificador del modelo. La calidad del detector es la que IBM-NASA ya publicó con esos pesos. Lo que se valida aquí es que el sistema respeta el contrato de entrada y entrega la máscara.
+Esa decisión evita confundir “usar el dataset” con “volver a entrenar sobre el dataset”. La métrica de éxito es otra: una escena válida produce un análisis persistido con el identificador del modelo. La calidad del detector es la que IBM-NASA ya publicó con esos pesos. Lo que se valida aquí es que el sistema respeta el contrato de entrada y entrega la máscara.
 
 ### 5.4 Scripts de inferencia, GIS y plataformas cloud
 
-El `inference.py` de cada repositorio Hugging Face produce una máscara en disco. Un GIS de escritorio la visualiza. Una plataforma cloud podría servir el modelo con autenticación y cola. El vacío que aborda Tune es el tramo intermedio: un prototipo único que une inferencia oficial, API, persistencia y mapa, sin pretender ser Copernicus Browser ni SageMaker.
+El `inference.py` de cada repositorio Hugging Face produce una máscara en disco. Un GIS de escritorio la visualiza. Una plataforma cloud podría servir el modelo con autenticación y cola. El vacío que aborda Tune es el tramo intermedio: un prototipo único que une inferencia oficial, API, persistencia y visor, sin pretender ser Copernicus Browser ni SageMaker.
 
-El script oficial es la referencia de corrección. Si Tune divergiera en bandas, escala de reflectancia o tamaño de ventana, la máscara dejaría de ser comparable con la demo de IBM-NASA. Por eso el segmentador porta ese procedimiento y no inventa un preprocesado paralelo. El costo es la dependencia de TerraTorch y de Hugging Face. El beneficio es poder decir, ante el jurado, que la inferencia sigue el recetario publicado.
+El script oficial es la referencia de corrección. Si Tune divergiera en bandas, escala de reflectancia o tamaño de ventana, la máscara dejaría de ser comparable con la demo de IBM-NASA. Por eso el segmentador porta ese procedimiento y no inventa un preprocesado paralelo. El costo es la dependencia de TerraTorch y de Hugging Face. El beneficio es poder decir que la inferencia sigue el recetario publicado.
 
-Un GIS o una plataforma cloud cubren visualización o escala, y exigen otra instalación, otra cuenta o otro presupuesto. Para un equipo de grado sin dinero de hosting, esas piezas no cierran el entregable. Tune se queda en un cliente web y un servidor que se levantan con Docker en la máquina de la universidad. Esa frontera es deliberada: el producto es demostrable, y no promete un servicio 24/7.
+Un GIS o una plataforma cloud cubren visualización o escala, y exigen otra instalación, otra cuenta o otro presupuesto. Para un equipo de grado sin dinero de hosting, esas piezas no cierran el entregable. Tune se queda en un cliente web y un servidor que se levantan con Docker. Esa frontera es deliberada: el producto es demostrable, y no promete un servicio 24/7.
 
-### 5.5 El laboratorio MLOps del primer informe
+### 5.5 Posicionamiento de Tune
 
-El planteamiento anterior se posicionaba frente a scripts manuales de fine-tuning, trainers, MLflow y SageMaker, con el núcleo en comparar eficiencia. Ese posicionamiento sigue siendo válido **para el componente secundario**. El posicionamiento de este informe es otro: frente a “reentrenar para tener un mapa” y frente a “correr un script una vez”, Tune ofrece un sistema de análisis con modelos publicados.
 
-| Enfoque | Infiere Prithvi publicado | App con mapa e historial | Reentrena | GPU obligatoria para un resultado |
-|---|---:|---:|---:|---:|
-| Script `inference.py` oficial | Sí | No | No | No |
-| Laboratorio Tune v1 (fine-tuning) | Tras entrenar | Mínima | Sí (núcleo) | Sí |
-| GIS de escritorio | Si se importa la máscara | Parcial | No | No |
-| Plataforma cloud | Posible | Sí | Opcional | Según el plan |
-| **Tune (este informe)** | **Sí (núcleo)** | **Sí** | Secundario | **No** |
+| Enfoque                                          | Infiere Prithvi publicado | App con historial y visor | Reentrena | GPU obligatoria para un resultado |
+| ------------------------------------------------ | ------------------------- | ------------------------- | --------- | --------------------------------- |
+| Script `inference.py` oficial                    | Sí                        | No                        | No        | No                                |
+| GIS de escritorio                                | Si se importa la máscara  | Parcial                   | No        | No                                |
+| Plataforma cloud (Earth Engine, SageMaker, etc.) | Posible                   | Sí                        | Opcional  | Según el plan                     |
+| Fine-tuning propio como núcleo                   | Tras entrenar             | Mínima o ninguna          | Sí        | Sí                                |
+| **Tune**                                         | **Sí (núcleo)**           | **Sí**                    | No        | **No**                            |
 
-El laboratorio del primer informe sigue siendo la referencia de lo que se intentó: comparar un fine-tuning baseline con uno optimizado, con MLflow y con umbrales de promoción. Ese trabajo vive en `lab/` y en la rama de respaldo. No se presenta como el resultado que se defiende en este avance, porque las corridas largas no cerraron y porque el tutor aceptó desplazar el núcleo hacia los checkpoints ya publicados.
 
-La tabla fija el lugar de Tune entre las opciones que un jurado podría confundir. El script oficial infiere y no deja aplicación. El laboratorio v1 reentrena y no muestra un mapa como producto. Un GIS visualiza si alguien importa la máscara a mano. Una plataforma cloud puede hacer las dos cosas y queda fuera de presupuesto. Tune ocupa el cruce que el segundo informe necesita: inferencia del modelo publicado, más historial y mapa, sin GPU como requisito para obtener un resultado.
+Tune se sitúa como prototipo de sistema alrededor de dos checkpoints públicos. No compite con Earth Engine ni con el paper de Prithvi. Compite, en el sentido académico, con la ausencia de un flujo único “GeoTIFF → máscara → historial” en el alcance de un proyecto de grado. La contribución es de ingeniería: puertos hexagonales, API, CLI, UI y Docker, con el procedimiento oficial de inferencia como núcleo.
 
 ---
 
+
+
 ## 6. Solución propuesta
 
-Tune es una aplicación de análisis satelital de alcance académico. Recibe un **GeoTIFF** y una **tarea** (`flood` o `burn_scar`); ejecuta el checkpoint Prithvi-EO 2.0 publicado para esa tarea; y devuelve una **máscara** con estadísticas, lista para el mapa y para la API.
+Tune es una aplicación de análisis satelital de alcance académico. Recibe un **GeoTIFF** y una **tarea** (`flood` o `burn_scar`); ejecuta el checkpoint Prithvi-EO 2.0 publicado para esa tarea; y devuelve una **máscara** con estadísticas, lista para la interfaz y para la API.
 
-Los usuarios de la demo cargan una escena de ejemplo (las publicadas junto a cada modelo en Hugging Face) o una escena propia que cumpla el contrato de bandas. El sistema no se presenta como un laboratorio para decidir si LoRA ahorra memoria. El caso de inundación y el de incendio **son el producto visible**. El aporte es el sistema que los hace consultables: mismo pipeline, dos checkpoints.
+Los usuarios de la demo cargan una escena oficial (las publicadas junto a cada modelo en Hugging Face, también listadas en la web) o una escena propia que cumpla el contrato de bandas. El caso de inundación y el de incendio **son el producto visible**. El aporte es el sistema que los hace consultables: mismo pipeline, dos checkpoints.
 
-La propuesta de valor cabe en una frase operativa: el operador elige la tarea, sube el raster y obtiene una máscara ubicable, con porcentaje y área, sin esperar a que termine un entrenamiento. El detalle de enfoque, de usuarios y de relación con el problema está en los apartados siguientes.
+La propuesta de valor cabe en una frase operativa: el operador elige la tarea, carga el raster y obtiene una máscara con porcentaje y área (cuando hay tamaño de píxel), sin esperar a que termine un entrenamiento. El detalle de enfoque, de usuarios y de relación con el problema está en los apartados siguientes.
 
 ### 6.1 Enfoque general y propuesta de valor
 
-El enfoque es **consumir especialización ya publicada** en lugar de producirla en el laboratorio. IBM-NASA fine-tuneó Prithvi-EO 2.0-300M sobre Sen1Floods11 y sobre HLS Burn Scars y dejó config + pesos en Hugging Face. Tune descarga esos artefactos, aplica el preprocesado del recetario oficial (selección de bandas, escala a reflectancia, ventana 512×512, coordenadas temporales y de ubicación en inundación) y persiste lo que un usuario puede auditar: la entrada, la máscara, un preview RGB y un JSON con `model_id`, bounds y latencia.
+El enfoque es **consumir especialización ya publicada**. IBM-NASA fine-tuneó Prithvi-EO 2.0-300M sobre Sen1Floods11 y sobre HLS Burn Scars y dejó config + pesos en Hugging Face. Tune descarga esos artefactos, aplica el preprocesado del recetario oficial (selección de bandas, escala a reflectancia, ventana 512×512, coordenadas temporales y de ubicación en inundación) y persiste lo que un usuario puede auditar: la entrada, la máscara, un preview RGB y un JSON con `model_id`, bounds y latencia.
 
 La propuesta de valor, atada al problema, es esta: un análisis de agua o de área quemada **sin** una corrida de fine-tuning de varios días y **sin** quedar atrapado en un notebook. El valor para ingeniería es un contrato estable (bandas, tareas, artefactos) y una arquitectura en la que TerraTorch no contamina el dominio. El valor para un público no técnico es: “sube la escena, elige inundación o incendio, ves el overlay y el porcentaje afectado”.
 
-Lo construido en la fase de laboratorio no se tira. Se reutilizan la arquitectura por capas, FastAPI, Typer, Docker Compose, la imagen con PyTorch y TerraTorch, y la caché de Hugging Face. Lo que deja de ser el centro es el par experimental baseline versus optimized.
+Ese enfoque es coherente con el alcance: el entregable es el servicio de análisis, no una tabla de mIoU nueva. El stack (FastAPI, Typer, Docker Compose, TerraTorch, caché de Hugging Face) está al servicio de ese flujo.
 
 ### 6.2 Usuarios, flujo y experiencia demostrable
 
@@ -292,122 +284,130 @@ Estadísticas (válidos, afectados, %, km²) + bounds EPSG:4326
    ↓
 Persistencia artifacts/analyses/<id>/
    ↓
-API / CLI / mapa Leaflet
+API / CLI / interfaz web
 ```
 
 La experiencia demostrable es:
 
-1. Abrir `http://localhost:8080` (Compose perfil `app`).
+1. Abrir `http://localhost:8080`.
 2. Elegir inundación o cicatriz.
-3. Subir un GeoTIFF de ejemplo del repositorio del modelo.
-4. Ver overlay, porcentaje, km² (si hay CRS) e identificador del modelo.
+3. Elegir una escena oficial o subir un GeoTIFF propio.
+4. Ver la máscara sobre la escena, porcentaje, km² (si hay tamaño de píxel) e identificador del modelo.
 5. Reabrir el análisis desde el historial.
 6. Opcional: repetir lo mismo con `tune analyze` o con `POST /api/analyze`.
 
 La API no entrena. Un consumidor envía el archivo y la tarea y recibe el análisis, o consulta `/api/tasks` y `/api/analyses`. Los artefactos se descargan por `/api/analyses/{id}/{artifact}`.
 
-### 6.3 Relación con el problema, el alcance y la retroalimentación
+### 6.3 Relación con el problema y el alcance
 
-Esta solución responde al problema porque el resultado deja de depender de que termine un entrenamiento en la GPU de la universidad. Responde al alcance porque nombra dos tareas, dos datasets de procedencia y dos modelos, y porque declara con igual claridad lo que no hace (reentrenar, PostGIS, Copernicus). Responde a la retroalimentación porque el objetivo verificable ya no es un umbral de mIoU entre dos estrategias aún no corridas: es un análisis recuperable con el `model_id` del checkpoint usado.
+Esta solución responde al problema porque organiza el **uso** de un checkpoint ya especializado: valida la entrada, ejecuta la inferencia oficial, persiste el análisis y lo deja recuperable. El resultado no depende de que termine un reentrenamiento propio. Responde al alcance porque nombra dos tareas, dos datasets de procedencia y dos modelos, y porque declara con igual claridad lo que no hace (reentrenar como núcleo, PostGIS, Copernicus).
 
-El laboratorio de fine-tuning permanece en el repositorio (`make lab-experiment` o `make -C lab experiment`, rama `backup/mlops-finetuning-lab`) para quien quiera retomar la pregunta de eficiencia. No forma parte del criterio de éxito de este informe.
-
-La relación con la retroalimentación es directa. El primer informe pedía comprometer una tarea, un dataset versionado y un modelo preentrenado, y un objetivo que se pudiera verificar. Aquí la tarea son las dos segmentaciones, los datasets son Sen1Floods11 y HLS Burn Scars en sus publicaciones originales, y los modelos son los dos checkpoints de Hugging Face. Verificar es correr el análisis y leer el `model_id` guardado, no interpretar un umbral de promoción que aún no tenía corrida.
+Verificar el éxito es correr el análisis, leer el `model_id` guardado y comprobar el rechazo de entradas inválidas. Esa es la relación directa entre problema, justificación y solución: el sistema convierte pesos publicados en un análisis consultable.
 
 ---
+
+
 
 ## 7. Metodología de desarrollo
 
-Se adopta **prototipado iterativo** porque la solución combina raster, modelo, API e interfaz. Construir todo a la vez incrementaba el riesgo de no tener ni máscara ni mapa. Cada ciclo deja un componente funcional o una evidencia (endpoint, test, overlay) y documentación asociada.
+Se adopta **prototipado iterativo** porque la solución combina raster, modelo, API e interfaz. Construir todo a la vez incrementaba el riesgo de no tener ni máscara ni visor. Cada ciclo deja un componente funcional o una evidencia (endpoint, test, overlay) y documentación asociada.
 
-Las iteraciones reales del proyecto, una vez incorporado el ajuste de enfoque, son:
+Las iteraciones del proyecto son:
 
-1. **Arquitectura y contrato.** Puertos `HazardSegmenter` y `AnalysisRepository`, entidades `Analysis` y `HazardTask`, decisión ADR 005.
+1. **Arquitectura y contrato.** Puertos `HazardSegmenter` y `AnalysisRepository`, entidades `Analysis` y `HazardTask`, decisión de diseño sobre checkpoints publicados.
 2. **Inferencia.** Adaptación del `inference.py` oficial, selección de bandas, caché de modelos por tarea.
 3. **API y CLI.** `POST /api/analyze`, historial, artefactos, `tune analyze`.
-4. **Web.** Carga, mapa, estadísticas, historial.
+4. **Web.** Carga, escenas oficiales, visor de máscara sobre la escena, estadísticas, historial.
 5. **Despliegue.** Perfil `app` en Compose, CPU por defecto, GPU opcional.
 6. **Validación.** Pruebas unitarias de estadísticas y bandas; integración de API con segmentador falso; inferencia real sobre ejemplo HF (pendiente de dejar documentada como corrida de cierre).
-7. **Cierre de informe.** Este documento, alcance actualizado, alternativas.
+7. **Documentación de avance.** Este informe: problema, solución, arquitectura, estado y plan de cierre.
 
-El hallazgo que forzó el ajuste fue empírico: el flujo `make lab-experiment` no completó una corrida en la máquina de la universidad (descarga bloqueada de la imagen PyTorch+CUDA desde el 17-09). Revisar el código de entrenamiento reveló, además, defectos que habrían invalidado un resultado (dataset no extraído, mIoU siempre 0, VRAM no medida). El prototipado permitió pivotar el núcleo hacia inferencia publicada **sin** reescribir desde cero: las capas y Docker ya existían.
+La validación en cada ciclo combina pruebas automáticas (pytest en CI) y revisión manual del flujo en la interfaz. Los hallazgos típicos (rechazo de bandas incorrectas, necesidad de escenas oficiales, demora de la primera descarga de pesos) se incorporaron como requisitos de claridad de fallo y como contenido de la demo.
 
-La regla de prioridad, actualizada: primero un análisis demostrable con checkpoint publicado; después pulido de interfaz y de escena colombiana **solo si** el GeoTIFF cumple las seis bandas; el laboratorio de fine-tuning no desplaza esa demo.
+La regla de prioridad es: primero un análisis demostrable con checkpoint publicado; después pulido de interfaz y de escena local **solo si** el GeoTIFF cumple las seis bandas.
 
 ---
+
+
 
 ## 8. Requerimientos
 
+
+
 ### 8.1 Funcionales
 
-* RF1. El sistema lista las tareas disponibles (`flood`, `burn_scar`) con el identificador Hugging Face del modelo.
-* RF2. El usuario carga un GeoTIFF y una tarea. El sistema ejecuta la inferencia y persiste un análisis con identificador único.
-* RF3. El análisis incluye recuento de píxeles válidos y afectados, razón, área en km² cuando es calculable, CRS, bounds y latencia.
-* RF4. El sistema entrega preview RGB, máscara PNG (overlay) y máscara GeoTIFF.
-* RF5. El historial lista análisis recientes y permite recuperar uno y sus artefactos.
-* RF6. La API rechaza archivos que no sean `.tif`/`.tiff`, tareas desconocidas y cargas mayores a 200 MB.
-* RF7. La CLI `tune analyze` produce el mismo caso de uso que la API.
-* RF8. La interfaz muestra la máscara sobre un mapa cuando hay bounds; si no hay CRS, muestra el resultado numérico y el preview.
+- RF1. El sistema lista las tareas disponibles (`flood`, `burn_scar`) con el identificador Hugging Face del modelo.
+- RF2. El usuario carga un GeoTIFF y una tarea. El sistema ejecuta la inferencia y persiste un análisis con identificador único.
+- RF3. El análisis incluye recuento de píxeles válidos y afectados, razón, área en km² cuando es calculable, CRS, bounds y latencia.
+- RF4. El sistema entrega preview RGB, máscara PNG (overlay) y máscara GeoTIFF.
+- RF5. El historial lista análisis recientes y permite recuperar uno y sus artefactos.
+- RF6. La API rechaza archivos que no sean `.tif`/`.tiff`, tareas desconocidas y cargas mayores a 200 MB.
+- RF7. La CLI `tune analyze` produce el mismo caso de uso que la API.
+- RF8. La interfaz muestra la máscara sobre la escena (y, si hay CRS, permite consultar la ubicación). Si no hay CRS, muestra el resultado numérico y el preview sin inventar coordenadas.
 
-Estos requerimientos describen el comportamiento que un usuario de la demo puede comprobar sin leer el código. Listar tareas, aceptar un GeoTIFF, devolver estadísticas y permitir reabrir el análisis son el núcleo del producto. La CLI existe para que el mismo caso de uso se ejerza sin navegador, por ejemplo en una máquina de laboratorio donde solo hay terminal.
+Estos requerimientos describen el comportamiento que un usuario de la demo puede comprobar sin leer el código. Listar tareas, aceptar un GeoTIFF, devolver estadísticas y permitir reabrir el análisis son el núcleo del producto. La CLI existe para que el mismo caso de uso se ejerza sin navegador.
 
-El rechazo forma parte del comportamiento, no de un anexo. Un archivo que no sea GeoTIFF, una tarea desconocida o una carga mayor a 200 MB no deben producir una máscara silenciosa. El sistema responde con un error HTTP explícito y deja intacto el historial anterior. Esa regla evita que una demo fallida se confunda con un análisis de área cero.
+El rechazo forma parte del comportamiento, no de un anexo. Un archivo que no sea GeoTIFF, una tarea desconocida o una carga mayor a 200 MB no deben producir una máscara silenciosa. El sistema responde con un error HTTP explícito y deja intacto el historial anterior.
 
-La interfaz no añade funciones que el servidor no tenga. El mapa, el porcentaje y el historial leen los mismos artefactos que la API. Si un raster no trae CRS, el requerimiento no obliga a inventar coordenadas: se muestran las cifras y el preview, y se explica que la escena no se puede ubicar.
+La interfaz no añade funciones que el servidor no tenga. El visor, el porcentaje y el historial leen los mismos artefactos que la API. Si un raster no trae CRS, el requerimiento no obliga a inventar coordenadas: se muestran las cifras y el preview, y se explica que la escena no se puede ubicar.
 
 ### 8.2 No funcionales
 
-* RNF1. **Reproducibilidad.** `docker compose --profile app` basta para levantar API y web. Los pesos se cachean en volumen `hf-cache`.
-* RNF2. **Portabilidad.** La demo funciona en CPU. GPU es aceleración, no requisito.
-* RNF3. **Mantenibilidad.** El dominio no importa torch ni rasterio. TerraTorch se carga de forma perezosa.
-* RNF4. **Claridad de fallo.** Falta de extra de entrenamiento, raster con número de bandas incorrecto o modelo no descargable se traducen en error explícito (503 / 422), no en máscara silenciosa.
-* RNF5. **Desempeño de demo.** Un análisis a la vez. No se compromete latencia máxima ni throughput de usuarios concurrentes.
-* RNF6. **Seguridad.** Prototipo local, sin autenticación. No se expone como servicio público en este ciclo.
-* RNF7. **Usabilidad.** La demo se completa en la pantalla principal: carga, espera, mapa, cifras, historial.
+- RNF1. **Reproducibilidad.** `docker compose --profile app` basta para levantar API y web. Los pesos se cachean en volumen `hf-cache`.
+- RNF2. **Portabilidad.** La demo funciona en CPU. GPU es aceleración, no requisito.
+- RNF3. **Mantenibilidad.** El dominio no importa torch ni rasterio. TerraTorch se carga de forma perezosa.
+- RNF4. **Claridad de fallo.** Raster con número de bandas incorrecto o modelo no descargable se traducen en error explícito (503 / 422), no en máscara silenciosa.
+- RNF5. **Desempeño de demo.** Un análisis a la vez. No se compromete latencia máxima ni throughput de usuarios concurrentes.
+- RNF6. **Seguridad.** Prototipo local, sin autenticación. No se expone como servicio público en este ciclo.
+- RNF7. **Usabilidad.** La demo se completa en la pantalla principal: carga o escena oficial, espera, visor, cifras, historial.
 
-La reproducibilidad y la portabilidad fijan el entorno de la entrega. Con Docker Compose, API y web arrancan juntas, y los pesos quedan en un volumen para no descargar 1,2 GB en cada reinicio. CPU basta para demostrar el flujo. GPU acorta la inferencia y no es condición de éxito. Esa distinción responde al bloqueo real de la imagen CUDA en el laboratorio: el producto no puede depender de que esa descarga termine.
+La reproducibilidad y la portabilidad fijan el entorno de la entrega. Con Docker Compose, API y web arrancan juntas, y los pesos quedan en un volumen para no descargar 1,2 GB en cada reinicio. CPU basta para demostrar el flujo. GPU acorta la inferencia y no es condición de éxito.
 
 La mantenibilidad se apoya en la separación de capas. El dominio no importa torch ni rasterio, y TerraTorch se carga solo cuando hay una inferencia real. Las pruebas de API sustituyen el segmentador por uno falso. Un cambio de checkpoint (de inundación a incendio) no reescribe la interfaz: cambia la ficha del modelo.
 
-Desempeño, seguridad y usabilidad se declaran al tamaño de la demo. No hay usuarios concurrentes, autenticación ni URL pública en este ciclo. La pantalla principal debe bastar para cargar, esperar y leer el resultado. Esos límites evitan prometer un servicio de producción que el equipo no puede operar.
+Desempeño, seguridad y usabilidad se declaran al tamaño de la demo. No hay usuarios concurrentes, autenticación ni URL pública en este ciclo. La pantalla principal debe bastar para cargar, esperar y leer el resultado.
 
 ---
 
+
+
 ## 9. Evaluación de alternativas
 
-Las alternativas que se compararon no son un catálogo abstracto de backends. Son las opciones reales del proyecto después del primer informe y después del bloqueo en el laboratorio. Los criterios del template (desempeño bajo carga, acoplamiento, disponibilidad) se aplican a **esa** decisión, con la carga esperada de una demo académica: un operador, un análisis a la vez, demostración en un PC o en un navegador.
+Las alternativas que se compararon son las opciones reales para obtener un análisis de inundación o de cicatriz en el plazo y con la infraestructura disponibles. Los criterios del template (desempeño bajo carga, acoplamiento, disponibilidad) se aplican con la carga esperada de una demo académica: un operador, un análisis a la vez, demostración en un PC o en un navegador.
 
-Las tres preguntas se responden sobre A1 (seguir fine-tuneando), A2 (cambiar de dataset y seguir entrenando), A3 (un clasificador pequeño en CPU) y A4 (checkpoints publicados más la aplicación). La opción seleccionada es A4. El resto de la sección justifica por qué, con la carga real del proyecto y no con un benchmark de miles de usuarios.
+Las tres preguntas se responden sobre A1 (fine-tuning propio como núcleo), A2 (cambiar de dataset y seguir entrenando), A3 (un clasificador pequeño en CPU) y A4 (checkpoints publicados más la aplicación). La opción seleccionada es A4.
 
 ### 9.1 Alternativas consideradas
 
-**A1. Mantener el fine-tuning propio como núcleo** (baseline FP32 full fine-tuning versus LoRA+FP16, mismo dataset y mismo Prithvi, umbrales de mIoU 0,60 y caída máxima 0,02). Es el planteamiento del primer informe. Produce evidencia de eficiencia si las dos corridas terminan en el mismo hardware. Exige GPU, horas de reloj e imagen Docker PyTorch+CUDA. Entre el 17 y el 21 de septiembre esa imagen no terminó de descargarse en la máquina de la universidad, y el código de entrenamiento aún contenía errores que habrían anulado la tabla. Sin corrida no hay métrica que defender.
+**A1. Fine-tuning propio como núcleo** (reentrenar Prithvi y comparar estrategias de entrenamiento). Produce evidencia de eficiencia si las corridas terminan en el mismo hardware. Exige GPU, horas de reloj e imagen Docker PyTorch+CUDA. Sin corrida cerrada no hay métrica que defender, y el producto visible sigue siendo un experimento de entrenamiento, no un análisis servido.
 
-**A2. Cambiar solo el caso de estudio** de HLS Burn Scars a Sen1Floods11 y seguir entrenando. Mejora la pertinencia temática (inundaciones en Colombia) y reutiliza las mismas seis bandas. No elimina la dependencia de GPU ni el riesgo de una corrida que no arranca. El dominio cambia; el cuello de infraestructura no.
+**A2. Cambiar solo el caso de estudio** (por ejemplo de Burn Scars a Sen1Floods11) y seguir entrenando. Mejora la pertinencia temática y reutiliza las mismas seis bandas. No elimina la dependencia de GPU ni el riesgo de una corrida que no arranca. El dominio cambia; el cuello de infraestructura no.
 
-**A3. Plan B de clasificación** (ResNet-50 + `beans` o CIFAR-10). Cabe en CPU o en una GPU pequeña y habría permitido el par experimental del primer informe. No produce un análisis geoespacial ni aprovecha Prithvi, TerraTorch ni las escenas satelitales ya exploradas. El resultado demostrable sería una etiqueta de clase, no un mapa de inundación.
+**A3. Clasificador pequeño en CPU** (por ejemplo ResNet sobre un dataset de imágenes no geoespaciales). Cabe en CPU o en una GPU pequeña. No produce un análisis geoespacial ni aprovecha Prithvi, TerraTorch ni las escenas satelitales. El resultado demostrable sería una etiqueta de clase, no un mapa de inundación.
 
-**A4. Checkpoints Prithvi-EO 2.0 publicados + aplicación de análisis** (opción seleccionada). Compromete tarea, dataset de procedencia y modelo. La inferencia corre en CPU. El viernes (y este avance) se pueden mostrar máscara, área e historial. El fine-tuning queda como componente secundario, no como condición para tener producto.
+**A4. Checkpoints Prithvi-EO 2.0 publicados + aplicación de análisis** (opción seleccionada). Compromete tarea, dataset de procedencia y modelo. La inferencia corre en CPU. Se pueden mostrar máscara, área e historial. El reentrenamiento no es condición para tener producto.
 
 ### 9.2 ¿Cuál alternativa ofrece mejor desempeño bajo la carga esperada?
 
 La carga esperada es **un** `POST /api/analyze` durante una demo, no un millar de usuarios. En ese régimen, latencia promedio/máxima y throughput concurrente no discriminan A1–A3 de A4: A1 y A2 ni siquiera llegan a servir una inferencia si el entrenamiento no cerró; A3 sirve rápido un problema distinto. A4 tiene una latencia de inferencia dominada por (i) la primera descarga de ~1,2 GB de pesos y (ii) el recorrido de ventanas 512×512 sobre la escena. CPU es más lenta y es la que se puede mostrar en cualquier máquina. GPU reduce (ii) y no es requisito.
 
-Comportamiento bajo concurrencia: A4 no está diseñada para ella. Un segundo análisis espera; el modelo se cachea en proceso por tarea. Eso es suficiente para el prototipo y se declara como techo. A1/A2, bajo la misma carga de “un resultado esta semana”, se degradan hasta cero porque el resultado no existe. El criterio de desempeño que sí importa aquí es **tiempo hasta un análisis visible**, no peticiones por segundo.
+Comportamiento bajo concurrencia: A4 no está diseñada para ella. Un segundo análisis espera; el modelo se cachea en proceso por tarea. Eso es suficiente para el prototipo y se declara como techo. El criterio de desempeño que sí importa aquí es **tiempo hasta un análisis visible**, no peticiones por segundo.
 
-| Criterio (carga de demo) | A1 Fine-tuning núcleo | A2 Pivot dataset, mismo train | A3 ResNet/CIFAR | A4 App + checkpoints publicados |
-|---|---|---|---|---|
-| Tiempo hasta un resultado visible | Días, bloqueado en el lab | Igual riesgo de GPU | Horas, otra tarea | Minutos tras cachear pesos |
-| Latencia de una inferencia | N/A hasta entrenar | N/A hasta entrenar | Baja | Media en CPU, menor en GPU |
-| Throughput concurrente | No aplica | No aplica | Alto e irrelevante | Un análisis a la vez (aceptado) |
 
-Bajo esa carga, A4 es la que ofrece un resultado visible en el plazo. A1 y A2 pueden ser más “rápidas” el día en que el entrenamiento ya terminó, y ese día no llegó. A3 responde antes y responde otra pregunta. El desempeño que se defiende es el tiempo hasta una máscara en el mapa, medido desde una máquina con los pesos ya en caché.
+| Criterio (carga de demo)          | A1 Fine-tuning núcleo     | A2 Dataset + train  | A3 Clasificador CPU | A4 App + checkpoints            |
+| --------------------------------- | ------------------------- | ------------------- | ------------------- | ------------------------------- |
+| Tiempo hasta un resultado visible | Días / bloqueable por GPU | Igual riesgo de GPU | Horas, otra tarea   | Minutos tras cachear pesos      |
+| Latencia de una inferencia        | N/A hasta entrenar        | N/A hasta entrenar  | Baja                | Media en CPU, menor en GPU      |
+| Throughput concurrente            | No aplica                 | No aplica           | Alto e irrelevante  | Un análisis a la vez (aceptado) |
+
+
+Bajo esa carga, A4 es la que ofrece un resultado visible en el plazo. El desempeño que se defiende es el tiempo hasta una máscara en el visor, medido desde una máquina con los pesos ya en caché.
 
 ### 9.3 ¿Qué grado de acoplamiento introduce cada opción?
 
-A4 depende de **Hugging Face** para config y pesos y de **TerraTorch** para `LightningInferenceModel`. Si el repositorio del checkpoint se mueve o si TerraTorch cambia el CLI, la inferencia se rompe. Ese acoplamiento es deliberado: se replica el procedimiento oficial, no se reimplementa el modelo. El acoplamiento interno es bajo: el dominio habla un puerto; un `FakeSegmenter` sustituye a Prithvi en las pruebas; cambiar de `flood` a `burn_scar` es cambiar de `ModelCard`, no de arquitectura.
+A4 depende de **Hugging Face** para config y pesos y de **TerraTorch** para `LightningInferenceModel`. Si el repositorio del checkpoint se mueve o si TerraTorch cambia el API, la inferencia se rompe. Ese acoplamiento es deliberado: se replica el procedimiento oficial, no se reimplementa el modelo. El acoplamiento interno es bajo: el dominio habla un puerto; un `FakeSegmenter` sustituye a Prithvi en las pruebas; cambiar de `flood` a `burn_scar` es cambiar de `ModelCard`, no de arquitectura.
 
-A1 y A2 añaden acoplamiento al **hardware del laboratorio** y a una imagen CUDA de varios GB: el pipeline de comparación no sustituye al trainer sin rehacer configs YAML, TerraTorch y la instrumentación de VRAM. A3 reduce el acoplamiento geoespacial (Hugging Face Transformers basta) y aumenta el acoplamiento semántico al plan original (hay que seguir hablando de promoción y umbrales de accuracy), a costa de abandonar el dominio.
+A1 y A2 añaden acoplamiento al **hardware de entrenamiento** y a una imagen CUDA de varios GB. A3 reduce el acoplamiento geoespacial (un framework de visión basta) y abandona el dominio satelital.
 
 Facilidad de sustitución: en A4, sustituir el backend web o el repositorio de análisis (hoy archivos en disco) no exige tocar Prithvi. Sustituir Prithvi por otro segmentador sí exige respetar el puerto y el contrato de seis bandas. PostGIS se dejó fuera precisamente para no acoplar el primer resultado a una base espacial.
 
@@ -417,77 +417,86 @@ Ninguna opción es un servicio con uptime comprometido. El prototipo es Compose 
 
 En A4, si Hugging Face no responde en la primera corrida, no hay inferencia; los análisis ya persistidos en `artifacts/analyses/` siguen listables. Si TerraTorch falla al cargar el checkpoint, la API responde 503 y el contenedor web permanece. Si un análisis individual lanza `ValueError` (bandas incorrectas), responde 422 y el historial previo no se borra. No hay réplicas ni backup automático; hay artefactos en disco que se pueden copiar.
 
-En A1/A2, un fallo de descarga de imagen Docker o un OOM deja **cero** análisis de producto y, además, cero tabla experimental. El impacto de un fallo parcial es total para el objetivo de la semana. A3 es más tolerante (imágenes pequeñas, CPU) y no entrega el producto geoespacial.
+En A1/A2, un fallo de descarga de imagen Docker o un OOM deja **cero** análisis de producto. El impacto de un fallo parcial es total para el objetivo de la semana. A3 es más tolerante (imágenes pequeñas, CPU) y no entrega el producto geoespacial.
 
-**Justificación de la selección.** Se elige A4 porque es la única que, bajo las restricciones de calendario e infraestructura observadas, produce un análisis verificable con tarea, dataset y modelo nombrados. A1 se conserva como laboratorio secundario. A2 se absorbe: inundación entra como tarea de inferencia, no como nuevo entrenamiento. A3 se descarta como núcleo porque resuelve otro problema.
+**Justificación de la selección.** Se elige A4 porque es la única que, bajo las restricciones de calendario e infraestructura, produce un análisis verificable con tarea, dataset y modelo nombrados. A2 se absorbe en parte: inundación entra como tarea de inferencia, no como nuevo entrenamiento. A1 y A3 se descartan como núcleo porque o bien no producen el análisis a tiempo, o bien resuelven otro problema.
 
 ---
 
-## 10. Arquitectura lógica de la solución
+
+
+## 10. Diseño y arquitectura
+
+
 
 ### 10.1 Descripción general de la arquitectura
 
 Tune es una arquitectura **cliente-servidor** en dos contenedores: el navegador (nginx sirviendo el build de Vite, puerto 8080) llama a un backend FastAPI (`eo-api`, puerto 8000). No es Backend as a Service. El backend orquesta el caso de uso `AnalyzeUseCase`, que depende de un segmentador y de un repositorio. La inferencia corre **en el mismo proceso** que la API (sin cola). Esa decisión coincide con A4: un análisis a la vez, menos piezas que fallen en la demo.
 
-El enfoque general es **hexagonal / limpio**, heredado de la v1: las dependencias apuntan hacia el dominio. TerraTorch, rasterio y el sistema de archivos viven en infraestructura e imports perezosos. La alternativa seleccionada (checkpoints publicados) se materializa en `PrithviSegmenter` y `MODEL_CARDS`; el resto del sistema no conoce los nombres de archivo `.pt`.
+El enfoque general es **hexagonal / limpio**: las dependencias apuntan hacia el dominio. TerraTorch, rasterio y el sistema de archivos viven en infraestructura e imports perezosos. La alternativa seleccionada (checkpoints publicados) se materializa en `PrithviSegmenter` y `MODEL_CARDS`; el resto del sistema no conoce los nombres de archivo `.pt`.
 
-Esa forma se dibuja en la Figura 1. El camino horizontal es el de un análisis: usuario, web, API, segmentador y Hugging Face. El disco de artefactos cuelga de la API porque el caso de uso persiste ahí, en el mismo proceso. No hay cola, base de datos ni servicio de modelo aparte. Los términos de esas cajas están definidos en la tabla de la sección 10.2. El texto normativo sigue en [architecture/v2.md](./architecture/v2.md).
+Esa forma se dibuja en la Figura 1. El camino horizontal es el de un análisis: usuario, web, API, segmentador y Hugging Face. El disco de artefactos cuelga de la API porque el caso de uso persiste ahí, en el mismo proceso. No hay cola, base de datos ni servicio de modelo aparte. El texto normativo sigue en [architecture/v2.md](./architecture/v2.md).
 
 ### 10.2 Componentes del sistema
 
-| Componente | Responsabilidad | Requerimientos |
-|---|---|---|
-| `web/` (React + Leaflet) | Carga, mapa, stats, historial | RF2, RF5, RF8, RNF7 |
-| `eo-api` (FastAPI) | HTTP del análisis, validación de upload | RF1–RF6, RNF4 |
-| `AnalyzeUseCase` | Orquesta segmentar → stats → persistir | RF2, RF3, RF7 |
-| `PrithviSegmenter` | Pesos HF + ventana 512×512 | RF2, objetivos 2–3 |
-| `FileAnalysisRepository` | `artifacts/analyses/<id>/` | RF4, RF5 |
-| Volumen `hf-cache` | Pesos entre reinicios | RNF1 |
-| CLI Typer | Mismo caso de uso sin UI | RF7 |
 
-Los nombres de las figuras se definen aquí, antes de leerlas. Cada palabra de las cajas y de las flechas tiene un significado fijo en este informe.
+| Componente               | Responsabilidad                                   | Requerimientos      |
+| ------------------------ | ------------------------------------------------- | ------------------- |
+| `web/` (React + Vite)    | Carga, escenas oficiales, visor, stats, historial | RF2, RF5, RF8, RNF7 |
+| `eo-api` (FastAPI)       | HTTP del análisis, validación de upload           | RF1–RF6, RNF4       |
+| `AnalyzeUseCase`         | Orquesta segmentar → stats → persistir            | RF2, RF3, RF7       |
+| `PrithviSegmenter`       | Pesos HF + ventana 512×512                        | RF2, objetivos 2–3  |
+| `FileAnalysisRepository` | `artifacts/analyses/<id>/`                        | RF4, RF5            |
+| Volumen `hf-cache`       | Pesos entre reinicios                             | RNF1                |
+| CLI Typer                | Mismo caso de uso sin UI                          | RF7                 |
 
-| Término | Definición en Tune |
-|---|---|
-| Usuario | Persona que abre la aplicación en un navegador. En la demo es el equipo o el jurado. |
-| Web | Interfaz hecha con React (pantallas) y Leaflet (mapa). La sirve nginx en el puerto 8080. |
-| eo-api | Servidor de la aplicación. FastAPI recibe el archivo, valida y responde HTTP. Puerto 8000. |
-| Caso de uso (`AnalyzeUseCase`) | Función que ordena el análisis: segmentar, calcular estadísticas y guardar. La API y la CLI lo llaman igual. |
-| Segmentador (`PrithviSegmenter`) | Pieza que corre el modelo. Usa TerraTorch, el programa que carga el checkpoint de Prithvi. |
-| Hugging Face | Sitio de donde se descargan el archivo de configuración y los pesos del modelo. No es una base de datos del proyecto. |
-| Checkpoint | Pesos ya entrenados más su `config.yaml`. Tune no los produce: los usa. |
-| GeoTIFF | Imagen satelital con bandas y, si existe, coordenadas. Es la entrada válida. Un PNG o un JPG no lo es. |
-| Máscara | Imagen de salida: cada píxel queda clasificado (agua o no; quemado o no). |
-| Bounds | Caja geográfica de la escena en coordenadas EPSG:4326 (latitud y longitud). Sirve para poner la máscara sobre el mapa. |
-| CRS | Sistema de coordenadas del raster. Sin CRS hay máscara, pero no hay lugar en el mapa. |
-| `artifacts/` | Carpeta en disco donde queda cada análisis (`analysis.json`, máscara, preview y el GeoTIFF de entrada). |
-| `POST /api/analyze` | Petición HTTP con la que la web envía la tarea y el archivo. |
-| 201 | Respuesta de éxito: el análisis quedó creado. |
-| 400 | El archivo no es un GeoTIFF. No se llama al modelo. |
-| 422 | El archivo es GeoTIFF, pero las bandas o la tarea no cumplen el contrato. |
-| 503 | El modelo no pudo cargarse (falta TerraTorch o el checkpoint). |
-| Caché | Copia local de los pesos. La primera vez se descargan (~1,2 GB). Después se leen del disco. |
 
-**Figura 1. Arquitectura de Tune.** El camino de izquierda a derecha es un análisis. El disco queda debajo de la API porque guardar ocurre en el mismo proceso, sin otra base de datos. El texto normativo está en [architecture/v2.md](./architecture/v2.md).
+Los nombres de las figuras se definen aquí, antes de leerlas.
+
+
+| Término                          | Definición en Tune                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Usuario                          | Persona que abre la aplicación en un navegador. En la demo es el equipo o el jurado.                         |
+| Web                              | Interfaz hecha con React. La sirve nginx en el puerto 8080.                                                  |
+| eo-api                           | Servidor de la aplicación. FastAPI recibe el archivo, valida y responde HTTP. Puerto 8000.                   |
+| Caso de uso (`AnalyzeUseCase`)   | Función que ordena el análisis: segmentar, calcular estadísticas y guardar. La API y la CLI lo llaman igual. |
+| Segmentador (`PrithviSegmenter`) | Pieza que corre el modelo. Usa TerraTorch, el programa que carga el checkpoint de Prithvi.                   |
+| Hugging Face                     | Sitio de donde se descargan el archivo de configuración y los pesos del modelo.                              |
+| Checkpoint                       | Pesos ya entrenados más su `config.yaml`. Tune no los produce: los usa.                                      |
+| GeoTIFF                          | Imagen satelital con bandas y, si existe, coordenadas. Es la entrada válida.                                 |
+| Máscara                          | Imagen de salida: cada píxel queda clasificado (agua o no; quemado o no).                                    |
+| Bounds                           | Caja geográfica de la escena en coordenadas EPSG:4326, cuando el raster trae CRS.                            |
+| CRS                              | Sistema de coordenadas del raster. Sin CRS hay máscara y cifras; no hay ubicación geográfica.                |
+| `artifacts/`                     | Carpeta en disco donde queda cada análisis.                                                                  |
+| `POST /api/analyze`              | Petición HTTP con la que la web envía la tarea y el archivo.                                                 |
+| 201 / 400 / 422 / 503            | Éxito; no es GeoTIFF; bandas o tarea inválidas; modelo no disponible.                                        |
+| Caché                            | Copia local de los pesos. La primera vez se descargan (~1,2 GB).                                             |
+
+
+**Figura 1. Arquitectura de Tune.**
 
 ```mermaid
 flowchart LR
-  Usuario["Usuario: quien abre el navegador"] --> Web["Web: React y mapa Leaflet, puerto 8080"]
+  Usuario["Usuario: quien abre el navegador"] --> Web["Web: React, puerto 8080"]
   Web -->|"HTTP /api: envia tarea y archivo"| API["eo-api: FastAPI y caso de uso, puerto 8000"]
   API -->|"segmentar: pide la mascara"| Seg["PrithviSegmenter: TerraTorch corre el checkpoint"]
   Seg -->|"config y pesos: solo si no estan en cache"| HF["Hugging Face: modelos publicados"]
   API -->|"guarda el analisis"| Disco["artifacts: carpeta del historial"]
 ```
 
+
+
+
+
 ### 10.3 Interacción entre módulos
 
 El navegador no habla con TerraTorch. Llama HTTP a `/api`. El router valida el archivo, escribe un temporal y llama al caso de uso. El segmentador lee el GeoTIFF, selecciona bandas, infiere y devuelve la máscara. El caso de uso calcula estadísticas y pide al repositorio que escriba JSON, PNG y GeoTIFF. Las descargas posteriores son archivos de esas rutas.
 
-Las dependencias van de la interfaz a la aplicación y al dominio. La infraestructura implementa los puertos y no al revés. El acoplamiento entre tareas es un diccionario de fichas de modelo: inundación y cicatriz comparten el mismo camino y cambian el repositorio de Hugging Face, las clases y, en inundación, el uso de coordenadas. El laboratorio de fine-tuning convive en el mismo paquete y no participa de este flujo.
+Las dependencias van de la interfaz a la aplicación y al dominio. La infraestructura implementa los puertos y no al revés. El acoplamiento entre tareas es un diccionario de fichas de modelo: inundación y cicatriz comparten el mismo camino y cambian el repositorio de Hugging Face, las clases y, en inundación, el uso de coordenadas.
 
-Ese corte mantiene el acoplamiento bajo donde más duele cambiarlo. Sustituir Leaflet o el formato de persistencia (hoy archivos) no exige reescribir Prithvi. Sustituir Prithvi sí exige respetar el puerto y las seis bandas.
+Ese corte mantiene el acoplamiento bajo donde más duele cambiarlo. Sustituir el frontend o el formato de persistencia no exige reescribir Prithvi. Sustituir Prithvi sí exige respetar el puerto y las seis bandas.
 
-**Figura 2. Interacción entre módulos.** No es la misma caja de la Figura 1: aquí se ve el orden de las llamadas. La web solo habla HTTP con eo-api. eo-api llama al caso de uso. El caso de uso llama al segmentador. El segmentador, si hace falta, pide los pesos. Nadie del navegador llama a TerraTorch.
+**Figura 2. Interacción entre módulos.**
 
 ```mermaid
 sequenceDiagram
@@ -509,6 +518,10 @@ sequenceDiagram
   API-->>Web: 201, JSON del analisis
 ```
 
+
+
+
+
 ### 10.4 Comportamiento
 
 La secuencia feliz es corta a propósito. El usuario elige la tarea y el GeoTIFF. La web envía `POST /api/analyze`. La API llama al caso de uso, el segmentador pide los pesos solo si no están en caché, devuelve la máscara y los bounds, y el caso de uso guarda los artefactos. La respuesta 201 vuelve a la web, que pinta el overlay.
@@ -517,7 +530,7 @@ El cuello de botella es la inferencia y, la primera vez, la descarga de cerca de
 
 Los fallos no tumban el historial. Un archivo que no es GeoTIFF responde 400 antes de tocar el modelo. Bandas incorrectas responden 422. Falta de TerraTorch o un checkpoint que no carga responden 503. En los tres casos los análisis ya guardados siguen listables.
 
-**Figura 3. Secuencia de un análisis válido.** Tres tramos: el usuario elige la tarea y el GeoTIFF, el segmentador infiere (y descarga pesos solo si no hay caché), y la web recibe 201 para pintar el mapa.
+**Figura 3. Secuencia de un análisis válido.**
 
 ```mermaid
 sequenceDiagram
@@ -530,10 +543,12 @@ sequenceDiagram
   API->>Seg: Calcula la mascara con Prithvi
   Seg-->>API: Mascara, bounds y estadisticas
   API-->>Web: 201, porcentaje, area y ruta de la mascara
-  Web-->>Usuario: Mapa con overlay e historial
+  Web-->>Usuario: Visor con overlay e historial
 ```
 
-**Figura 4. Rechazo de entrada y fallo de modelo.** Un archivo que no es GeoTIFF responde 400 y no llega al modelo. Si el GeoTIFF es válido pero el modelo no carga, el caso de uso devuelve el error y el historial ya guardado sigue en disco.
+
+
+**Figura 4. Rechazo de entrada y fallo de modelo.**
 
 ```mermaid
 sequenceDiagram
@@ -551,47 +566,55 @@ sequenceDiagram
   API-->>Web: Error, el historial anterior sigue listable
 ```
 
+
+
 ---
+
+
 
 ## 11. Implementación y avance actual
 
+
+
 ### 11.1 Stack tecnológico
 
-El backend está en Python. FastAPI expone la API, Typer la CLI, y TerraTorch sobre PyTorch ejecuta los checkpoints. Rasterio lee el GeoTIFF y escribe la máscara georreferenciada. NumPy calcula píxeles válidos, razón y área. Esas piezas viven en la imagen `docker/eo/Dockerfile`, que ya trae CUDA en la base y GDAL para rasterio.
+El backend está en Python. FastAPI expone la API, Typer la CLI, y TerraTorch sobre PyTorch ejecuta los checkpoints. Rasterio lee el GeoTIFF y escribe la máscara georreferenciada. NumPy calcula píxeles válidos, razón y área. Esas piezas viven en la imagen `docker/eo/Dockerfile`.
 
-El frontend está en TypeScript con React y Vite. Leaflet dibuja el mapa y superpone la máscara. En Compose, nginx sirve el build y reenvía `/api` al contenedor de la API. Las pruebas usan pytest. No hay PostgreSQL en este ciclo: el historial es una carpeta por análisis.
+El frontend está en TypeScript con React y Vite. El visor pinta la escena RGB y la máscara; si hay CRS, la ficha enlaza la ubicación. En Compose, nginx sirve el build y reenvía `/api` al contenedor de la API. Las pruebas usan pytest. No hay PostgreSQL en este ciclo: el historial es una carpeta por análisis.
 
-Hugging Face Hub es la fuente de config y pesos, no un framework de entrenamiento. La elección cierra con la alternativa A4: se reutiliza lo que el laboratorio ya tenía (Python, FastAPI, Docker, TerraTorch) y se añade solo la interfaz de mapa. No se introduce un segundo lenguaje de servidor ni una base espacial.
+Hugging Face Hub es la fuente de config y pesos. La elección cierra con la alternativa A4: Python, FastAPI, Docker y TerraTorch al servicio del análisis. No se introduce un segundo lenguaje de servidor ni una base espacial.
 
 ### 11.2 Componentes implementados
 
 El dominio de análisis ya existe: tareas `flood` y `burn_scar`, la entidad de análisis y los puertos de segmentación y de persistencia. El caso de uso `AnalyzeUseCase` calcula estadísticas y es el mismo camino de la API y de la CLI. `PrithviSegmenter` tiene una ficha por checkpoint, selecciona las seis bandas y recorre ventanas de 512×512.
 
-`FileAnalysisRepository` escribe `analysis.json`, el GeoTIFF de entrada, la máscara PNG, el preview y la máscara GeoTIFF. El router `/api` lista tareas, crea análisis, lista el historial y descarga artefactos. La web tiene panel de carga, mapa, tarjeta de estadísticas y lista de historial. Compose levanta la app en CPU y, con el archivo de override, en GPU.
+`FileAnalysisRepository` escribe `analysis.json`, el GeoTIFF de entrada, la máscara PNG, el preview y la máscara GeoTIFF. El router `/api` lista tareas, crea análisis, lista el historial, descarga artefactos y ofrece las escenas oficiales. La web tiene panel de carga, lista de ejemplos, visor, tarjeta de estadísticas e historial. Compose levanta la app en CPU y, con el flujo documentado, en GPU.
 
-El laboratorio de fine-tuning sigue en `lab/`: stages, YAML y MLflow. Está implementado y fuera del camino de la demo. No se borra, porque documenta el planteamiento del primer informe, y no se usa como criterio de que la aplicación funcione.
+El estado de esos componentes es funcional en el repositorio: el flujo se puede ejercer de extremo a extremo una vez cacheados los pesos.
 
 ### 11.3 Integraciones realizadas
 
 La integración con Hugging Face descarga, por tarea, el YAML de configuración y el archivo de pesos, y los deja en la caché `HF_HOME`. La primera inferencia depende de red. Las siguientes leen el volumen. TerraTorch carga ese par con `LightningInferenceModel.from_config` y no se reentrena.
 
-Leaflet recibe los bounds en EPSG:4326 y la URL del PNG. Si no hay CRS, el mapa no inventa una ubicación. Las pruebas de integración de `/api` inyectan un segmentador falso, de modo que CI comprueba el contrato HTTP sin descargar 1,2 GB ni exigir GPU.
+La interfaz pinta la escena y la máscara a partir de los PNG del análisis. Si hay CRS, la ficha puede enlazar la ubicación; si no, no inventa coordenadas. Las pruebas de integración de `/api` inyectan un segmentador falso, de modo que CI comprueba el contrato HTTP sin descargar 1,2 GB ni exigir GPU.
 
 No hay integración con Copernicus, con un catálogo nacional ni con un proveedor de identidad. Esas ausencias son de alcance, no de olvido: el sistema demuestra análisis sobre un GeoTIFF que el usuario ya tiene.
 
 ### 11.4 Pendientes para la entrega final
 
-Falta una corrida documentada de inferencia real, con tiempos y captura de mapa, sobre un ejemplo de Sen1Floods11 y uno de Burn Scars. Las figuras de arquitectura y de secuencia ya están en este avance; lo que falta es la evidencia de uso, no el dibujo del sistema.
+Falta una corrida documentada de inferencia real, con tiempos y capturas, sobre al menos un ejemplo de Sen1Floods11 y uno de Burn Scars. Las figuras de arquitectura y de secuencia ya están en este avance; lo que falta es la evidencia de uso, no el dibujo del sistema.
 
-También falta pulir textos de error y estados vacíos en la web. Una escena de Colombia solo entra si el GeoTIFF trae las seis bandas y CRS. PostGIS, cola de trabajos y descarga automática desde Copernicus siguen fuera. El cierre no reabre el par experimental baseline frente a optimizado como requisito.
+También falta pulir textos de error y estados vacíos en la web. Una escena local solo entra si el GeoTIFF trae las seis bandas y CRS. PostGIS, cola de trabajos y descarga automática desde Copernicus siguen fuera.
 
-El orden de esos pendientes es corto. Primero una demo con dos escenas de ejemplo y pesos ya en caché, en la máquina de la universidad (`make app-up-gpu`). De esa sesión salen la latencia, la captura del mapa y el identificador del análisis, que alimentan la sección 13.3. Después, el pulido de textos y una escena local, solo si esa demo ya está estable. No se añade PostGIS ni Copernicus, y no se reabre el par experimental como requisito.
+El orden de esos pendientes es corto. Primero una demo con dos escenas de ejemplo y pesos ya en caché (`make app-up` o `make app-up-gpu`). De esa sesión salen la latencia, la captura del visor y el identificador del análisis. Después, el pulido de textos y una escena local, solo si esa demo ya está estable.
 
 ---
 
+
+
 ## 12. Despliegue y operación preliminar
 
-El entorno de demo es Docker Compose en la máquina del laboratorio (o en un PC con Docker y RAM suficiente). La aplicación no está publicada en un hosting de pago. El procedimiento de arranque es el siguiente.
+El entorno de demo es Docker Compose en una máquina con Docker y RAM suficiente. La aplicación no está publicada en un hosting de pago. El procedimiento de arranque es el siguiente.
 
 ```bash
 cp .env.example .env
@@ -603,11 +626,15 @@ make app-down
 
 La API queda en `http://localhost:8000/docs`. Hacen falta Docker y, solo para GPU, NVIDIA Container Toolkit. El volumen `hf-cache` guarda los pesos entre reinicios. Los análisis quedan en `artifacts/analyses/` del host, así que apagar los contenedores no borra el historial.
 
-Este despliegue es preliminar a propósito. No hay dominio, HTTPS público ni rearranque automático en un servidor ajeno. Para enseñar el sistema fuera del laboratorio, el mismo día se puede abrir un túnel gratuito hacia el puerto 8080. Eso no es producción 24/7: es una URL temporal mientras la máquina de la universidad está encendida. El detalle operativo está en [Instalación.md](./Instalación.md).
+Este despliegue es preliminar a propósito. No hay dominio, HTTPS público ni rearranque automático en un servidor ajeno. Para enseñar el sistema fuera de la máquina local, el mismo día se puede abrir un túnel gratuito hacia el puerto 8080. Eso no es producción 24/7: es una URL temporal mientras el host está encendido. El detalle operativo está en [Instalación.md](./Instalación.md).
 
 ---
 
+
+
 ## 13. Validación preliminar
+
+
 
 ### 13.1 Pruebas por componentes
 
@@ -615,7 +642,7 @@ Este despliegue es preliminar a propósito. No hay dominio, HTTPS público ni re
 
 `tests/unit/test_prithvi_helpers.py` cubre el paso directo cuando el raster ya trae seis bandas, la extracción de un Sentinel-2 L1C para inundación y el rechazo de un número de bandas incorrecto. También cubre el preview RGB y la lectura de fecha en el nombre de archivo cuando el modelo de inundación la usa. No cargan PyTorch.
 
-Esas pruebas no sustituyen una inferencia con los pesos reales. Fijan el contrato que la interfaz muestra: bandas, píxeles válidos y artefactos en disco. CI las ejecuta sin GPU, que es la condición del repositorio en GitHub Actions.
+Esas pruebas no sustituyen una inferencia con los pesos reales. Fijan el contrato que la interfaz muestra: bandas, píxeles válidos y artefactos en disco. CI las ejecuta sin GPU.
 
 ### 13.2 Pruebas de integración
 
@@ -623,40 +650,60 @@ Esas pruebas no sustituyen una inferencia con los pesos reales. Fijan el contrat
 
 Esa prueba recorre el camino HTTP que usa la web, salvo TerraTorch. Comprueba códigos de estado, el JSON del análisis y que el historial devuelve el identificador recién creado. Si el router dejara de persistir o cambiara la forma de la respuesta, CI lo vería.
 
-La integración que falta es de sistema completo: Compose, pesos reales y una escena de ejemplo. Esa corrida no cabe en el job de CI por tamaño de imagen y por los gigabytes de los checkpoints. Queda como validación manual del cierre, con captura de mapa y latencia.
+La integración que falta es de sistema completo: Compose, pesos reales y una escena de ejemplo. Esa corrida no cabe en el job de CI por tamaño de imagen y por los gigabytes de los checkpoints. Queda como validación manual del cierre, con captura del visor y latencia.
 
 ### 13.3 Pruebas de usabilidad
 
-Todavía no hay una pasada guiada registrada con capturas. El guion previsto es uno: abrir la web, elegir inundación, subir el GeoTIFF de ejemplo del repositorio de Sen1Floods11, ver overlay y porcentaje, y reabrir el análisis desde el historial. Se repite con cicatriz de incendio.
+Todavía no hay una pasada guiada registrada con capturas. El guion previsto es uno: abrir la web, elegir inundación, usar una escena oficial de Sen1Floods11, ver máscara y porcentaje, y reabrir el análisis desde el historial. Se repite con cicatriz de incendio.
 
 No hay estudio con usuarios externos. Los usuarios de esta validación son el equipo y, en la sustentación, el tutor. Se observará si el error de un archivo incorrecto se entiende sin leer logs, y si la espera de la primera descarga queda explicada en pantalla.
 
-Hasta que esa pasada exista, la usabilidad está diseñada (una sola pantalla, sin login) y no está evidenciada con uso real. Esa evidencia es prioridad del plan de cierre, no un resultado ya obtenido.
+Hasta que esa pasada exista, la usabilidad está diseñada (una sola pantalla, sin login) y no está evidenciada con uso real. Esa evidencia es prioridad del plan de cierre.
 
 ---
+
+
 
 ## 14. Resultados parciales y discusión
 
-El resultado parcial más importante no es una cifra de mIoU. Es que el sistema **ya expresa** las dos tareas, los dos modelos y el flujo de análisis en código, API y web, y que ese flujo se puede ejercer sin GPU. Eso atiende la retroalimentación del primer informe (compromiso concreto) y el aviso del tutor sobre no depender de fine-tuning largo para cada resultado.
+El resultado parcial más importante no es una cifra de mIoU. Es que el sistema **ya expresa** las dos tareas, los dos modelos y el flujo de análisis en código, API y web, y que ese flujo se puede ejercer sin GPU. Lo que se evalúa es el contrato y el servicio: escena válida → análisis persistido con `model_id`.
 
-El bloqueo de la imagen Docker en el laboratorio confirma el diagnóstico: un prototipo cuyo único entregable visible es una corrida de entrenamiento hereda todos los fallos de red, disco y VRAM. Mover el núcleo a inferencia publicada no anula el trabajo de arquitectura; lo usa. El riesgo que queda es otro: una demo con un GeoTIFF que no tenga las seis bandas o el CRS, o una primera corrida sin red para bajar pesos. Ambos se mitigan con escenas de ejemplo de los repositorios oficiales, cacheadas de antemano.
+Frente a los objetivos, los ítems 1–6 están implementados en el repositorio. El 7 (inferencia real documentada sobre escenas oficiales) es el trabajo inmediato hacia la entrega. Los riesgos que quedan son operativos: una demo con un GeoTIFF que no tenga las seis bandas, o una primera corrida sin red para bajar pesos. Ambos se mitigan con las escenas oficiales de los repositorios Hugging Face, cacheadas por la API o con `make examples`.
 
-Frente a los objetivos, los ítems 1–6 están implementados en el repositorio. El 7 (inferencia real documentada) y el 8 (este informe, en avance) son el trabajo de las semanas de cierre.
+La interpretación de ese avance es que el hueco identificado en el estado del arte (script o GIS frente a aplicación acotada) ya tiene una respuesta construida. Lo que falta no es rediseñar el núcleo, sino evidenciar la corrida de cierre y cerrar la documentación final.
 
 ---
 
+
+
+## 15. Plan de cierre hacia la entrega final
+
+Las actividades restantes se ordenan por prioridad:
+
+1. **Corrida de cierre documentada.** Inferencia real sobre al menos una escena oficial de inundación y una de cicatriz, con pesos cacheados, captura del visor, latencia y `model_id` del análisis. Es el hito que completa el objetivo específico 7.
+2. **Usabilidad mínima evidenciada.** Ejecutar el guion de la sección 13.3 y registrar capturas y observaciones (errores legibles, espera de primera descarga).
+3. **Pulido de interfaz.** Textos de error y estados vacíos, sin añadir funcionalidades fuera de alcance.
+4. **Informe final.** Consolidar este avance en la estructura del documento final, con instalación y desarrollo según la guía del curso.
+5. **Escena local (opcional).** Solo si el GeoTIFF cumple las seis bandas y CRS, y solo después de que la demo con escenas oficiales esté estable.
+
+Riesgos principales: falta de red en la primera descarga de pesos; escena propia inválida que confunda la demo; tiempo insuficiente para documentar capturas. Mitigación: pre-cachear con `make examples` o una corrida previa; usar solo escenas oficiales en la sustentación; reservar una sesión corta solo para evidencia.
+
+La estrategia de cierre es no abrir frentes nuevos (PostGIS, Copernicus, reentrenamiento). El criterio de “listo para entrega” es: Docker levanta la app, dos tareas demuestran máscara e historial, y el informe final describe esa solución de forma autónoma.
+
+---
+
+
+
 ## 16. Referencias
 
-1. Szwarcman, D., Roy, S., Fraccaro, P., et al. (2024). *Prithvi-EO-2.0: A Versatile Multi-Temporal Foundation Model for Earth Observation Applications*. arXiv:2412.02732. https://arxiv.org/abs/2412.02732
-2. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-TL-Sen1Floods11*. Hugging Face. https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11
-3. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-BurnScars*. Hugging Face. https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars
-4. Bonafilia, D., Tellman, B., Anderson, T., & Issenberg, E. (2020). Sen1Floods11: A georeferenced dataset to train and test deep learning flood algorithms for Sentinel-1. *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)*, 210–211. https://doi.org/10.1109/CVPRW50498.2020.00113
-5. Phillips, C., Roy, S., Ankur, K., & Ramachandran, R. (2023). *HLS Foundation Burnscars Dataset*. Hugging Face. https://doi.org/10.57967/hf/0956
+1. Szwarcman, D., Roy, S., Fraccaro, P., et al. (2024). *Prithvi-EO-2.0: A Versatile Multi-Temporal Foundation Model for Earth Observation Applications*. arXiv:2412.02732. [https://arxiv.org/abs/2412.02732](https://arxiv.org/abs/2412.02732)
+2. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-TL-Sen1Floods11*. Hugging Face. [https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11)
+3. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-BurnScars*. Hugging Face. [https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars](https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars)
+4. Bonafilia, D., Tellman, B., Anderson, T., & Issenberg, E. (2020). Sen1Floods11: A georeferenced dataset to train and test deep learning flood algorithms for Sentinel-1. *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)*, 210–211. [https://doi.org/10.1109/CVPRW50498.2020.00113](https://doi.org/10.1109/CVPRW50498.2020.00113)
+5. Phillips, C., Roy, S., Ankur, K., & Ramachandran, R. (2023). *HLS Foundation Burnscars Dataset*. Hugging Face. [https://doi.org/10.57967/hf/0956](https://doi.org/10.57967/hf/0956)
 6. Rojas Sánchez, D. S. (2025). *Integración del Modelo Fundacional Geoespacial Prithvi-EO-2.0 en una Arquitectura Visión-Lenguaje para el Análisis Avanzado de Imágenes Satelitales* [Trabajo de grado, Universidad de los Andes]. Repositorio Institucional Séneca.
 7. Nogare, D., & Silveira, I. F. (2024). *Experimentation, deployment and monitoring Machine Learning models: Approaches for applying MLOps*. arXiv.
 8. Sculley, D., Holt, G., Golovin, D., Davydov, E., Phillips, T., Ebner, D., Chaudhary, V., Young, M., Crespo, J.-F., & Dennison, D. (2015). *Hidden Technical Debt in Machine Learning Systems*. NeurIPS.
-9. MLflow. *MLflow Tracking Documentation*. https://mlflow.org/docs/latest/tracking
-10. GitHub. *Tune* (repositorio del proyecto). https://github.com/Charlsz/tune
-11. Archify. *Architecture diagrams from a typed specification*. https://github.com/tt-a1i/archify
+9. GitHub. *Tune* (repositorio del proyecto). [https://github.com/Charlsz/tune](https://github.com/Charlsz/tune)
 
-Decisiones internas citadas: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [arquitectura v2](./architecture/v2.md). El planteamiento previo permanece en [PrimerInforme.md](./PrimerInforme.md).
+Decisiones internas citadas: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [arquitectura v2](./architecture/v2.md).
