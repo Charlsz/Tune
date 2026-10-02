@@ -9,7 +9,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol
 
-from tune.domain.analysis import Analysis, HazardTask, SegmentationOutput
+from tune.domain.analysis import (
+    Analysis,
+    HazardTask,
+    RasterGrid,
+    ReferenceLayer,
+    SegmentationOutput,
+)
 from tune.domain.entities import (
     DatasetSpec,
     EfficiencyMetrics,
@@ -98,8 +104,19 @@ class HazardSegmenter(Protocol):
 class AnalysisRepository(Protocol):
     """Persistencia de análisis + sus artefactos (máscara, preview)."""
 
-    def save(self, analysis: Analysis, output: SegmentationOutput, source: Path) -> Analysis:
-        """Guarda artefactos y devuelve el análisis con ``artifacts`` rellenado."""
+    def save(
+        self,
+        analysis: Analysis,
+        output: SegmentationOutput,
+        source: Path,
+        *,
+        change_layers: tuple[Any, Any, Any] | None = None,
+    ) -> Analysis:
+        """Guarda artefactos y devuelve el análisis con ``artifacts`` rellenado.
+
+        ``change_layers`` es opcional: ``(new, persistent, receded)`` bool arrays
+        alineados a la máscara, para escribir ``change.png`` y ``reference.tif``.
+        """
         ...
 
     def get(self, analysis_id: str) -> Analysis: ...
@@ -109,3 +126,11 @@ class AnalysisRepository(Protocol):
     def artifact_path(self, analysis_id: str, name: str) -> Path: ...
 
     def delete(self, analysis_id: str) -> None: ...
+
+
+class ReferenceProvider(Protocol):
+    """Construye la capa de referencia (agua permanente / cicatriz previa) para una grilla."""
+
+    def reference(
+        self, task: HazardTask, grid: RasterGrid, *, exclude_id: str | None = None
+    ) -> ReferenceLayer | None: ...

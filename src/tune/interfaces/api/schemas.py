@@ -81,6 +81,25 @@ class BoundsSchema(BaseModel):
     north: float = Field(description="Latitud norte, EPSG:4326")
 
 
+class ChangeSchema(BaseModel):
+    reference_source: str = Field(
+        description="Origen de la referencia: jrc_gsw_v1_4, history o previous_analysis"
+    )
+    reference_id: str | None = Field(
+        None, description="Id del análisis de referencia si salió del historial"
+    )
+    reference_dates: list[str] = Field(
+        default_factory=list, description="Fechas usadas para construir la referencia"
+    )
+    new_pixels: int = Field(description="Píxeles de agua o cicatriz nueva (W AND NOT P)")
+    persistent_pixels: int = Field(description="Píxeles permanentes (W AND P)")
+    receded_pixels: int = Field(description="Píxeles retirados (P AND NOT W)")
+    compared_pixels: int = Field(description="Píxeles válidos en ambas capas")
+    new_area_km2: float | None = Field(None, description="Área nueva en km²")
+    persistent_area_km2: float | None = Field(None, description="Área permanente en km²")
+    receded_area_km2: float | None = Field(None, description="Área retirada en km²")
+
+
 class AnalysisResponse(BaseModel):
     id: str = Field(description="Identificador de 12 caracteres")
     task: str = Field(description="flood o burn_scar")
@@ -107,9 +126,27 @@ class AnalysisResponse(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict, description="Driver, bandas, resolución, sensor y tags del GeoTIFF"
     )
+    change: ChangeSchema | None = Field(
+        None, description="Comparación frente a agua permanente o cicatriz de referencia"
+    )
 
     @classmethod
     def from_domain(cls, a: Analysis) -> AnalysisResponse:
+        change = None
+        if a.change is not None:
+            c = a.change
+            change = ChangeSchema(
+                reference_source=c.reference_source,
+                reference_id=c.reference_id,
+                reference_dates=list(c.reference_dates),
+                new_pixels=c.new_pixels,
+                persistent_pixels=c.persistent_pixels,
+                receded_pixels=c.receded_pixels,
+                compared_pixels=c.compared_pixels,
+                new_area_km2=c.new_area_km2,
+                persistent_area_km2=c.persistent_area_km2,
+                receded_area_km2=c.receded_area_km2,
+            )
         return cls(
             id=a.id,
             task=a.task.value,
@@ -128,4 +165,5 @@ class AnalysisResponse(BaseModel):
             artifacts={k: f"/api/analyses/{a.id}/{k}" for k in a.artifacts},
             acquired_at=a.acquired_at,
             metadata=a.metadata,
+            change=change,
         )

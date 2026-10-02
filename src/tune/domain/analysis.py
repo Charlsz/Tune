@@ -29,6 +29,47 @@ class GeoBounds:
 
 
 @dataclass(frozen=True)
+class RasterGrid:
+    """Grilla del raster de análisis (CRS + transformación afín + tamaño)."""
+
+    crs: str
+    transform: tuple[float, float, float, float, float, float]  # a, b, c, d, e, f
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
+class ReferenceLayer:
+    """Capa de referencia alineada a la grilla del análisis actual.
+
+    ``mask`` es bool (True = permanente / cicatriz de referencia). ``valid`` marca
+    píxeles con dato en la referencia. Se tipa ``Any`` para no arrastrar numpy.
+    """
+
+    mask: Any
+    valid: Any
+    source: str  # "jrc_gsw_v1_4", "history", "previous_analysis"
+    reference_id: str | None = None
+    reference_dates: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ChangeSummary:
+    """Comparación de la máscara actual contra una referencia en la misma grilla."""
+
+    reference_source: str  # "jrc_gsw_v1_4", "history", "previous_analysis"
+    reference_id: str | None  # id de análisis si la referencia salió del historial
+    reference_dates: tuple[str, ...]  # fechas usadas para construir P (vacío si JRC)
+    new_pixels: int  # W_t AND NOT P (inundación / cicatriz nueva)
+    persistent_pixels: int  # W_t AND P
+    receded_pixels: int  # P AND NOT W_t
+    compared_pixels: int  # válidos en ambas capas
+    new_area_km2: float | None
+    persistent_area_km2: float | None
+    receded_area_km2: float | None
+
+
+@dataclass(frozen=True)
 class SegmentationOutput:
     """Lo que devuelve el segmentador antes de calcular estadísticas.
 
@@ -71,3 +112,4 @@ class Analysis:
     artifacts: dict[str, str] = field(default_factory=dict)  # nombre -> path relativo
     acquired_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    change: ChangeSummary | None = None

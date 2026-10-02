@@ -11,15 +11,20 @@ import logging
 import shutil
 from dataclasses import asdict, replace
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from tune.domain.analysis import Analysis, GeoBounds, HazardTask, SegmentationOutput
+from tune.domain.analysis import Analysis, ChangeSummary, GeoBounds, HazardTask, SegmentationOutput
 
 log = logging.getLogger(__name__)
 
 # RGBA de la clase positiva sobre el mapa (rojo semitransparente)
 MASK_COLOR = (230, 57, 70, 170)
+# Capas de cambio frente a referencia
+NEW_COLOR = (230, 57, 70, 200)  # agua / cicatriz nueva
+PERSISTENT_COLOR = (29, 78, 137, 160)  # permanente
+RECEDED_COLOR = (148, 163, 184, 140)  # retirado
 
 
 class FileAnalysisRepository:
@@ -27,7 +32,14 @@ class FileAnalysisRepository:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def save(self, analysis: Analysis, output: SegmentationOutput, source: Path) -> Analysis:
+    def save(
+        self,
+        analysis: Analysis,
+        output: SegmentationOutput,
+        source: Path,
+        *,
+        change_layers: tuple[Any, Any, Any] | None = None,
+    ) -> Analysis:
         folder = self.root / analysis.id
         folder.mkdir(parents=True, exist_ok=True)
         artifacts: dict[str, str] = {}
@@ -45,6 +57,13 @@ class FileAnalysisRepository:
         if write_mask_geotiff(output, folder / "mask.tif"):
             artifacts["mask_tif"] = "mask.tif"
 
+        if change_layers is not None:
+            new, persistent, receded = change_layers
+            write_change_png(new, persistent, receded, folder / "change.png")
+            artifacts["change_png"] = "change.png"
+            if write_reference_geotiff(output, persistent | receded, folder / "reference.tif"):
+                artifacts["reference_tif"] = "reference.tif"
+
         saved = replace(analysis, artifacts=artifacts)
         (folder / "analysis.json").write_text(to_json(saved), encoding="utf-8")
         return saved
@@ -60,7 +79,7 @@ class FileAnalysisRepository:
         for path in self.root.glob("*/analysis.json"):
             try:
                 items.append(from_json(path.read_text(encoding="utf-8")))
-            except (ValueError, KeyError) as exc:
+            except (ValueError, KeyError, TypeError) as exc:
                 log.warning("analysis.json inválido en %s: %s", path, exc)
         items.sort(key=lambda a: a.created_at, reverse=True)
         return items[:limit]
@@ -85,6 +104,8 @@ class FileAnalysisRepository:
 def to_json(a: Analysis) -> str:
     data = asdict(a)
     data["task"] = a.task.value
+    if a.change is not None:
+        data["change"]["reference_dates"] = list(a.change.reference_dates)
     return json.dumps(data, indent=2)
 
 
@@ -93,6 +114,15 @@ def from_json(text: str) -> Analysis:
     bounds = raw.get("bounds")
     raw["bounds"] = GeoBounds(**bounds) if bounds else None
     raw["task"] = HazardTask(raw["task"])
+    change = raw.get("change")
+    if change:
+        dates = change.get("reference_dates") or []
+        change["reference_dates"] = tuple(dates)
+        raw["change"] = ChangeSummary(**change)
+    else:
+        raw["change"] = None
+    raw.setdefault("acquired_at", None)
+    raw.setdefault("metadata", {})
     return Analysis(**raw)
 
 
@@ -118,6 +148,19 @@ def write_rgb_png(rgb: np.ndarray, valid: np.ndarray, path: Path) -> None:
     Image.fromarray(np.concatenate([arr, alpha], axis=-1), mode="RGBA").save(path, optimize=True)
 
 
+def write_change_png(new: Any, persistent: Any, receded: Any, path: Path) -> None:
+    from PIL import Image  # noqa: PLC0415
+
+    n = np.asarray(new, dtype=bool)
+    p = np.asarray(persistent, dtype=bool)
+    r = np.asarray(receded, dtype=bool)
+    rgba = np.zeros((*n.shape, 4), dtype=np.uint8)
+    rgba[r] = RECEDED_COLOR
+    rgba[p] = PERSISTENT_COLOR
+    rgba[n] = NEW_COLOR
+    Image.fromarray(rgba, mode="RGBA").save(path, optimize=True)
+
+
 def write_mask_geotiff(output: SegmentationOutput, path: Path) -> bool:
     """GeoTIFF uint8 de la máscara con la georreferencia original. False si no hay rasterio."""
     try:
@@ -132,4 +175,20 @@ def write_mask_geotiff(output: SegmentationOutput, path: Path) -> bool:
     mask[~np.asarray(output.valid, dtype=bool)] = 255
     with rasterio.open(path, "w", **meta) as dst:
         dst.write(mask, 1)
+    return True
+
+
+def write_reference_geotiff(output: SegmentationOutput, permanent: Any, path: Path) -> bool:
+    """GeoTIFF uint8 de la referencia (1 = permanente, 0 = no, 255 = nodata)."""
+    try:
+        import rasterio  # noqa: PLC0415
+    except ImportError:
+        return False
+    meta = dict(output.raster_meta)
+    if not meta:
+        return False
+    meta.update(count=1, dtype="uint8", compress="lzw", nodata=255)
+    ref = np.asarray(permanent, dtype=bool).astype(np.uint8)
+    with rasterio.open(path, "w", **meta) as dst:
+        dst.write(ref, 1)
     return True
