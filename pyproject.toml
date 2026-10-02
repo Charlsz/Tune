@@ -31,6 +31,9 @@ api = [
   "python-multipart>=0.0.9",
   "pillow>=10.0",
   "numpy>=1.26",
+  # Referencia / reproyección de máscaras (sin torch)
+  "rasterio>=1.3",
+  "affine>=2.3,<3",
 ]
 # Tracking y registry (lo usan `api` y `training`)
 tracking = [

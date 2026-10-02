@@ -1,27 +1,33 @@
 """Caso de uso: imagen satelital -> máscara de peligro (inundación / cicatriz de incendio).
 
-Orquesta segmentador + repositorio; las estadísticas se calculan aquí para que
-CLI y API compartan exactamente la misma lógica.
+Orquesta segmentador + repositorio (+ referencia opcional); las estadísticas se
+calculan aquí para que CLI y API compartan exactamente la misma lógica.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
+from tune.application.change import change_layers, compare
 from tune.domain.analysis import Analysis, HazardTask, SegmentationOutput
-from tune.domain.ports import AnalysisRepository, HazardSegmenter
+from tune.domain.ports import AnalysisRepository, HazardSegmenter, ReferenceProvider
+from tune.infrastructure.raster.grid import grid_from_meta
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
 class AnalyzeUseCase:
     segmenter: HazardSegmenter
     analyses: AnalysisRepository
+    reference: ReferenceProvider | None = None
 
     def execute(self, geotiff: Path, task: HazardTask, *, filename: str | None = None) -> Analysis:
         t0 = time.perf_counter()
@@ -45,7 +51,39 @@ class AnalyzeUseCase:
             acquired_at=output.acquired_at,
             metadata=output.metadata,
         )
-        return self.analyses.save(analysis, output, geotiff)
+        layers = None
+        change = None
+        if self.reference is not None:
+            try:
+                change, layers = self._against_reference(task, output)
+            except Exception as exc:
+                log.warning("Referencia no disponible: %s", exc)
+        if change is not None:
+            analysis = replace(analysis, change=change)
+        return self.analyses.save(analysis, output, geotiff, change_layers=layers)
+
+    def _against_reference(self, task: HazardTask, output: SegmentationOutput):
+        grid = grid_from_meta(output.raster_meta)
+        if grid is None or self.reference is None:
+            return None, None
+        layer = self.reference.reference(task, grid, exclude_id=None)
+        if layer is None:
+            return None, None
+        summary = compare(
+            output.mask,
+            output.valid,
+            output.positive_class,
+            layer.mask,
+            layer.valid,
+            output.pixel_area_m2,
+            source=layer.source,
+            reference_id=layer.reference_id,
+            reference_dates=layer.reference_dates,
+        )
+        layers = change_layers(
+            output.mask, output.valid, output.positive_class, layer.mask, layer.valid
+        )
+        return summary, layers
 
 
 @dataclass(frozen=True)

@@ -120,3 +120,82 @@ def test_old_analysis_json_without_metadata_still_loads(tmp_path: Path) -> None:
 def test_repository_get_missing_raises(tmp_path: Path) -> None:
     with pytest.raises(KeyError):
         FileAnalysisRepository(tmp_path).get("nope")
+
+
+class FakeReferenceProvider:
+    def __init__(self, layer=None, *, boom: bool = False) -> None:
+        self.layer = layer
+        self.boom = boom
+        self.calls = 0
+
+    def reference(self, task, grid, *, exclude_id=None):
+        self.calls += 1
+        if self.boom:
+            raise RuntimeError("referencia caída")
+        return self.layer
+
+
+def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
+    from tune.domain.analysis import ReferenceLayer, RasterGrid
+    import numpy as np
+
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    out = fake_output()
+    # grid_from_meta necesita raster_meta; sin él no pide referencia
+    # Inyectamos capa vía proveedor; el use case pide grid primero.
+    # Para ejercitar el camino, mockeamos grid_from_meta.
+    h, w = 4, 5
+    ref = np.zeros((h, w), dtype=bool)
+    ref[0, :3] = True
+    layer = ReferenceLayer(
+        mask=ref,
+        valid=np.ones((h, w), dtype=bool),
+        source="history",
+        reference_dates=("2020-01-01", "2020-02-01"),
+    )
+    provider = FakeReferenceProvider(layer)
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+
+    import tune.application.analyze as analyze_mod
+
+    real_grid = analyze_mod.grid_from_meta
+
+    def fake_grid(meta):
+        return RasterGrid(crs="EPSG:32618", transform=(30, 0, 0, 0, -30, 0), width=w, height=h)
+
+    analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
+    try:
+        a = AnalyzeUseCase(FakeSegmenter(out), repo, reference=provider).execute(src, HazardTask.FLOOD)
+    finally:
+        analyze_mod.grid_from_meta = real_grid  # type: ignore[assignment]
+
+    assert provider.calls == 1
+    assert a.change is not None
+    assert a.change.reference_source == "history"
+    assert a.change.new_pixels + a.change.persistent_pixels == a.affected_pixels
+    assert "change_png" in a.artifacts
+
+
+def test_use_case_survives_reference_failure(tmp_path: Path) -> None:
+    from tune.domain.analysis import RasterGrid
+    import tune.application.analyze as analyze_mod
+
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    provider = FakeReferenceProvider(boom=True)
+    real = analyze_mod.grid_from_meta
+
+    def fake_grid(meta):
+        return RasterGrid(crs="EPSG:32618", transform=(30, 0, 0, 0, -30, 0), width=5, height=4)
+
+    analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
+    try:
+        a = AnalyzeUseCase(FakeSegmenter(fake_output()), repo, reference=provider).execute(
+            src, HazardTask.FLOOD
+        )
+    finally:
+        analyze_mod.grid_from_meta = real  # type: ignore[assignment]
+    assert a.change is None
+    assert "mask_png" in a.artifacts

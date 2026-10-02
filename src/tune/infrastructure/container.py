@@ -103,5 +103,14 @@ class Container:
         return FileAnalysisRepository(self.settings.tune_artifacts_dir / "analyses")
 
     @cached_property
+    def reference(self):
+        from tune.infrastructure.reference.history import (  # noqa: PLC0415
+            HistoryReferenceProvider,
+        )
+
+        root = self.settings.tune_artifacts_dir / "analyses"
+        return HistoryReferenceProvider(self.analyses, root)
+
+    @cached_property
     def analyze(self) -> AnalyzeUseCase:
-        return AnalyzeUseCase(self.segmenter, self.analyses)
+        return AnalyzeUseCase(self.segmenter, self.analyses, reference=self.reference)
