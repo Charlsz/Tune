@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     tune_device: str = ""
     # Orígenes permitidos para el frontend (dev Vite y nginx en compose)
     tune_cors_origins: str = "http://localhost:5173,http://localhost:8080"
+    # Referencia JRC Global Surface Water
+    tune_reference_jrc: bool = True
+    tune_jrc_permanent_pct: int = 75
+    # Catálogo Sentinel-2: lado máximo del bbox en km
+    tune_catalog_max_km: float = 30.0
 
     @property
     def cors_origins(self) -> list[str]:

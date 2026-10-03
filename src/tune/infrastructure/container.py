@@ -104,12 +104,27 @@ class Container:
 
     @cached_property
     def reference(self):
+        from tune.infrastructure.reference.composite import (  # noqa: PLC0415
+            CompositeReferenceProvider,
+        )
         from tune.infrastructure.reference.history import (  # noqa: PLC0415
             HistoryReferenceProvider,
         )
 
         root = self.settings.tune_artifacts_dir / "analyses"
-        return HistoryReferenceProvider(self.analyses, root)
+        history = HistoryReferenceProvider(self.analyses, root)
+        providers: list = []
+        if self.settings.tune_reference_jrc:
+            from tune.infrastructure.reference.jrc import JrcReferenceProvider  # noqa: PLC0415
+
+            providers.append(
+                JrcReferenceProvider(
+                    self.settings.tune_artifacts_dir / "jrc",
+                    permanent_pct=self.settings.tune_jrc_permanent_pct,
+                )
+            )
+        providers.append(history)
+        return CompositeReferenceProvider(providers)
 
     @cached_property
     def analyze(self) -> AnalyzeUseCase:
