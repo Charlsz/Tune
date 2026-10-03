@@ -10,11 +10,11 @@ import numpy as np
 import pytest
 
 rasterio = pytest.importorskip("rasterio")
-from rasterio.transform import from_origin
+from rasterio.transform import from_origin  # noqa: E402
 
-from tune.domain.analysis import Analysis, GeoBounds, HazardTask, RasterGrid, SegmentationOutput
-from tune.infrastructure.analyses import FileAnalysisRepository
-from tune.infrastructure.reference.history import HistoryReferenceProvider
+from tune.domain.analysis import Analysis, HazardTask, RasterGrid, SegmentationOutput  # noqa: E402
+from tune.infrastructure.analyses import FileAnalysisRepository  # noqa: E402
+from tune.infrastructure.reference.history import HistoryReferenceProvider  # noqa: E402
 
 
 def _geotiff(path: Path, data: np.ndarray) -> dict:
@@ -35,7 +35,9 @@ def _geotiff(path: Path, data: np.ndarray) -> dict:
     return dict(profile)
 
 
-def _save_analysis(repo: FileAnalysisRepository, folder_root: Path, mask: np.ndarray, *, date: str) -> Analysis:
+def _save_analysis(
+    repo: FileAnalysisRepository, folder_root: Path, mask: np.ndarray, *, date: str
+) -> Analysis:
     h, w = mask.shape
     meta = _geotiff(folder_root / "tmp.tif", mask)
     from tune.infrastructure.raster.grid import bounds_wgs84, grid_from_meta
@@ -100,7 +102,9 @@ def test_history_permanent_where_water_in_all_scenes(tmp_path: Path) -> None:
             mask[0:4, 6:8] = 1
         _save_analysis(repo, tmp_path, mask, date=date)
 
-    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=2, min_fraction=0.75)
+    provider = HistoryReferenceProvider(
+        repo, tmp_path / "analyses", min_scenes=2, min_fraction=0.75
+    )
     grid = RasterGrid(
         crs="EPSG:32618",
         transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),

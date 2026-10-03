@@ -14,6 +14,9 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from tune.application.analyze import AnalyzeUseCase
+from tune.application.change import change_layers, compare
+from tune.application.sectors import sectors as compute_sectors
+from tune.application.series import series as build_series
 from tune.application.territory import covers
 from tune.application.territory import timeline as territory_timeline
 from tune.domain.analysis import HazardTask
@@ -22,7 +25,17 @@ from tune.infrastructure.config import get_settings
 from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
 from tune.infrastructure.forecast import ForecastError, burn_outlook, flood_outlook
 from tune.infrastructure.inference.prithvi import MODEL_CARDS
-from tune.interfaces.api.schemas import AnalysisResponse, ExampleInfo, ForecastResponse, TaskInfo
+from tune.infrastructure.raster.grid import grid_from_meta, reproject_mask
+from tune.interfaces.api.schemas import (
+    AnalysisResponse,
+    BoundsSchema,
+    ChangeSchema,
+    ExampleInfo,
+    ForecastResponse,
+    SectorSchema,
+    SeriesPointSchema,
+    TaskInfo,
+)
 
 router = APIRouter(prefix="/api", tags=["analysis"])
 
@@ -244,6 +257,186 @@ def timeline(
     # ponytail: O(n) sobre analysis.json en disco. PostGIS si el historial crece.
     found = territory_timeline(repo.list(limit=10_000), bounds=bounds, point=point, task=task)
     return [AnalysisResponse.from_domain(a) for a in found]
+
+
+@router.get(
+    "/timeline/series",
+    response_model=list[SeriesPointSchema],
+    summary="Serie de km² del territorio",
+    responses={422: {"description": "Falta analysis_id, o lat y lon"}},
+)
+def timeline_series(
+    analysis_id: str | None = Query(None, description="Territorio de este análisis"),
+    lat: float | None = Query(None, ge=-90, le=90),
+    lon: float | None = Query(None, ge=-180, le=180),
+    task: HazardTask | None = Query(None),
+    repo: AnalysisRepository = Depends(get_repository),
+) -> list[SeriesPointSchema]:
+    """Serie de km2 por fecha del territorio, del mas antiguo al mas reciente."""
+    analyses = _territory_analyses(repo, analysis_id=analysis_id, lat=lat, lon=lon, task=task)
+    return [
+        SeriesPointSchema(
+            date=p.date,
+            analysis_id=p.analysis_id,
+            affected_km2=p.affected_km2,
+            new_km2=p.new_km2,
+            persistent_km2=p.persistent_km2,
+            receded_km2=p.receded_km2,
+        )
+        for p in build_series(analyses)
+    ]
+
+
+def _territory_analyses(repo, *, analysis_id, lat, lon, task):
+    point = None
+    bounds = None
+    if analysis_id:
+        try:
+            anchor = repo.get(analysis_id)
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        bounds = anchor.bounds
+        if bounds is None:
+            return [anchor] if task in (None, anchor.task) else []
+    elif lat is not None and lon is not None:
+        point = (lat, lon)
+    else:
+        raise HTTPException(422, "Indica analysis_id, o lat y lon")
+    return territory_timeline(repo.list(limit=10_000), bounds=bounds, point=point, task=task)
+
+
+@router.get(
+    "/analyses/{analysis_a}/diff/{analysis_b}",
+    summary="Diferencia entre dos análisis",
+    responses={
+        404: {"description": "Algún id no existe"},
+        422: {"description": "Tareas distintas o sin mask.tif"},
+    },
+)
+def analysis_diff(
+    analysis_a: str = PathParam(description="Análisis actual (grilla destino)"),
+    analysis_b: str = PathParam(description="Referencia"),
+    format: str = Query("json", description="json o png"),
+    repo: AnalysisRepository = Depends(get_repository),
+):
+    """Compara la máscara de B reproyectada a la grilla de A (B = referencia)."""
+    try:
+        a = repo.get(analysis_a)
+        b = repo.get(analysis_b)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    if a.task is not b.task:
+        raise HTTPException(422, "Los dos análisis deben ser de la misma tarea")
+    try:
+        mask_a = repo.artifact_path(analysis_a, "mask_tif")
+        mask_b = repo.artifact_path(analysis_b, "mask_tif")
+    except KeyError as exc:
+        raise HTTPException(422, f"Falta mask.tif: {exc}") from exc
+
+    import rasterio
+
+    with rasterio.open(mask_a) as src:
+        meta = dict(src.meta)
+        current = src.read(1)
+        valid_a = current != 255
+    grid = grid_from_meta(meta)
+    if grid is None:
+        raise HTTPException(422, "El análisis A no tiene georreferencia")
+    ref_mask, ref_valid = reproject_mask(mask_b, grid)
+    positive = 1
+    summary = compare(
+        current,
+        valid_a,
+        positive,
+        ref_mask == positive,
+        ref_valid,
+        a.affected_area_km2 / a.affected_pixels * 1e6 if a.affected_pixels else None,
+        source="previous_analysis",
+        reference_id=b.id,
+        reference_dates=((b.acquired_at or b.created_at)[:10],),
+    )
+    if format == "png":
+        import tempfile
+
+        from tune.infrastructure.analyses.filesystem import write_change_png
+
+        new, pers, rec = change_layers(current, valid_a, positive, ref_mask == positive, ref_valid)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            write_change_png(new, pers, rec, Path(tmp.name))
+            return FileResponse(tmp.name, media_type="image/png", filename="diff.png")
+    return ChangeSchema(
+        reference_source=summary.reference_source,
+        reference_id=summary.reference_id,
+        reference_dates=list(summary.reference_dates),
+        new_pixels=summary.new_pixels,
+        persistent_pixels=summary.persistent_pixels,
+        receded_pixels=summary.receded_pixels,
+        compared_pixels=summary.compared_pixels,
+        new_area_km2=summary.new_area_km2,
+        persistent_area_km2=summary.persistent_area_km2,
+        receded_area_km2=summary.receded_area_km2,
+    )
+
+
+@router.get(
+    "/analyses/{analysis_id}/sectors",
+    response_model=list[SectorSchema],
+    summary="Sectores críticos del análisis",
+    responses={
+        404: {"description": "No existe"},
+        422: {"description": "Sin máscara georreferenciada"},
+    },
+)
+def analysis_sectors(
+    analysis_id: str = PathParam(description="Id de 12 caracteres"),
+    cell_m: int = Query(1000, ge=100, le=10_000, description="Tamaño de celda en metros"),
+    top: int = Query(10, ge=1, le=100),
+    repo: AnalysisRepository = Depends(get_repository),
+) -> list[SectorSchema]:
+    """Celdas con más agua nueva (o afectada si no hay change)."""
+    try:
+        analysis = repo.get(analysis_id)
+        mask_path = repo.artifact_path(analysis_id, "mask_tif")
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    import rasterio
+
+    with rasterio.open(mask_path) as src:
+        meta = dict(src.meta)
+        mask = src.read(1)
+        valid = mask != 255
+    grid = grid_from_meta(meta)
+    if grid is None:
+        raise HTTPException(422, "Sin georreferencia")
+    basis = "affected"
+    if analysis.change is not None:
+        try:
+            ref_path = repo.artifact_path(analysis_id, "reference_tif")
+            with rasterio.open(ref_path) as src:
+                permanent = src.read(1) == 1
+            mask_new = (mask == 1) & valid & ~permanent
+            basis = "new"
+        except KeyError:
+            mask_new = (mask == 1) & valid
+    else:
+        mask_new = (mask == 1) & valid
+    pixel_area = None
+    if analysis.affected_area_km2 is not None and analysis.affected_pixels:
+        pixel_area = analysis.affected_area_km2 / analysis.affected_pixels * 1e6
+    found = compute_sectors(mask_new, valid, grid, cell_m=cell_m, pixel_area_m2=pixel_area, top=top)
+    return [
+        SectorSchema(
+            row=s.row,
+            col=s.col,
+            bounds=BoundsSchema(**s.bounds.__dict__),
+            new_pixels=s.new_pixels,
+            new_km2=s.new_km2,
+            fraction=s.fraction,
+            rank=s.rank,
+            basis=basis,
+        )
+        for s in found
+    ]
 
 
 @router.get(

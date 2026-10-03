@@ -8,10 +8,13 @@ import numpy as np
 import pytest
 
 rasterio = pytest.importorskip("rasterio")
-from rasterio.transform import from_origin
+from rasterio.transform import from_origin  # noqa: E402
 
-from tune.domain.analysis import RasterGrid
-from tune.infrastructure.raster.grid import bounds_wgs84, grid_from_meta, reproject_mask
+from tune.infrastructure.raster.grid import (  # noqa: E402
+    bounds_wgs84,
+    grid_from_meta,
+    reproject_mask,
+)
 
 
 def _write_mask(path: Path, data: np.ndarray, *, res: float, west: float, north: float) -> None:

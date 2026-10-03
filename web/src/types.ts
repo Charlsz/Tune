@@ -67,6 +67,20 @@ export interface Analysis {
   artifacts: Record<string, string>;
   acquired_at: string | null;
   metadata: RasterMetadata | Record<string, never>;
+  change: ChangeSummary | null;
+}
+
+export interface ChangeSummary {
+  reference_source: string;
+  reference_id: string | null;
+  reference_dates: string[];
+  new_pixels: number;
+  persistent_pixels: number;
+  receded_pixels: number;
+  compared_pixels: number;
+  new_area_km2: number | null;
+  persistent_area_km2: number | null;
+  receded_area_km2: number | null;
 }
 
 export interface BandInfo {

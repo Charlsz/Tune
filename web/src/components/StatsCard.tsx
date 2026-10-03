@@ -74,6 +74,37 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
         </Row>
       </dl>
 
+      {a.change && (
+        <>
+          <h4 className="caption" style={{ marginTop: 12 }}>
+            Frente a referencia ({a.change.reference_source})
+          </h4>
+          <dl className="rows">
+            <Row k="Agua nueva">
+              {a.change.new_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change.new_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change.new_area_km2)} km²</>
+              )}
+            </Row>
+            <Row k="Permanente">
+              {a.change.persistent_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change.persistent_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change.persistent_area_km2)} km²</>
+              )}
+            </Row>
+            <Row k="Retirada">
+              {a.change.receded_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change.receded_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change.receded_area_km2)} km²</>
+              )}
+            </Row>
+          </dl>
+        </>
+      )}
+
       <details className="detail">
         <summary>Detalle</summary>
         <dl className="rows">
@@ -95,6 +126,7 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
           <span className="muted">Descargar</span>
           {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
           <a href={a.artifacts.mask_png}>PNG</a>
+          {a.artifacts.change_png && <a href={a.artifacts.change_png}>Cambio</a>}
           {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
           <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
             JSON

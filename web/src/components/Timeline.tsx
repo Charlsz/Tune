@@ -103,10 +103,24 @@ export function Timeline({
               <button
                 type="button"
                 aria-current={a.id === analysis?.id ? "true" : undefined}
-                title={`${a.input_filename} · ${fmt.pct(a.affected_ratio)} %`}
+                title={`${a.input_filename} · ${
+                  a.change?.new_area_km2 != null
+                    ? `${fmt.km2(a.change.new_area_km2)} km² nuevos`
+                    : `${fmt.pct(a.affected_ratio)} %`
+                }`}
                 onClick={() => onSelect(a)}
               >
-                <i className={a.task} style={{ height: `${Math.max(8, a.affected_ratio * 100)}%` }} />
+                <i
+                  className={a.task}
+                  style={{
+                    height: `${Math.max(
+                      8,
+                      a.change?.new_area_km2 != null && a.affected_area_km2
+                        ? (a.change.new_area_km2 / Math.max(a.affected_area_km2, 1e-9)) * 100
+                        : a.affected_ratio * 100
+                    )}%`,
+                  }}
+                />
                 <span className="num">{fmt.day((a.acquired_at ?? a.created_at).slice(0, 10))}</span>
                 {!a.acquired_at && <span className="muted">Fecha de análisis</span>}
               </button>

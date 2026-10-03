@@ -136,8 +136,9 @@ class FakeReferenceProvider:
 
 
 def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
-    from tune.domain.analysis import ReferenceLayer, RasterGrid
     import numpy as np
+
+    from tune.domain.analysis import RasterGrid, ReferenceLayer
 
     src = tmp_path / "scene.tif"
     src.write_bytes(b"x")
@@ -166,7 +167,9 @@ def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
 
     analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
     try:
-        a = AnalyzeUseCase(FakeSegmenter(out), repo, reference=provider).execute(src, HazardTask.FLOOD)
+        a = AnalyzeUseCase(FakeSegmenter(out), repo, reference=provider).execute(
+            src, HazardTask.FLOOD
+        )
     finally:
         analyze_mod.grid_from_meta = real_grid  # type: ignore[assignment]
 
@@ -178,8 +181,8 @@ def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
 
 
 def test_use_case_survives_reference_failure(tmp_path: Path) -> None:
-    from tune.domain.analysis import RasterGrid
     import tune.application.analyze as analyze_mod
+    from tune.domain.analysis import RasterGrid
 
     src = tmp_path / "scene.tif"
     src.write_bytes(b"x")

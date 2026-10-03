@@ -33,7 +33,14 @@ def _masks(h: int = 4, w: int = 5):
 def test_compare_counts_new_persistent_and_receded() -> None:
     mask, valid, reference, ref_valid = _masks()
     summary = compare(
-        mask, valid, 1, reference, ref_valid, 900.0, source="history", reference_dates=("2020-01-01",)
+        mask,
+        valid,
+        1,
+        reference,
+        ref_valid,
+        900.0,
+        source="history",
+        reference_dates=("2020-01-01",),
     )
     assert summary.new_pixels == 4
     assert summary.persistent_pixels == 3

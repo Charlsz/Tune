@@ -100,6 +100,26 @@ class ChangeSchema(BaseModel):
     receded_area_km2: float | None = Field(None, description="Área retirada en km²")
 
 
+class SeriesPointSchema(BaseModel):
+    date: str = Field(description="Fecha YYYY-MM-DD")
+    analysis_id: str
+    affected_km2: float | None = None
+    new_km2: float | None = None
+    persistent_km2: float | None = None
+    receded_km2: float | None = None
+
+
+class SectorSchema(BaseModel):
+    row: int
+    col: int
+    bounds: BoundsSchema
+    new_pixels: int
+    new_km2: float | None = None
+    fraction: float
+    rank: int
+    basis: str = Field(description="new si hay change, affected si no")
+
+
 class AnalysisResponse(BaseModel):
     id: str = Field(description="Identificador de 12 caracteres")
     task: str = Field(description="flood o burn_scar")
