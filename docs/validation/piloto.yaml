@@ -1,0 +1,38 @@
+# Piloto La Mojana — bbox y fechas candidatas
+# Centro aproximado: confluencia Cauca / San Jorge / Magdalena (Sucre–Bolívar–Córdoba)
+
+site:
+  name: La Mojana
+  description: >-
+    Humedal interior con inundaciones recurrentes 2021–2024.
+    Bbox ~25 km de lado alrededor de Magangué / San Marcos.
+  center:
+    lat: 8.85
+    lon: -74.65
+  side_km: 25
+  bbox:  # west, south, east, north (WGS84)
+    - -74.78
+    - 8.72
+    - -74.52
+    - 8.98
+
+task: flood
+max_cloud: 30
+
+# Fechas candidatas (rellenar ids STAC tras search). Época seca = ene–mar;
+# pico = eventos documentados de lluvias; intermedias = transición.
+dates:
+  dry:
+    - "2024-02-15"
+    - "2024-03-10"
+  peak:
+    - "2022-11-15"
+    - "2024-05-20"
+  mid:
+    - "2023-06-15"
+    - "2023-09-20"
+
+controls:
+  river_ratio_max: 0.15          # new_km2 / affected_km2 en seca
+  persistent_iou_min: 0.7        # IoU agua persistente entre dos secas
+  peak_vs_dry_min_factor: 3.0    # new_km2 pico / new_km2 seca
