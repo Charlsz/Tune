@@ -129,3 +129,9 @@ class Container:
     @cached_property
     def analyze(self) -> AnalyzeUseCase:
         return AnalyzeUseCase(self.segmenter, self.analyses, reference=self.reference)
+
+    @cached_property
+    def catalog(self):
+        from tune.infrastructure.catalog.stac import StacCatalog  # noqa: PLC0415
+
+        return StacCatalog(max_km=self.settings.tune_catalog_max_km)

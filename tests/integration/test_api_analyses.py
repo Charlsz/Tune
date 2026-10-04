@@ -233,3 +233,48 @@ def test_forecast_returns_the_outlook_and_503_when_it_fails(client, monkeypatch)
         client.get("/api/forecast", params={"task": "flood", "lat": 91, "lon": 0}).status_code
         == 422
     )
+
+
+def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
+    from tune.domain.analysis import SceneItem
+
+    class FakeCatalog:
+        def search(self, lat, lon, start, end, *, max_cloud=40.0, side_km=20.0):
+            return [
+                SceneItem(
+                    id="S2A_fake",
+                    datetime="2024-06-01T15:00:00",
+                    cloud_cover=5.0,
+                    bbox=(-75.0, 4.0, -74.0, 5.0),
+                    thumbnail=None,
+                )
+            ]
+
+        def fetch_six_bands(self, item_id, bbox, dest):
+            dest = Path(dest)
+            dest.mkdir(parents=True, exist_ok=True)
+            out = dest / "S2_20240601T150000_fake.tif"
+            out.write_bytes(b"fake-geotiff")
+            return out
+
+    fake = FakeCatalog()
+    app.dependency_overrides[analyses_api.get_catalog] = lambda: fake
+    listed = client.get(
+        "/api/catalog/search",
+        params={
+            "lat": 4.6,
+            "lon": -74.1,
+            "start": "2024-05-01",
+            "end": "2024-06-30",
+        },
+    )
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == "S2A_fake"
+
+    analyzed = client.post(
+        "/api/catalog/S2A_fake/analyze",
+        data={"task": "flood", "lat": "4.6", "lon": "-74.1", "side_km": "20"},
+    )
+    assert analyzed.status_code == 201, analyzed.text
+    assert analyzed.json()["task"] == "flood"
+    app.dependency_overrides.pop(analyses_api.get_catalog, None)

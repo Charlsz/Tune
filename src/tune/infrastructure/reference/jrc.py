@@ -15,9 +15,7 @@ from tune.infrastructure.reference.errors import ReferenceUnavailable
 
 log = logging.getLogger(__name__)
 
-JRC_BASE = (
-    "https://storage.googleapis.com/global-surface-water/downloads2021/occurrence"
-)
+JRC_BASE = "https://storage.googleapis.com/global-surface-water/downloads2021/occurrence"
 # Nodata en occurrence: 255. 0 = nunca agua (válido).
 JRC_NODATA = 255
 
@@ -56,8 +54,12 @@ def tile_name(lon: float, lat: float) -> str:
 def tiles_for_bounds(bounds: GeoBounds) -> list[str]:
     """Tiles de 10° que intersectan la caja (normalmente 1, a veces 2 o 4)."""
     # Muestrear una grilla de puntos en el interior para no perder bordes
-    lons = np.linspace(bounds.west, bounds.east, num=max(2, int((bounds.east - bounds.west) / 5) + 2))
-    lats = np.linspace(bounds.south, bounds.north, num=max(2, int((bounds.north - bounds.south) / 5) + 2))
+    lons = np.linspace(
+        bounds.west, bounds.east, num=max(2, int((bounds.east - bounds.west) / 5) + 2)
+    )
+    lats = np.linspace(
+        bounds.south, bounds.north, num=max(2, int((bounds.north - bounds.south) / 5) + 2)
+    )
     names: set[str] = set()
     for lon in lons:
         for lat in lats:

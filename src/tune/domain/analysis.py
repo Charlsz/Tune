@@ -70,6 +70,17 @@ class ChangeSummary:
 
 
 @dataclass(frozen=True)
+class SceneItem:
+    """Escena del catálogo STAC lista para listar o analizar."""
+
+    id: str
+    datetime: str
+    cloud_cover: float
+    bbox: tuple[float, float, float, float]  # west, south, east, north
+    thumbnail: str | None = None
+
+
+@dataclass(frozen=True)
 class SegmentationOutput:
     """Lo que devuelve el segmentador antes de calcular estadísticas.
 

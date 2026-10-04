@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
+import { CatalogPanel } from "./components/CatalogPanel";
 import { CoordinateSearch } from "./components/CoordinateSearch";
 import { Footer } from "./components/Footer";
 import { RiskCard } from "./components/RiskCard";
@@ -75,6 +76,10 @@ export function App() {
   const firstRun = runTask != null && !(history ?? []).some((a) => a.task === runTask);
   const point = place ?? (selected ? sceneCenter(selected) : null);
 
+  function onCatalogAnalyze(itemId: string, task: TaskId, at: Place, sideKm: number) {
+    return run(task, () => api.catalogAnalyze(itemId, task, at, sideKm));
+  }
+
   async function onRemove(analysis: Analysis) {
     if (!window.confirm(`¿Quitar ${analysis.input_filename} del historial?`)) return;
     try {
@@ -131,6 +136,7 @@ export function App() {
           <section className="region">
             <h2>Encontrar</h2>
             <CoordinateSearch place={place} onSearch={setPlace} onClear={() => setPlace(null)} />
+            <CatalogPanel place={place} busy={busy} onAnalyze={onCatalogAnalyze} />
             <AnalysisList
               items={history}
               selectedId={selected?.id}

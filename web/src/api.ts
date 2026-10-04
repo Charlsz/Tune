@@ -1,4 +1,4 @@
-import type { Analysis, ExampleScene, Forecast, Place, TaskId, TaskInfo } from "./types";
+import type { Analysis, CatalogScene, ExampleScene, Forecast, Place, TaskId, TaskInfo } from "./types";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -44,6 +44,35 @@ export const api = {
     const res = await fetch(`/api/analyses/${id}`, { method: "DELETE" });
     if (res.status === 204) return;
     await json(res);
+  },
+  catalogSearch(q: {
+    lat: number;
+    lon: number;
+    start: string;
+    end: string;
+    maxCloud?: number;
+    sideKm?: number;
+  }) {
+    const p = new URLSearchParams({
+      lat: String(q.lat),
+      lon: String(q.lon),
+      start: q.start,
+      end: q.end,
+      max_cloud: String(q.maxCloud ?? 40),
+      side_km: String(q.sideKm ?? 20),
+    });
+    return fetch(`/api/catalog/search?${p}`).then(json<CatalogScene[]>);
+  },
+  catalogAnalyze(itemId: string, task: TaskId, place: Place, sideKm: number) {
+    const body = new FormData();
+    body.append("task", task);
+    body.append("lat", String(place.lat));
+    body.append("lon", String(place.lon));
+    body.append("side_km", String(sideKm));
+    return fetch(`/api/catalog/${encodeURIComponent(itemId)}/analyze`, {
+      method: "POST",
+      body,
+    }).then(json<Analysis>);
   },
   forecast: (task: TaskId, place: Place, start?: string | null) => {
     const p = new URLSearchParams({ task, lat: String(place.lat), lon: String(place.lon) });

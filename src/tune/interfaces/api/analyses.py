@@ -21,6 +21,7 @@ from tune.application.territory import covers
 from tune.application.territory import timeline as territory_timeline
 from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
+from tune.infrastructure.catalog.stac import CatalogError, bbox_from_point
 from tune.infrastructure.config import get_settings
 from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
 from tune.infrastructure.forecast import ForecastError, burn_outlook, flood_outlook
@@ -29,6 +30,7 @@ from tune.infrastructure.raster.grid import grid_from_meta, reproject_mask
 from tune.interfaces.api.schemas import (
     AnalysisResponse,
     BoundsSchema,
+    CatalogSceneSchema,
     ChangeSchema,
     ExampleInfo,
     ForecastResponse,
@@ -61,6 +63,10 @@ def get_use_case() -> AnalyzeUseCase:
 
 def get_repository() -> AnalysisRepository:
     return _container().analyses
+
+
+def get_catalog():
+    return _container().catalog
 
 
 @router.get("/tasks", response_model=list[TaskInfo], summary="Tareas y sus modelos")
@@ -532,3 +538,72 @@ _LABELS = {
     HazardTask.FLOOD: "Inundación (Sentinel-2, Sen1Floods11)",
     HazardTask.BURN_SCAR: "Cicatriz de incendio (HLS, Burn Scars)",
 }
+
+
+@router.get(
+    "/catalog/search",
+    response_model=list[CatalogSceneSchema],
+    summary="Buscar escenas Sentinel-2",
+    responses={
+        422: {"description": "Parámetros inválidos"},
+        503: {"description": "STAC no respondió"},
+    },
+)
+def catalog_search(
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+    start: str = Query(description="YYYY-MM-DD"),
+    end: str = Query(description="YYYY-MM-DD"),
+    max_cloud: float = Query(40.0, ge=0, le=100),
+    side_km: float = Query(20.0, ge=1, le=50),
+    catalog=Depends(get_catalog),
+) -> list[CatalogSceneSchema]:
+    """Lista escenas L2A de Earth Search alrededor del punto, sin descargar bandas."""
+    try:
+        items = catalog.search(lat, lon, start, end, max_cloud=max_cloud, side_km=side_km)
+    except CatalogError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(503, f"STAC no respondió: {exc}") from exc
+    return [
+        CatalogSceneSchema(
+            id=i.id,
+            datetime=i.datetime,
+            cloud_cover=i.cloud_cover,
+            bbox=list(i.bbox),
+            thumbnail=i.thumbnail,
+        )
+        for i in items
+    ]
+
+
+@router.post(
+    "/catalog/{item_id}/analyze",
+    response_model=AnalysisResponse,
+    status_code=201,
+    summary="Analizar una escena del catálogo",
+    responses={
+        422: {"description": "Escena inválida o demasiado nublada"},
+        503: {"description": "No se pudo descargar o cargar el modelo"},
+    },
+)
+async def catalog_analyze(
+    item_id: str = PathParam(description="Id STAC de la escena"),
+    task: HazardTask = Form(description="flood o burn_scar"),
+    lat: float = Form(ge=-90, le=90),
+    lon: float = Form(ge=-180, le=180),
+    side_km: float = Form(20.0, ge=1, le=50),
+    use_case: AnalyzeUseCase = Depends(get_use_case),
+    catalog=Depends(get_catalog),
+) -> AnalysisResponse:
+    """Descarga el recorte de 6 bandas y corre el análisis."""
+    bbox = bbox_from_point(lat, lon, side_km)
+    dest = get_settings().tune_artifacts_dir / "catalog"
+    try:
+        path = await run_in_threadpool(catalog.fetch_six_bands, item_id, bbox, dest)
+        analysis = await run_in_threadpool(use_case.execute, path, task, filename=path.name)
+    except CatalogError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise _http_for(exc) from exc
+    return AnalysisResponse.from_domain(analysis)

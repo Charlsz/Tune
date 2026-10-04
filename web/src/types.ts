@@ -7,6 +7,14 @@ export interface Place {
   lon: number;
 }
 
+export interface CatalogScene {
+  id: string;
+  datetime: string;
+  cloud_cover: number;
+  bbox: number[];
+  thumbnail: string | null;
+}
+
 export interface ForecastDay {
   date: string;
   probability: number | null;

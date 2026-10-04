@@ -14,6 +14,7 @@ from tune.domain.analysis import (
     HazardTask,
     RasterGrid,
     ReferenceLayer,
+    SceneItem,
     SegmentationOutput,
 )
 from tune.domain.entities import (
@@ -134,3 +135,22 @@ class ReferenceProvider(Protocol):
     def reference(
         self, task: HazardTask, grid: RasterGrid, *, exclude_id: str | None = None
     ) -> ReferenceLayer | None: ...
+
+
+class SceneCatalog(Protocol):
+    """Búsqueda y descarga de escenas Sentinel-2 por coordenada y fecha."""
+
+    def search(
+        self,
+        lat: float,
+        lon: float,
+        start: str,
+        end: str,
+        *,
+        max_cloud: float = 40.0,
+        side_km: float = 20.0,
+    ) -> list[SceneItem]: ...
+
+    def fetch_six_bands(
+        self, item_id: str, bbox: tuple[float, float, float, float], dest: Path
+    ) -> Path: ...

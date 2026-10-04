@@ -156,6 +156,38 @@ h2, h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14p
 .search .primary { padding: 0 14px; }
 .section > .caption .close { margin-left: 8px; }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.field input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+}
+.catalog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.catalog-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.catalog-list .primary { margin-left: auto; padding: 4px 10px; font-size: 12px; }
+
 /* --- result ---------------------------------------------------------------- */
 
 .result { animation: rise 0.45s var(--ease); }

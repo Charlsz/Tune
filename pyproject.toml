@@ -34,6 +34,7 @@ api = [
   # Referencia / reproyección de máscaras (sin torch)
   "rasterio>=1.3",
   "affine>=2.3,<3",
+  "pystac-client>=0.7",
 ]
 # Tracking y registry (lo usan `api` y `training`)
 tracking = [

@@ -120,6 +120,14 @@ class SectorSchema(BaseModel):
     basis: str = Field(description="new si hay change, affected si no")
 
 
+class CatalogSceneSchema(BaseModel):
+    id: str
+    datetime: str
+    cloud_cover: float
+    bbox: list[float]
+    thumbnail: str | None = None
+
+
 class AnalysisResponse(BaseModel):
     id: str = Field(description="Identificador de 12 caracteres")
     task: str = Field(description="flood o burn_scar")
