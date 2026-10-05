@@ -1,4 +1,4 @@
-import type { Analysis, CatalogScene, ExampleScene, Forecast, Place, TaskId, TaskInfo } from "./types";
+import type { Analysis, CatalogScene, ExampleScene, Place, TaskId, TaskInfo } from "./types";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -73,11 +73,6 @@ export const api = {
       method: "POST",
       body,
     }).then(json<Analysis>);
-  },
-  forecast: (task: TaskId, place: Place, start?: string | null) => {
-    const p = new URLSearchParams({ task, lat: String(place.lat), lon: String(place.lon) });
-    if (start) p.set("start", start.slice(0, 10));
-    return fetch(`/api/forecast?${p}`).then(json<Forecast>);
   },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 

@@ -27,6 +27,16 @@ make app-up
 
 La primera inferencia descarga ~1,2 GB de pesos (caché en el volumen `hf-cache`). Escenas de prueba: [examples/README.md](../examples/README.md).
 
+Variables de referencia y catálogo (también en `.env.example`):
+
+| Variable | Default | Qué hace |
+|----------|---------|----------|
+| `TUNE_REFERENCE_JRC` | `true` | Usa JRC GSW como agua permanente |
+| `TUNE_JRC_PERMANENT_PCT` | `75` | Umbral de occurrence (%) |
+| `TUNE_CATALOG_MAX_KM` | `30` | Lado máximo del bbox STAC |
+
+Piloto La Mojana (API levantada): `make piloto` → [validation/piloto-la-mojana.md](./validation/piloto-la-mojana.md).
+
 Apagar: `make app-down`.
 
 ## 4. Instalación local (desarrollo)

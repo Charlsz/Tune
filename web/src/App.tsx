@@ -4,10 +4,9 @@ import { AnalysisList } from "./components/AnalysisList";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { CoordinateSearch } from "./components/CoordinateSearch";
 import { Footer } from "./components/Footer";
-import { RiskCard } from "./components/RiskCard";
 import { SceneStage } from "./components/SceneStage";
 import { Skeleton } from "./components/Skeleton";
-import { sceneCenter, StatsCard } from "./components/StatsCard";
+import { StatsCard } from "./components/StatsCard";
 import { Timeline } from "./components/Timeline";
 import { UploadPanel } from "./components/UploadPanel";
 import type { Analysis, Place, TaskId, TaskInfo } from "./types";
@@ -74,7 +73,6 @@ export function App() {
   }
 
   const firstRun = runTask != null && !(history ?? []).some((a) => a.task === runTask);
-  const point = place ?? (selected ? sceneCenter(selected) : null);
 
   function onCatalogAnalyze(itemId: string, task: TaskId, at: Place, sideKm: number) {
     return run(task, () => api.catalogAnalyze(itemId, task, at, sideKm));
@@ -130,7 +128,6 @@ export function App() {
             <section className="region">
               <h2>Resultado</h2>
               <StatsCard key={selected.id} analysis={selected} tasks={tasks} onClose={() => setSelected(null)} />
-              {point && <RiskCard task={selected.task} place={point} acquiredAt={selected.acquired_at} />}
             </section>
           )}
           <section className="region">

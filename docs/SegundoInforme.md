@@ -117,30 +117,31 @@ El supuesto de carga es el de una sustentación, no el de un servicio. Un operad
 
 ### 3.4 Alcance actualizado
 
-El alcance de este avance es el de la aplicación de análisis satelital descrita en este documento. Respecto del planteamiento inicial del semestre hubo un ajuste: el núcleo entregable es el servicio de inferencia con checkpoints publicados, no un experimento de comparación de estrategias de entrenamiento. Ese ajuste se refleja aquí como alcance vigente, no como relato del trabajo anterior.
+El alcance de este avance es el de la aplicación de análisis satelital descrita en este documento. El núcleo entregable es el servicio de inferencia con checkpoints publicados, más la **detección de cambio hídrico**: inundación como agua nueva frente a una referencia (`F = W AND NOT P`), no como "todo el agua detectada".
 
 **Incluye**
 
 - Ingesta de GeoTIFF (hasta 200 MB) y selección de tarea `flood` o `burn_scar`.
-- Inferencia con el checkpoint IBM-NASA correspondiente, siguiendo el procedimiento oficial de ventana 512×512.
-- Cálculo de píxeles válidos, píxeles afectados, razón y área en km² cuando hay tamaño de píxel.
-- Persistencia por análisis: `analysis.json`, `input.tif`, `mask.png`, `preview.png`, `mask.tif`.
-- API REST (`GET /api/tasks`, `POST /api/analyze`, historial, escenas oficiales y descarga de artefactos) y CLI `tune analyze`.
-- Interfaz web: carga, escenas oficiales, visor de la máscara sobre la escena, estadísticas e historial.
+- Inferencia con el checkpoint IBM-NASA correspondiente (ventana 512×512).
+- Definición operativa de inundación: máscara de agua (`W_t`) menos agua permanente (`P`) de JRC GSW o del historial del mismo territorio; cicatriz nueva = máscara actual menos referencia previa.
+- Serie temporal, diferencia entre fechas y sectores críticos (celdas con más km² nuevos).
+- Catálogo Sentinel-2 L2A (Earth Search) para analizar por coordenada y fecha sin GeoTIFF propio.
+- Persistencia por análisis: `analysis.json`, máscaras, `change.png` / `reference.tif` cuando hay cambio.
+- API REST, CLI `tune analyze` e interfaz web (carga, catálogo, visor, historial, timeline).
 - Despliegue Docker Compose (CPU por defecto; GPU opcional).
-- Pruebas automáticas del caso de uso y de la API con segmentador inyectado.
+- Piloto documentado en La Mojana con controles de coherencia.
 
 **No incluye**
 
+- Pronóstico hidrológico o meteorológico (retirado; no usa Prithvi).
+- Profundidad del agua (requeriría DEM y un método tipo FwDET).
 - Fine-tuning propio como entregable principal ni tabla de mIoU nueva del detector.
 - PostGIS, autenticación, colas, multi-usuario, SLA.
-- Descarga automática de escenas Copernicus o un catálogo nacional de inundaciones.
-- Reentrenamiento de Prithvi, preentrenamiento, o un tercer dominio.
 - Alta disponibilidad, Kubernetes, facturación.
 
-**Usuarios previstos.** El equipo opera la aplicación y carga escenas de ejemplo. El tutor o el jurado usa la interfaz o la API para ver una máscara y el historial. No hay base de usuarios productivos.
+**Usuarios previstos.** El equipo opera la aplicación y carga escenas (oficiales, catálogo o propias). El tutor o el jurado usa la interfaz o la API para ver máscara, cambio frente a referencia e historial.
 
-**Resultado esperado.** Prototipo validado de análisis satelital: dos tareas, dos modelos publicados, rechazo de entradas inválidas, análisis persistido con `model_id` y flujo demostrable en CPU (GPU opcional).
+**Resultado esperado.** Prototipo validado: dos tareas, detección de cambio con referencia, piloto con controles pasados/no pasados, flujo demostrable en CPU (GPU opcional).
 
 ---
 
@@ -249,60 +250,43 @@ Tune se sitúa como prototipo de sistema alrededor de dos checkpoints públicos.
 
 ## 6. Solución propuesta
 
-Tune es una aplicación de análisis satelital de alcance académico. Recibe un **GeoTIFF** y una **tarea** (`flood` o `burn_scar`); ejecuta el checkpoint Prithvi-EO 2.0 publicado para esa tarea; y devuelve una **máscara** con estadísticas, lista para la interfaz y para la API.
+Tune es una aplicación de análisis satelital de alcance académico. Recibe un **GeoTIFF** (o una escena del catálogo Sentinel-2) y una **tarea** (`flood` o `burn_scar`); ejecuta el checkpoint Prithvi-EO 2.0 publicado; y devuelve una **máscara** con estadísticas. Para inundación, además compara esa máscara contra agua permanente (JRC GSW v1.4 o historial del territorio) y reporta agua nueva, persistente y retirada.
 
-Los usuarios de la demo cargan una escena oficial (las publicadas junto a cada modelo en Hugging Face, también listadas en la web) o una escena propia que cumpla el contrato de bandas. El caso de inundación y el de incendio **son el producto visible**. El aporte es el sistema que los hace consultables: mismo pipeline, dos checkpoints.
-
-La propuesta de valor cabe en una frase operativa: el operador elige la tarea, carga el raster y obtiene una máscara con porcentaje y área (cuando hay tamaño de píxel), sin esperar a que termine un entrenamiento. El detalle de enfoque, de usuarios y de relación con el problema está en los apartados siguientes.
+Los usuarios de la demo cargan una escena oficial, buscan por coordenada en el catálogo STAC, o suben un GeoTIFF propio. El aporte es el sistema que hace consultable el detector publicado y corrige la confusión agua/inundación con una definición operativa explícita (`F_t = W_t AND NOT P`).
 
 ### 6.1 Enfoque general y propuesta de valor
 
-El enfoque es **consumir especialización ya publicada**. IBM-NASA fine-tuneó Prithvi-EO 2.0-300M sobre Sen1Floods11 y sobre HLS Burn Scars y dejó config + pesos en Hugging Face. Tune descarga esos artefactos, aplica el preprocesado del recetario oficial (selección de bandas, escala a reflectancia, ventana 512×512, coordenadas temporales y de ubicación en inundación) y persiste lo que un usuario puede auditar: la entrada, la máscara, un preview RGB y un JSON con `model_id`, bounds y latencia.
+El enfoque es **consumir especialización ya publicada** y **interpretar el resultado como cambio**. IBM-NASA fine-tuneó Prithvi sobre Sen1Floods11 y HLS Burn Scars. Tune descarga esos pesos, aplica el preprocesado oficial y persiste entrada, máscara, preview y JSON. La capa de referencia (JRC u historial) convierte "agua detectada" en "inundación nueva" cuando aplica.
 
-La propuesta de valor, atada al problema, es esta: un análisis de agua o de área quemada **sin** una corrida de fine-tuning de varios días y **sin** quedar atrapado en un notebook. El valor para ingeniería es un contrato estable (bandas, tareas, artefactos) y una arquitectura en la que TerraTorch no contamina el dominio. El valor para un público no técnico es: “sube la escena, elige inundación o incendio, ves el overlay y el porcentaje afectado”.
-
-Ese enfoque es coherente con el alcance: el entregable es el servicio de análisis, no una tabla de mIoU nueva. El stack (FastAPI, Typer, Docker Compose, TerraTorch, caché de Hugging Face) está al servicio de ese flujo.
+La propuesta de valor: el operador elige la tarea, obtiene la máscara y ve qué parte es agua nueva frente a la referencia, sin un fine-tuning propio y sin un pronóstico externo.
 
 ### 6.2 Usuarios, flujo y experiencia demostrable
 
-Hay un perfil de operación (el equipo) y un perfil de consulta (tutor, jurado, visitante de la demo). Ambos usan la misma interfaz. No hay roles ni login.
+Hay un perfil de operación (el equipo) y un perfil de consulta (tutor, jurado). Ambos usan la misma interfaz. No hay roles ni login.
 
 El flujo de funcionamiento es:
 
 ```text
-GeoTIFF + tarea (flood | burn_scar)
+GeoTIFF o escena STAC + tarea (flood | burn_scar)
    ↓
-Validación (.tif / .tiff, tamaño ≤ 200 MB)
+Validación / descarga de 6 bandas
    ↓
-Lectura rasterio + selección de 6 bandas
+Checkpoint HF + TerraTorch (ventana 512×512) → máscara W_t
    ↓
-Checkpoint HF (caché) + TerraTorch LightningInferenceModel
+Referencia P (JRC occurrence ≥ 75 % o historial del territorio)
    ↓
-Ventana deslizante 512×512 → máscara
-   ↓
-Estadísticas (válidos, afectados, %, km²) + bounds EPSG:4326
+Cambio: nuevo / persistente / retirado + sectores + serie
    ↓
 Persistencia artifacts/analyses/<id>/
    ↓
 API / CLI / interfaz web
 ```
 
-La experiencia demostrable es:
-
-1. Abrir `http://localhost:8080`.
-2. Elegir inundación o cicatriz.
-3. Elegir una escena oficial o subir un GeoTIFF propio.
-4. Ver la máscara sobre la escena, porcentaje, km² (si hay tamaño de píxel) e identificador del modelo.
-5. Reabrir el análisis desde el historial.
-6. Opcional: repetir lo mismo con `tune analyze` o con `POST /api/analyze`.
-
-La API no entrena. Un consumidor envía el archivo y la tarea y recibe el análisis, o consulta `/api/tasks` y `/api/analyses`. Los artefactos se descargan por `/api/analyses/{id}/{artifact}`.
+La experiencia demostrable es abrir la web, analizar una escena (oficial o catálogo), ver máscara y bloque "Frente a referencia", recorrer el timeline del territorio y consultar sectores críticos.
 
 ### 6.3 Relación con el problema y el alcance
 
-Esta solución responde al problema porque organiza el **uso** de un checkpoint ya especializado: valida la entrada, ejecuta la inferencia oficial, persiste el análisis y lo deja recuperable. El resultado no depende de que termine un reentrenamiento propio. Responde al alcance porque nombra dos tareas, dos datasets de procedencia y dos modelos, y porque declara con igual claridad lo que no hace (reentrenar como núcleo, PostGIS, Copernicus).
-
-Verificar el éxito es correr el análisis, leer el `model_id` guardado y comprobar el rechazo de entradas inválidas. Esa es la relación directa entre problema, justificación y solución: el sistema convierte pesos publicados en un análisis consultable.
+Esta solución responde a la crítica de que el checkpoint detecta agua, no inundación: la definición operativa y la referencia externa o histórica son parte del producto. Responde al alcance porque nombra dos tareas, referencia JRC/historial, serie, sectores y catálogo, y porque declara fuera el pronóstico y la profundidad.
 
 ---
 
@@ -634,31 +618,29 @@ Este despliegue es preliminar a propósito. No hay dominio, HTTPS público ni re
 
 ## 13. Validación preliminar
 
-
-
 ### 13.1 Pruebas por componentes
 
-`tests/unit/test_analyze.py` cubre el recuento de píxeles positivos solo sobre píxeles válidos, el área ausente cuando no hay tamaño de píxel, y la persistencia del caso de uso con un segmentador falso. Si el porcentaje contara el nodata como suelo sano, o si no se escribiera la máscara, estas pruebas fallan.
-
-`tests/unit/test_prithvi_helpers.py` cubre el paso directo cuando el raster ya trae seis bandas, la extracción de un Sentinel-2 L1C para inundación y el rechazo de un número de bandas incorrecto. También cubre el preview RGB y la lectura de fecha en el nombre de archivo cuando el modelo de inundación la usa. No cargan PyTorch.
-
-Esas pruebas no sustituyen una inferencia con los pesos reales. Fijan el contrato que la interfaz muestra: bandas, píxeles válidos y artefactos en disco. CI las ejecuta sin GPU.
+`tests/unit/test_analyze.py` y `tests/unit/test_change.py` cubren el recuento de píxeles y la comparación contra referencia con máscaras sintéticas. `tests/unit/test_jrc_reference.py`, `test_history_reference.py` y `test_stac_catalog.py` cubren proveedores con fakes (sin red). CI ejecuta `pytest -m "not gpu"` sin GPU ni llamadas externas.
 
 ### 13.2 Pruebas de integración
 
-`tests/integration/test_api_analyses.py` verifica que `/api/tasks` expone los dos modelos `ibm-nasa-geospatial/...`, que un análisis de prueba se crea y que la máscara PNG se descarga. Un archivo que no es GeoTIFF y una tarea desconocida se rechazan. El segmentador real no se carga: se inyecta uno falso por las dependencias de FastAPI.
+`tests/integration/test_api_analyses.py` verifica tareas, análisis, artefactos, catálogo con `FakeCatalog`, serie/diff/sectores cuando aplica, y rechazo de entradas inválidas. El segmentador real no se carga.
 
-Esa prueba recorre el camino HTTP que usa la web, salvo TerraTorch. Comprueba códigos de estado, el JSON del análisis y que el historial devuelve el identificador recién creado. Si el router dejara de persistir o cambiara la forma de la respuesta, CI lo vería.
+### 13.3 Controles del piloto (La Mojana)
 
-La integración que falta es de sistema completo: Compose, pesos reales y una escena de ejemplo. Esa corrida no cabe en el job de CI por tamaño de imagen y por los gigabytes de los checkpoints. Queda como validación manual del cierre, con captura del visor y latencia.
+El protocolo en [docs/validation/piloto-la-mojana.md](./validation/piloto-la-mojana.md) fija bbox, fechas candidatas y controles:
 
-### 13.3 Pruebas de usabilidad
+- **Río (seca):** `new_km2 / affected_km2 < 0.15`.
+- **Estabilidad de referencia:** IoU del agua persistente entre dos fechas secas > 0.7.
+- **Sensibilidad al evento:** `new_km2` en pico ≥ 3× seca.
+- **Comparación externa** si existe producto UNGRD/Copernicus EMS; si no, se declara.
+- **Río fuera de Colombia:** escena oficial `spain`.
 
-Todavía no hay una pasada guiada registrada con capturas. El guion previsto es uno: abrir la web, elegir inundación, usar una escena oficial de Sen1Floods11, ver máscara y porcentaje, y reabrir el análisis desde el historial. Se repite con cicatriz de incendio.
+Reproducción: `make piloto` (API en `:8000`). Cada control queda como pasó / no pasó con el valor en el JSON de resultados.
 
-No hay estudio con usuarios externos. Los usuarios de esta validación son el equipo y, en la sustentación, el tutor. Se observará si el error de un archivo incorrecto se entiende sin leer logs, y si la espera de la primera descarga queda explicada en pantalla.
+### 13.4 Usabilidad
 
-Hasta que esa pasada exista, la usabilidad está diseñada (una sola pantalla, sin login) y no está evidenciada con uso real. Esa evidencia es prioridad del plan de cierre.
+Guion: abrir la web, analizar una escena (oficial o catálogo), ver máscara y cambio frente a referencia, recorrer el timeline. Usuarios: equipo y tutor en sustentación.
 
 ---
 
@@ -680,15 +662,15 @@ La interpretación de ese avance es que el hueco identificado en el estado del a
 
 Las actividades restantes se ordenan por prioridad:
 
-1. **Corrida de cierre documentada.** Inferencia real sobre al menos una escena oficial de inundación y una de cicatriz, con pesos cacheados, captura del visor, latencia y `model_id` del análisis. Es el hito que completa el objetivo específico 7.
-2. **Usabilidad mínima evidenciada.** Ejecutar el guion de la sección 13.3 y registrar capturas y observaciones (errores legibles, espera de primera descarga).
-3. **Pulido de interfaz.** Textos de error y estados vacíos, sin añadir funcionalidades fuera de alcance.
-4. **Informe final.** Consolidar este avance en la estructura del documento final, con instalación y desarrollo según la guía del curso.
-5. **Escena local (opcional).** Solo si el GeoTIFF cumple las seis bandas y CRS, y solo después de que la demo con escenas oficiales esté estable.
+1. **Corrida del piloto La Mojana.** Ejecutar `make piloto` con pesos cacheados, completar la tabla de controles (pasó / no pasó) y anotar limitaciones con números.
+2. **Corrida de cierre en escenas oficiales.** Al menos `spain` (inundación) y una de burn scar, con captura del visor, latencia y `model_id`.
+3. **Usabilidad mínima evidenciada.** Guion de la sección 13.4 con capturas.
+4. **Informe final.** Consolidar este avance; no reabrir pronóstico ni profundidad.
+5. **Escena local (opcional).** Solo si el GeoTIFF cumple bandas y CRS, después de que el piloto esté documentado.
 
-Riesgos principales: falta de red en la primera descarga de pesos; escena propia inválida que confunda la demo; tiempo insuficiente para documentar capturas. Mitigación: pre-cachear con `make examples` o una corrida previa; usar solo escenas oficiales en la sustentación; reservar una sesión corta solo para evidencia.
+Riesgos: falta de red en la primera descarga; nubosidad alta en fechas del piloto; sesgo L2A vs L1C. Mitigación: pre-cachear pesos y escenas; ampliar ventanas de búsqueda; declarar el sesgo en limitaciones.
 
-La estrategia de cierre es no abrir frentes nuevos (PostGIS, Copernicus, reentrenamiento). El criterio de “listo para entrega” es: Docker levanta la app, dos tareas demuestran máscara e historial, y el informe final describe esa solución de forma autónoma.
+Criterio de "listo para entrega": Docker levanta la app, inundación se defiende como cambio frente a referencia, el piloto tiene controles con valores, y el informe describe esa solución de forma autónoma.
 
 ---
 

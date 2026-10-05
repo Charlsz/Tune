@@ -1,8 +1,8 @@
 # Tune
 
-Aplicación de **análisis de imágenes satelitales** para detectar **inundaciones** y **cicatrices de incendio** con los modelos **Prithvi‑EO 2.0** que IBM‑NASA publicó fine‑tuneados en Hugging Face. Subes un GeoTIFF, Tune corre el modelo y muestra la máscara sobre un mapa.
+Aplicación de **análisis de imágenes satelitales** para detectar **inundaciones** y **cicatrices de incendio** con los modelos **Prithvi-EO 2.0** que IBM-NASA publicó fine-tuneados en Hugging Face. Subes un GeoTIFF (o eliges una escena Sentinel-2 por coordenada) y Tune muestra la máscara. En inundación, compara contra agua permanente (JRC / historial): inundación = agua nueva, no todo el agua.
 
-No entrenamos: se usan checkpoints publicados ([ADR 005](./docs/decisions/005-app-inferencia-checkpoints-publicados.md)). El laboratorio de fine‑tuning está en [`lab/`](./lab/README.md).
+No entrenamos: se usan checkpoints publicados ([ADR 005](./docs/decisions/005-app-inferencia-checkpoints-publicados.md)). Definición de cambio: [ADR 010](./docs/decisions/010-inundacion-como-cambio.md). El laboratorio de fine-tuning está en [`lab/`](./lab/README.md).
 
 ## App
 
@@ -11,17 +11,20 @@ cp .env.example .env
 make app-up          # CPU  -> http://localhost:8080
 make app-up-gpu      # NVIDIA
 make app-logs        # la primera inferencia descarga ~1.2 GB de pesos
+make piloto          # piloto La Mojana (API en :8000)
 make app-down
 ```
 
-API: `http://localhost:8000/docs` (`POST /api/analyze`, `GET /api/analyses`, `GET /api/tasks`).
+Variables útiles: `TUNE_REFERENCE_JRC` (default true), `TUNE_JRC_PERMANENT_PCT` (75), `TUNE_CATALOG_MAX_KM` (30).
+
+API: `http://localhost:8000/docs` (`POST /api/analyze`, `GET /api/catalog/search`, `GET /api/analyses`).
 CLI: `tune analyze --task flood --input imagen.tif`.
 
-Imágenes de prueba: ver [`examples/`](./examples/README.md).
+Imágenes de prueba: ver [`examples/`](./examples/README.md). Piloto: [`docs/validation/piloto-la-mojana.md`](./docs/validation/piloto-la-mojana.md).
 
 Frontend: `make web-dev` con la API en `:8000`.
 
-Stack: FastAPI + TerraTorch (backend) · Vite + React + Leaflet (web) · Docker Compose.
+Stack: FastAPI + TerraTorch (backend) · Vite + React (web) · Docker Compose.
 Arquitectura: [docs/architecture/v2.md](./docs/architecture/v2.md).
 
 ## Documentación

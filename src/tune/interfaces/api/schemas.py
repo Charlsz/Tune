@@ -35,37 +35,6 @@ class TaskInfo(BaseModel):
     classes: list[str] = Field(description="Clase negativa y clase positiva, en ese orden")
 
 
-class ForecastDay(BaseModel):
-    date: str = Field(description="Día del pronóstico, YYYY-MM-DD")
-    probability: float | None = Field(
-        None, description="Fracción del ensamble sobre el umbral. Solo inundación"
-    )
-    value: float | None = Field(None, description="Hot-Dry-Windy del día. Solo incendio")
-    level: str | None = Field(None, description="bajo, medio, alto o extremo. Solo incendio")
-
-
-class ForecastCell(BaseModel):
-    lat: float = Field(description="Latitud de la celda que usó el pronóstico")
-    lon: float = Field(description="Longitud de la celda que usó el pronóstico")
-
-
-class ForecastResponse(BaseModel):
-    task: str = Field(description="flood o burn_scar")
-    source: str = Field(description="GloFAS v4 o Hot-Dry-Windy, vía Open-Meteo")
-    note: str = Field(description="Aviso de que Prithvi no calcula este número")
-    cell: ForecastCell
-    horizon_days: int = Field(description="Días del pronóstico. Las dos tareas usan 15")
-    probability: float | None = Field(
-        None, description="Fracción de miembros que superan el caudal algún día. Solo inundación"
-    )
-    level: str | None = Field(None, description="Nivel del día más alto. Solo incendio")
-    threshold: float | None = Field(
-        None, description="Percentil 90 del caudal histórico, m³/s. Solo inundación"
-    )
-    threshold_unit: str | None = Field(None, description="Unidad del umbral")
-    daily: list[ForecastDay]
-
-
 class ExampleInfo(BaseModel):
     id: str = Field(description="Identificador corto: india, spain, usa, t10seh, t10sff, t10sgf")
     task: str = Field(description="Tarea fija de esa escena")

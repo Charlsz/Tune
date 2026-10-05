@@ -15,26 +15,6 @@ export interface CatalogScene {
   thumbnail: string | null;
 }
 
-export interface ForecastDay {
-  date: string;
-  probability: number | null;
-  value: number | null;
-  level: "bajo" | "medio" | "alto" | "extremo" | null;
-}
-
-export interface Forecast {
-  task: TaskId;
-  source: string;
-  note: string;
-  cell: Place;
-  horizon_days: number;
-  probability: number | null;
-  level: ForecastDay["level"];
-  threshold: number | null;
-  threshold_unit: string | null;
-  daily: ForecastDay[];
-}
-
 export interface TaskInfo {
   id: TaskId;
   label: string;

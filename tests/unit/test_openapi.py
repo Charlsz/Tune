@@ -9,7 +9,6 @@ ROUTES = (
     ("/api/analyze", "post"),
     ("/api/catalog/search", "get"),
     ("/api/catalog/{item_id}/analyze", "post"),
-    ("/api/forecast", "get"),
     ("/api/timeline", "get"),
     ("/api/timeline/series", "get"),
     ("/api/analyses", "get"),

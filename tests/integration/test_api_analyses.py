@@ -200,41 +200,6 @@ def test_timeline_rejects_a_missing_anchor_or_no_place(client):
     assert client.get("/api/timeline", params={"lat": 4}).status_code == 422
 
 
-def test_forecast_returns_the_outlook_and_503_when_it_fails(client, monkeypatch):
-    monkeypatch.setattr(
-        analyses_api,
-        "flood_outlook",
-        lambda lat, lon, start=None: {
-            "task": "flood",
-            "source": "GloFAS v4 (Open-Meteo)",
-            "note": "prueba",
-            "cell": {"lat": lat, "lon": lon},
-            "horizon_days": 1,
-            "probability": 0.2,
-            "level": None,
-            "threshold": 10.0,
-            "threshold_unit": "m³/s",
-            "daily": [{"date": "2026-09-29", "probability": 0.2, "value": None, "level": None}],
-        },
-    )
-    ok = client.get("/api/forecast", params={"task": "flood", "lat": 4.6, "lon": -74.1})
-    assert ok.status_code == 200
-    assert ok.json()["probability"] == 0.2
-
-    def down(lat, lon, start=None):
-        raise analyses_api.ForecastError("caído")
-
-    monkeypatch.setattr(analyses_api, "flood_outlook", down)
-    assert (
-        client.get("/api/forecast", params={"task": "flood", "lat": 4.6, "lon": -74.1}).status_code
-        == 503
-    )
-    assert (
-        client.get("/api/forecast", params={"task": "flood", "lat": 91, "lon": 0}).status_code
-        == 422
-    )
-
-
 def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
     from tune.domain.analysis import SceneItem
 

@@ -1,6 +1,10 @@
 # ADR 009 — Riesgo futuro de inundación y de incendio
 
-**Fecha:** 2026-09-28 · **Estado:** Aceptado · **Sigue a:** [ADR 008](./008-busqueda-por-coordenada.md)
+**Fecha:** 2026-09-28 · **Estado:** Reemplazado por [ADR 010](./010-inundacion-como-cambio.md) y [ADR 013](./013-retiro-pronostico.md) · **Sigue a:** [ADR 008](./008-busqueda-por-coordenada.md)
+
+> **Superseded.** El pronóstico se retiró de la demo (ADR 013). El núcleo
+> defendible es la detección de cambio hídrico (ADR 010), no una consulta
+> externa a Open-Meteo.
 
 ## Contexto
 

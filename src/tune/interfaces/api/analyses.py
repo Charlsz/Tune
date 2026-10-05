@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import tempfile
-from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -24,7 +23,6 @@ from tune.domain.ports import AnalysisRepository
 from tune.infrastructure.catalog.stac import CatalogError, bbox_from_point
 from tune.infrastructure.config import get_settings
 from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
-from tune.infrastructure.forecast import ForecastError, burn_outlook, flood_outlook
 from tune.infrastructure.inference.prithvi import MODEL_CARDS
 from tune.infrastructure.raster.grid import grid_from_meta, reproject_mask
 from tune.interfaces.api.schemas import (
@@ -33,7 +31,6 @@ from tune.interfaces.api.schemas import (
     CatalogSceneSchema,
     ChangeSchema,
     ExampleInfo,
-    ForecastResponse,
     SectorSchema,
     SeriesPointSchema,
     TaskInfo,
@@ -183,43 +180,6 @@ def _http_for(exc: Exception) -> HTTPException:
         return HTTPException(413, "Imagen demasiado grande para la memoria disponible")
     log.exception("Fallo de inferencia")
     return HTTPException(503, f"Fallo del modelo: {exc}")
-
-
-@router.get(
-    "/forecast",
-    response_model=ForecastResponse,
-    summary="Riesgo en los próximos días",
-    responses={
-        422: {"description": "Latitud o longitud fuera de rango, o tarea desconocida"},
-        503: {"description": "Open-Meteo no respondió"},
-    },
-)
-def forecast(
-    task: HazardTask = Query(description="flood usa GloFAS; burn_scar usa Hot-Dry-Windy"),
-    lat: float = Query(ge=-90, le=90, description="Latitud WGS84 del punto"),
-    lon: float = Query(ge=-180, le=180, description="Longitud WGS84 del punto"),
-    start: str | None = Query(
-        None, description="Día 1, YYYY-MM-DD. La fecha de la imagen. Si falta, hoy."
-    ),
-) -> ForecastResponse:
-    """15 días desde la fecha de la imagen. El día 1 es esa toma, no hoy.
-
-    Inundación: caudal GloFAS frente al percentil 90 de 1984 a 2022.
-    Incendio: VPD por viento. Si la toma es vieja se usa el archivo, no el pronóstico de ahora.
-    """
-    try:
-        day = date.fromisoformat(start[:10]) if start else date.today()
-    except ValueError as exc:
-        raise HTTPException(422, "start debe ser YYYY-MM-DD") from exc
-    try:
-        outlook = (
-            flood_outlook(lat, lon, day)
-            if task is HazardTask.FLOOD
-            else burn_outlook(lat, lon, day)
-        )
-    except ForecastError as exc:
-        raise HTTPException(503, str(exc)) from exc
-    return ForecastResponse.model_validate(outlook)
 
 
 @router.get(
