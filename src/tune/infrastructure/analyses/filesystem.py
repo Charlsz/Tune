@@ -15,7 +15,16 @@ from typing import Any
 
 import numpy as np
 
-from tune.domain.analysis import Analysis, ChangeSummary, GeoBounds, HazardTask, SegmentationOutput
+from tune.domain.analysis import (
+    Analysis,
+    ChangeSummary,
+    ExposureClass,
+    ExposureSummary,
+    FusionSummary,
+    GeoBounds,
+    HazardTask,
+    SegmentationOutput,
+)
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +34,10 @@ MASK_COLOR = (230, 57, 70, 170)
 NEW_COLOR = (230, 57, 70, 200)  # agua / cicatriz nueva
 PERSISTENT_COLOR = (29, 78, 137, 160)  # permanente
 RECEDED_COLOR = (148, 163, 184, 140)  # retirado
+AGREE_COLOR = (21, 128, 61, 200)
+TUNE_ONLY_COLOR = (230, 57, 70, 180)
+EXTERNAL_ONLY_COLOR = (37, 99, 235, 180)
+UNKNOWN_COLOR = (148, 163, 184, 90)
 
 
 class FileAnalysisRepository:
@@ -39,6 +52,7 @@ class FileAnalysisRepository:
         source: Path,
         *,
         change_layers: tuple[Any, Any, Any] | None = None,
+        fusion_layers: tuple[Any, Any, Any, Any] | None = None,
     ) -> Analysis:
         folder = self.root / analysis.id
         folder.mkdir(parents=True, exist_ok=True)
@@ -63,6 +77,11 @@ class FileAnalysisRepository:
             artifacts["change_png"] = "change.png"
             if write_reference_geotiff(output, persistent | receded, folder / "reference.tif"):
                 artifacts["reference_tif"] = "reference.tif"
+
+        if fusion_layers is not None:
+            agree, only_t, only_e, unknown = fusion_layers
+            write_fusion_png(agree, only_t, only_e, unknown, folder / "fusion.png")
+            artifacts["fusion_png"] = "fusion.png"
 
         saved = replace(analysis, artifacts=artifacts)
         (folder / "analysis.json").write_text(to_json(saved), encoding="utf-8")
@@ -106,6 +125,10 @@ def to_json(a: Analysis) -> str:
     data["task"] = a.task.value
     if a.change is not None:
         data["change"]["reference_dates"] = list(a.change.reference_dates)
+    if a.fusion is not None:
+        data["fusion"]["sources"] = list(a.fusion.sources)
+    if a.exposure is not None:
+        data["exposure"]["classes"] = [c.__dict__ for c in a.exposure.classes]
     return json.dumps(data, indent=2)
 
 
@@ -121,6 +144,19 @@ def from_json(text: str) -> Analysis:
         raw["change"] = ChangeSummary(**change)
     else:
         raw["change"] = None
+    fusion = raw.get("fusion")
+    if fusion:
+        fusion["sources"] = tuple(fusion.get("sources") or [])
+        raw["fusion"] = FusionSummary(**fusion)
+    else:
+        raw["fusion"] = None
+    exposure = raw.get("exposure")
+    if exposure:
+        classes = tuple(ExposureClass(**c) for c in exposure.get("classes") or [])
+        exposure["classes"] = classes
+        raw["exposure"] = ExposureSummary(**exposure)
+    else:
+        raw["exposure"] = None
     raw.setdefault("acquired_at", None)
     raw.setdefault("metadata", {})
     return Analysis(**raw)
@@ -176,6 +212,21 @@ def write_mask_geotiff(output: SegmentationOutput, path: Path) -> bool:
     with rasterio.open(path, "w", **meta) as dst:
         dst.write(mask, 1)
     return True
+
+
+def write_fusion_png(agree: Any, only_t: Any, only_e: Any, unknown: Any, path: Path) -> None:
+    from PIL import Image  # noqa: PLC0415
+
+    a = np.asarray(agree, dtype=bool)
+    t = np.asarray(only_t, dtype=bool)
+    e = np.asarray(only_e, dtype=bool)
+    u = np.asarray(unknown, dtype=bool)
+    rgba = np.zeros((*a.shape, 4), dtype=np.uint8)
+    rgba[u] = UNKNOWN_COLOR
+    rgba[e] = EXTERNAL_ONLY_COLOR
+    rgba[t] = TUNE_ONLY_COLOR
+    rgba[a] = AGREE_COLOR
+    Image.fromarray(rgba, mode="RGBA").save(path, optimize=True)
 
 
 def write_reference_geotiff(output: SegmentationOutput, permanent: Any, path: Path) -> bool:

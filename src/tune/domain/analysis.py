@@ -48,7 +48,7 @@ class ReferenceLayer:
 
     mask: Any
     valid: Any
-    source: str  # "jrc_gsw_v1_4", "history", "previous_analysis"
+    source: str  # "jrc_gsw_v1_4", "history", "previous_analysis", "opera_dswx", "gfm"
     reference_id: str | None = None
     reference_dates: tuple[str, ...] = ()
 
@@ -67,6 +67,59 @@ class ChangeSummary:
     new_area_km2: float | None
     persistent_area_km2: float | None
     receded_area_km2: float | None
+
+
+@dataclass(frozen=True)
+class ObservationLayer:
+    """Capa de observación alineada a la grilla (producto operativo u óptico).
+
+    ``mask`` es bool (True = agua / inundación observada). ``valid`` marca
+    píxeles con dato. Se tipa ``Any`` para no arrastrar numpy.
+    """
+
+    mask: Any
+    valid: Any
+    source: str  # "prithvi", "gfm", "opera_dswx_hls", "opera_dswx_s1"
+    item_id: str | None = None
+    acquired_at: str | None = None
+
+
+@dataclass(frozen=True)
+class FusionSummary:
+    """Acuerdo entre la máscara de Tune y una o más capas externas."""
+
+    sources: tuple[str, ...]
+    compared_pixels: int
+    agree_pixels: int
+    tune_only_pixels: int
+    external_only_pixels: int
+    unknown_pixels: int
+    iou: float | None
+    agree_area_km2: float | None
+    tune_only_area_km2: float | None
+    external_only_area_km2: float | None
+
+
+@dataclass(frozen=True)
+class ExposureClass:
+    """Hectáreas nuevas (o afectadas) cruzadas con una clase de cobertura."""
+
+    code: int
+    label: str
+    pixels: int
+    area_km2: float | None
+    fraction: float
+
+
+@dataclass(frozen=True)
+class ExposureSummary:
+    """Exposición de la máscara nueva sobre cobertura y población globales."""
+
+    landcover_source: str
+    population_source: str
+    new_area_km2: float | None
+    population_exposed: float | None
+    classes: tuple[ExposureClass, ...]
 
 
 @dataclass(frozen=True)
@@ -124,3 +177,5 @@ class Analysis:
     acquired_at: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     change: ChangeSummary | None = None
+    fusion: FusionSummary | None = None
+    exposure: ExposureSummary | None = None

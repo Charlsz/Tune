@@ -202,3 +202,118 @@ def test_use_case_survives_reference_failure(tmp_path: Path) -> None:
         analyze_mod.grid_from_meta = real  # type: ignore[assignment]
     assert a.change is None
     assert "mask_png" in a.artifacts
+
+
+class FakeObservation:
+    def __init__(self, layers, *, boom: bool = False) -> None:
+        self.layers = layers
+        self.boom = boom
+
+    def observe(self, task, grid, *, acquired_at=None):
+        if self.boom:
+            raise RuntimeError("observación caída")
+        return self.layers
+
+
+class FakeExposure:
+    def __init__(self, *, boom: bool = False) -> None:
+        self.boom = boom
+        self.calls = 0
+
+    def expose(self, new_mask, valid, grid, pixel_area_m2):
+        self.calls += 1
+        if self.boom:
+            raise RuntimeError("exposición caída")
+        from tune.domain.analysis import ExposureClass, ExposureSummary
+
+        return ExposureSummary(
+            landcover_source="esa_worldcover_2021",
+            population_source="ghsl_pop_2020",
+            new_area_km2=0.01,
+            population_exposed=12.0,
+            classes=(
+                ExposureClass(code=40, label="Cultivo", pixels=2, area_km2=0.01, fraction=1.0),
+            ),
+        )
+
+
+def test_use_case_attaches_fusion_and_exposure(tmp_path: Path) -> None:
+    from tune.domain.analysis import ObservationLayer, RasterGrid
+
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    out = fake_output()
+    h, w = 4, 5
+    ext = np.zeros((h, w), dtype=bool)
+    ext[0, :] = True
+    obs = FakeObservation(
+        [
+            ObservationLayer(
+                mask=ext, valid=np.ones((h, w), dtype=bool), source="gfm", acquired_at="2024-01-01"
+            )
+        ]
+    )
+    expo = FakeExposure()
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    import tune.application.analyze as analyze_mod
+
+    real = analyze_mod.grid_from_meta
+
+    def fake_grid(meta):
+        return RasterGrid(crs="EPSG:32618", transform=(30, 0, 0, 0, -30, 0), width=w, height=h)
+
+    analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
+    try:
+        a = AnalyzeUseCase(FakeSegmenter(out), repo, observation=obs, exposure=expo).execute(
+            src, HazardTask.FLOOD
+        )
+    finally:
+        analyze_mod.grid_from_meta = real  # type: ignore[assignment]
+    assert a.fusion is not None
+    assert "gfm" in a.fusion.sources
+    assert "fusion_png" in a.artifacts
+    assert a.exposure is not None
+    assert a.exposure.population_exposed == 12.0
+    assert expo.calls == 1
+
+
+def test_use_case_survives_observation_and_exposure_failure(tmp_path: Path) -> None:
+    import tune.application.analyze as analyze_mod
+    from tune.domain.analysis import RasterGrid
+
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    real = analyze_mod.grid_from_meta
+
+    def fake_grid(meta):
+        return RasterGrid(crs="EPSG:32618", transform=(30, 0, 0, 0, -30, 0), width=5, height=4)
+
+    analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
+    try:
+        a = AnalyzeUseCase(
+            FakeSegmenter(fake_output()),
+            repo,
+            observation=FakeObservation([], boom=True),
+            exposure=FakeExposure(boom=True),
+        ).execute(src, HazardTask.FLOOD)
+    finally:
+        analyze_mod.grid_from_meta = real  # type: ignore[assignment]
+    assert a.fusion is None
+    assert a.exposure is None
+    assert "mask_png" in a.artifacts
+
+
+def test_old_analysis_json_without_fusion_still_loads(tmp_path: Path) -> None:
+    src = tmp_path / "x.tif"
+    src.write_bytes(b"x")
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    a = AnalyzeUseCase(FakeSegmenter(fake_output()), repo).execute(src, HazardTask.FLOOD)
+    path = tmp_path / "analyses" / a.id / "analysis.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw.pop("fusion", None)
+    raw.pop("exposure", None)
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    loaded = repo.get(a.id)
+    assert loaded.fusion is None
+    assert loaded.exposure is None

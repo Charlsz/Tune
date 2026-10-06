@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     tune_jrc_permanent_pct: int = 75
     # Catálogo Sentinel-2: lado máximo del bbox en km
     tune_catalog_max_km: float = 30.0
+    # Observación operativa (GFM es público; OPERA pide EARTHDATA_TOKEN)
+    tune_observe_gfm: bool = True
+    tune_observe_opera: bool = False
+    earthdata_token: str = ""
+    # Exposición: WorldCover + GHSL
+    tune_exposure: bool = True
 
     @property
     def cors_origins(self) -> list[str]:

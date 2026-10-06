@@ -97,6 +97,35 @@ class CatalogSceneSchema(BaseModel):
     thumbnail: str | None = None
 
 
+class FusionSchema(BaseModel):
+    sources: list[str]
+    compared_pixels: int
+    agree_pixels: int
+    tune_only_pixels: int
+    external_only_pixels: int
+    unknown_pixels: int
+    iou: float | None = None
+    agree_area_km2: float | None = None
+    tune_only_area_km2: float | None = None
+    external_only_area_km2: float | None = None
+
+
+class ExposureClassSchema(BaseModel):
+    code: int
+    label: str
+    pixels: int
+    area_km2: float | None = None
+    fraction: float
+
+
+class ExposureSchema(BaseModel):
+    landcover_source: str
+    population_source: str
+    new_area_km2: float | None = None
+    population_exposed: float | None = None
+    classes: list[ExposureClassSchema] = Field(default_factory=list)
+
+
 class AnalysisResponse(BaseModel):
     id: str = Field(description="Identificador de 12 caracteres")
     task: str = Field(description="flood o burn_scar")
@@ -126,6 +155,12 @@ class AnalysisResponse(BaseModel):
     change: ChangeSchema | None = Field(
         None, description="Comparación frente a agua permanente o cicatriz de referencia"
     )
+    fusion: FusionSchema | None = Field(
+        None, description="Acuerdo con GFM u OPERA cuando hay capa externa"
+    )
+    exposure: ExposureSchema | None = Field(
+        None, description="Cobertura y población sobre el agua nueva"
+    )
 
     @classmethod
     def from_domain(cls, a: Analysis) -> AnalysisResponse:
@@ -143,6 +178,40 @@ class AnalysisResponse(BaseModel):
                 new_area_km2=c.new_area_km2,
                 persistent_area_km2=c.persistent_area_km2,
                 receded_area_km2=c.receded_area_km2,
+            )
+        fusion = None
+        if a.fusion is not None:
+            f = a.fusion
+            fusion = FusionSchema(
+                sources=list(f.sources),
+                compared_pixels=f.compared_pixels,
+                agree_pixels=f.agree_pixels,
+                tune_only_pixels=f.tune_only_pixels,
+                external_only_pixels=f.external_only_pixels,
+                unknown_pixels=f.unknown_pixels,
+                iou=f.iou,
+                agree_area_km2=f.agree_area_km2,
+                tune_only_area_km2=f.tune_only_area_km2,
+                external_only_area_km2=f.external_only_area_km2,
+            )
+        exposure = None
+        if a.exposure is not None:
+            e = a.exposure
+            exposure = ExposureSchema(
+                landcover_source=e.landcover_source,
+                population_source=e.population_source,
+                new_area_km2=e.new_area_km2,
+                population_exposed=e.population_exposed,
+                classes=[
+                    ExposureClassSchema(
+                        code=c.code,
+                        label=c.label,
+                        pixels=c.pixels,
+                        area_km2=c.area_km2,
+                        fraction=c.fraction,
+                    )
+                    for c in e.classes
+                ],
             )
         return cls(
             id=a.id,
@@ -163,4 +232,6 @@ class AnalysisResponse(BaseModel):
             acquired_at=a.acquired_at,
             metadata=a.metadata,
             change=change,
+            fusion=fusion,
+            exposure=exposure,
         )

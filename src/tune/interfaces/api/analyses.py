@@ -481,7 +481,7 @@ def delete_analysis(
 def get_artifact(
     analysis_id: str = PathParam(description="Id de 12 caracteres"),
     artifact: str = PathParam(
-        description="mask_png, preview_png, mask_tif, input, change_png o reference_tif"
+        description="mask_png, preview_png, mask_tif, input, change_png, reference_tif o fusion_png"
     ),
     repo: AnalysisRepository = Depends(get_repository),
 ) -> FileResponse:

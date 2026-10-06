@@ -11,7 +11,9 @@ from typing import Any, Protocol
 
 from tune.domain.analysis import (
     Analysis,
+    ExposureSummary,
     HazardTask,
+    ObservationLayer,
     RasterGrid,
     ReferenceLayer,
     SceneItem,
@@ -112,11 +114,12 @@ class AnalysisRepository(Protocol):
         source: Path,
         *,
         change_layers: tuple[Any, Any, Any] | None = None,
+        fusion_layers: tuple[Any, Any, Any, Any] | None = None,
     ) -> Analysis:
         """Guarda artefactos y devuelve el análisis con ``artifacts`` rellenado.
 
-        ``change_layers`` es opcional: ``(new, persistent, receded)`` bool arrays
-        alineados a la máscara, para escribir ``change.png`` y ``reference.tif``.
+        ``change_layers`` es opcional: ``(new, persistent, receded)``.
+        ``fusion_layers`` es opcional: ``(agree, tune_only, external_only, unknown)``.
         """
         ...
 
@@ -154,3 +157,27 @@ class SceneCatalog(Protocol):
     def fetch_six_bands(
         self, item_id: str, bbox: tuple[float, float, float, float], dest: Path
     ) -> Path: ...
+
+
+class ObservationProvider(Protocol):
+    """Capa de agua u inundación de un producto operativo, alineada a la grilla."""
+
+    def observe(
+        self,
+        task: HazardTask,
+        grid: RasterGrid,
+        *,
+        acquired_at: str | None = None,
+    ) -> ObservationLayer | None: ...
+
+
+class ExposureProvider(Protocol):
+    """Cruza la máscara nueva con cobertura y población globales."""
+
+    def expose(
+        self,
+        new_mask: Any,
+        valid: Any,
+        grid: RasterGrid,
+        pixel_area_m2: float | None,
+    ) -> ExposureSummary | None: ...

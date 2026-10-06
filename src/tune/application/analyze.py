@@ -16,8 +16,16 @@ from pathlib import Path
 import numpy as np
 
 from tune.application.change import change_layers, compare
+from tune.application.fusion import fuse
+from tune.application.fusion import fusion_layers as build_fusion_layers
 from tune.domain.analysis import Analysis, HazardTask, SegmentationOutput
-from tune.domain.ports import AnalysisRepository, HazardSegmenter, ReferenceProvider
+from tune.domain.ports import (
+    AnalysisRepository,
+    ExposureProvider,
+    HazardSegmenter,
+    ObservationProvider,
+    ReferenceProvider,
+)
 from tune.infrastructure.raster.grid import grid_from_meta
 
 log = logging.getLogger(__name__)
@@ -28,6 +36,8 @@ class AnalyzeUseCase:
     segmenter: HazardSegmenter
     analyses: AnalysisRepository
     reference: ReferenceProvider | None = None
+    observation: ObservationProvider | None = None
+    exposure: ExposureProvider | None = None
 
     def execute(self, geotiff: Path, task: HazardTask, *, filename: str | None = None) -> Analysis:
         t0 = time.perf_counter()
@@ -60,7 +70,29 @@ class AnalyzeUseCase:
                 log.warning("Referencia no disponible: %s", exc)
         if change is not None:
             analysis = replace(analysis, change=change)
-        return self.analyses.save(analysis, output, geotiff, change_layers=layers)
+
+        fusion = None
+        fused = None
+        if self.observation is not None:
+            try:
+                fusion, fused = self._against_observation(task, output)
+            except Exception as exc:
+                log.warning("Observación externa no disponible: %s", exc)
+        if fusion is not None:
+            analysis = replace(analysis, fusion=fusion)
+
+        if self.exposure is not None:
+            try:
+                new_mask = layers[0] if layers is not None else None
+                exposure = self._exposure(output, new_mask)
+                if exposure is not None:
+                    analysis = replace(analysis, exposure=exposure)
+            except Exception as exc:
+                log.warning("Exposición no disponible: %s", exc)
+
+        return self.analyses.save(
+            analysis, output, geotiff, change_layers=layers, fusion_layers=fused
+        )
 
     def _against_reference(self, task: HazardTask, output: SegmentationOutput):
         grid = grid_from_meta(output.raster_meta)
@@ -84,6 +116,30 @@ class AnalyzeUseCase:
             output.mask, output.valid, output.positive_class, layer.mask, layer.valid
         )
         return summary, layers
+
+    def _against_observation(self, task: HazardTask, output: SegmentationOutput):
+        grid = grid_from_meta(output.raster_meta)
+        if grid is None or self.observation is None:
+            return None, None
+        raw = self.observation.observe(task, grid, acquired_at=output.acquired_at)
+        layers = raw if isinstance(raw, list) else ([raw] if raw is not None else [])
+        if not layers:
+            return None, None
+        summary = fuse(
+            output.mask, output.valid, output.positive_class, layers, output.pixel_area_m2
+        )
+        fused = build_fusion_layers(output.mask, output.valid, output.positive_class, layers)
+        return summary, fused
+
+    def _exposure(self, output: SegmentationOutput, new_mask):
+        grid = grid_from_meta(output.raster_meta)
+        if grid is None or self.exposure is None:
+            return None
+        if new_mask is None:
+            new_mask = (np.asarray(output.mask) == output.positive_class) & np.asarray(
+                output.valid, dtype=bool
+            )
+        return self.exposure.expose(new_mask, output.valid, grid, output.pixel_area_m2)
 
 
 @dataclass(frozen=True)

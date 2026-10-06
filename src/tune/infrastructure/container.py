@@ -127,8 +127,45 @@ class Container:
         return CompositeReferenceProvider(providers)
 
     @cached_property
+    def observation(self):
+        from tune.infrastructure.observation.stac import (  # noqa: PLC0415
+            CompositeObservationProvider,
+            StacObservationProvider,
+        )
+
+        root = self.settings.tune_artifacts_dir / "observation"
+        token = self.settings.earthdata_token or None
+        providers = []
+        if self.settings.tune_observe_gfm:
+            providers.append(StacObservationProvider("gfm", root / "gfm"))
+        if self.settings.tune_observe_opera:
+            providers.append(
+                StacObservationProvider("opera_dswx_s1", root / "opera_s1", token=token)
+            )
+            providers.append(
+                StacObservationProvider("opera_dswx_hls", root / "opera_hls", token=token)
+            )
+        return CompositeObservationProvider(providers) if providers else None
+
+    @cached_property
+    def exposure(self):
+        if not self.settings.tune_exposure:
+            return None
+        from tune.infrastructure.exposure.composite import (  # noqa: PLC0415
+            RasterExposureProvider,
+        )
+
+        return RasterExposureProvider(self.settings.tune_artifacts_dir / "exposure")
+
+    @cached_property
     def analyze(self) -> AnalyzeUseCase:
-        return AnalyzeUseCase(self.segmenter, self.analyses, reference=self.reference)
+        return AnalyzeUseCase(
+            self.segmenter,
+            self.analyses,
+            reference=self.reference,
+            observation=self.observation,
+            exposure=self.exposure,
+        )
 
     @cached_property
     def catalog(self):
