@@ -105,6 +105,53 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
         </>
       )}
 
+      {a.fusion && (
+        <>
+          <h4 className="caption" style={{ marginTop: 12 }}>
+            Acuerdo con {a.fusion.sources.filter((s) => s !== "prithvi").join(" + ") || "producto externo"}
+          </h4>
+          <dl className="rows">
+            <Row k="IoU">{a.fusion.iou == null ? "—" : a.fusion.iou.toFixed(2)}</Row>
+            <Row k="Acuerdo">
+              {a.fusion.agree_area_km2 == null
+                ? `${fmt.int(a.fusion.agree_pixels)} px`
+                : `${fmt.km2(a.fusion.agree_area_km2)} km²`}
+            </Row>
+            <Row k="Solo Tune">
+              {a.fusion.tune_only_area_km2 == null
+                ? `${fmt.int(a.fusion.tune_only_pixels)} px`
+                : `${fmt.km2(a.fusion.tune_only_area_km2)} km²`}
+            </Row>
+            <Row k="Solo externo">
+              {a.fusion.external_only_area_km2 == null
+                ? `${fmt.int(a.fusion.external_only_pixels)} px`
+                : `${fmt.km2(a.fusion.external_only_area_km2)} km²`}
+            </Row>
+          </dl>
+        </>
+      )}
+
+      {a.exposure && (
+        <>
+          <h4 className="caption" style={{ marginTop: 12 }}>
+            Exposición ({a.exposure.landcover_source})
+          </h4>
+          <dl className="rows">
+            <Row k="Población">
+              {a.exposure.population_exposed == null
+                ? "sin dato"
+                : fmt.int(Math.round(a.exposure.population_exposed))}
+            </Row>
+            {a.exposure.classes.slice(0, 4).map((c) => (
+              <Row key={c.code} k={c.label}>
+                {c.area_km2 == null ? `${fmt.int(c.pixels)} px` : `${fmt.km2(c.area_km2)} km²`}
+                <span className="muted"> {fmt.pct(c.fraction)}%</span>
+              </Row>
+            ))}
+          </dl>
+        </>
+      )}
+
       <details className="detail">
         <summary>Detalle</summary>
         <dl className="rows">
@@ -127,6 +174,7 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
           {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
           <a href={a.artifacts.mask_png}>PNG</a>
           {a.artifacts.change_png && <a href={a.artifacts.change_png}>Cambio</a>}
+          {a.artifacts.fusion_png && <a href={a.artifacts.fusion_png}>Acuerdo</a>}
           {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
           <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
             JSON

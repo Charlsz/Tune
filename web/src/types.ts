@@ -56,6 +56,8 @@ export interface Analysis {
   acquired_at: string | null;
   metadata: RasterMetadata | Record<string, never>;
   change: ChangeSummary | null;
+  fusion: FusionSummary | null;
+  exposure: ExposureSummary | null;
 }
 
 export interface ChangeSummary {
@@ -69,6 +71,35 @@ export interface ChangeSummary {
   new_area_km2: number | null;
   persistent_area_km2: number | null;
   receded_area_km2: number | null;
+}
+
+export interface FusionSummary {
+  sources: string[];
+  compared_pixels: number;
+  agree_pixels: number;
+  tune_only_pixels: number;
+  external_only_pixels: number;
+  unknown_pixels: number;
+  iou: number | null;
+  agree_area_km2: number | null;
+  tune_only_area_km2: number | null;
+  external_only_area_km2: number | null;
+}
+
+export interface ExposureClass {
+  code: number;
+  label: string;
+  pixels: number;
+  area_km2: number | null;
+  fraction: number;
+}
+
+export interface ExposureSummary {
+  landcover_source: string;
+  population_source: string;
+  new_area_km2: number | null;
+  population_exposed: number | null;
+  classes: ExposureClass[];
 }
 
 export interface BandInfo {
