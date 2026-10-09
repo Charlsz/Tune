@@ -34,8 +34,11 @@ Variables de referencia y catálogo (también en `.env.example`):
 | `TUNE_REFERENCE_JRC` | `true` | Usa JRC GSW como agua permanente |
 | `TUNE_JRC_PERMANENT_PCT` | `75` | Umbral de occurrence (%) |
 | `TUNE_CATALOG_MAX_KM` | `30` | Lado máximo del bbox STAC |
+| `TUNE_OBSERVE_GFM` | `true` | Fusiona con Copernicus GFM si hay capa |
+| `TUNE_OBSERVE_OPERA` | `false` | OPERA DSWx (pide `EARTHDATA_TOKEN`) |
+| `TUNE_EXPOSURE` | `true` | WorldCover + población GHSL |
 
-Piloto La Mojana (API levantada): `make piloto` → [validation/piloto-la-mojana.md](./validation/piloto-la-mojana.md).
+Validación multi-sitio (API levantada): `make validate-sites` → [validation/sitios.md](./validation/sitios.md).
 
 Apagar: `make app-down`.
 

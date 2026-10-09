@@ -1,6 +1,6 @@
 # App (núcleo). Laboratorio: make -C lab experiment  (atajos lab-* abajo).
 
-.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-rebuild gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight piloto
+.PHONY: help app-up app-up-gpu app-down app-logs web-dev eo-pull-base gpu gpu-rebuild gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight piloto validate-sites
 
 PYTHON ?= python
 export DOCKER_BUILDKIT ?= 1
@@ -14,7 +14,8 @@ help:
 	@echo "  gpu           — GPU vía Docker nativo (si Docker Desktop no ve la NVIDIA)"
 	@echo "  gpu-rebuild   — reconstruye eo-api + web y las reinicia en GPU"
 	@echo "  examples      — baja escenas GeoTIFF de ejemplo a examples/"
-	@echo "  piloto        — corrida La Mojana (API en :8000) → docs/validation/"
+	@echo "  validate-sites — controles multi-sitio (API en :8000) → docs/validation/"
+	@echo "  piloto         — alias de validate-sites"
 	@echo "  app-down / app-logs / web-dev"
 	@echo "  install / test / lint"
 	@echo "LAB (secundario): make -C lab experiment   o   make lab-experiment"
@@ -121,8 +122,10 @@ test:
 test-int:
 	pytest -m "not gpu"
 
-piloto:
-	$(PYTHON) scripts/piloto.py --api http://localhost:$${API_PORT:-8000}
+validate-sites:
+	$(PYTHON) scripts/validate_sites.py --api http://localhost:$${API_PORT:-8000}
+
+piloto: validate-sites
 
 clean:
 	rm -rf .pytest_cache .ruff_cache htmlcov .coverage

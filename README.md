@@ -11,16 +11,16 @@ cp .env.example .env
 make app-up          # CPU  -> http://localhost:8080
 make app-up-gpu      # NVIDIA
 make app-logs        # la primera inferencia descarga ~1.2 GB de pesos
-make piloto          # piloto La Mojana (API en :8000)
+make validate-sites  # controles multi-sitio (API en :8000)
 make app-down
 ```
 
-Variables útiles: `TUNE_REFERENCE_JRC` (default true), `TUNE_JRC_PERMANENT_PCT` (75), `TUNE_CATALOG_MAX_KM` (30).
+Variables útiles: `TUNE_REFERENCE_JRC`, `TUNE_JRC_PERMANENT_PCT`, `TUNE_CATALOG_MAX_KM`, `TUNE_OBSERVE_GFM`, `TUNE_EXPOSURE`.
 
 API: `http://localhost:8000/docs` (`POST /api/analyze`, `GET /api/catalog/search`, `GET /api/analyses`).
 CLI: `tune analyze --task flood --input imagen.tif`.
 
-Imágenes de prueba: ver [`examples/`](./examples/README.md). Piloto: [`docs/validation/piloto-la-mojana.md`](./docs/validation/piloto-la-mojana.md).
+Imágenes de prueba: [`examples/`](./examples/README.md). Validación: [`docs/validation/sitios.md`](./docs/validation/sitios.md).
 
 Frontend: `make web-dev` con la API en `:8000`.
 

@@ -1,0 +1,38 @@
+# Sitios de validación global. Cualquier coordenada vale; estos son
+# controles de coherencia, no un territorio exclusivo del producto.
+
+task: flood
+max_cloud: 30
+side_km: 20
+
+sites:
+  - id: spain
+    kind: example
+    example_id: spain
+    note: Escena oficial Sen1Floods11. Cauce visible.
+
+  - id: india
+    kind: example
+    example_id: india
+    note: Escena oficial Sen1Floods11.
+
+  - id: magdalena
+    kind: catalog
+    label: Bajo Magdalena (Colombia)
+    center: { lat: 8.85, lon: -74.65 }
+    dates:
+      dry: ["2024-02-15"]
+      peak: ["2024-05-20"]
+    note: Humedal interior; útil para el control de río en seca.
+
+  - id: pakistan
+    kind: catalog
+    label: Sindh (Pakistán)
+    center: { lat: 27.70, lon: 68.85 }
+    dates:
+      peak: ["2022-08-28"]
+    note: Inundación documentada 2022.
+
+controls:
+  river_ratio_max: 0.15
+  spain_persistent_required: true
