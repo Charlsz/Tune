@@ -34,6 +34,9 @@ h2, h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14p
 .ellipsis { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
 .swatch.ink { background: var(--ink); }
+.swatch.agree { background: #15803d; }
+.swatch.tune-only { background: #e63946; }
+.swatch.ext-only { background: #2563eb; }
 .swatch.clear { background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); }
 .swatch.nodata {
   background: repeating-linear-gradient(135deg, var(--muted) 0 1px, transparent 1px 3px);

@@ -4,7 +4,7 @@ import { type Scene, useScene } from "../lib/scene";
 import type { Analysis, TaskInfo } from "../types";
 import { Skeleton } from "./Skeleton";
 
-type View = "scene" | "classes";
+type View = "scene" | "classes" | "agree";
 
 interface Props {
   analysis: Analysis | null;
@@ -17,6 +17,10 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
   const { scene, error } = useScene(analysis);
   const [view, setView] = useState<View>("scene");
   const [paint, setPaint] = useState(true);
+
+  useEffect(() => {
+    if (view === "agree" && !analysis?.artifacts.fusion_png) setView("scene");
+  }, [analysis, view]);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const size = useFit(box, scene ? scene.w / scene.h : 1, `${analysis?.id}-${busy}`);
@@ -64,6 +68,11 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
           <button type="button" role="tab" aria-selected={view === "classes"} onClick={() => setView("classes")}>
             Clases
           </button>
+          {analysis.artifacts.fusion_png && (
+            <button type="button" role="tab" aria-selected={view === "agree"} onClick={() => setView("agree")}>
+              Acuerdo
+            </button>
+          )}
         </div>
       </div>
 
@@ -90,18 +99,41 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
 
       <div className="stage-foot">
         <div className="legend">
-          <span>
-            <i className="swatch ink" />
-            {classes[1]}
-          </span>
-          <span>
-            <i className="swatch clear" />
-            {classes[0]}
-          </span>
-          <span>
-            <i className="swatch nodata" />
-            Sin dato
-          </span>
+          {view === "agree" ? (
+            <>
+              <span>
+                <i className="swatch agree" />
+                Acuerdo
+              </span>
+              <span>
+                <i className="swatch tune-only" />
+                Solo Tune
+              </span>
+              <span>
+                <i className="swatch ext-only" />
+                Solo externo
+              </span>
+              <span>
+                <i className="swatch nodata" />
+                Sin dato
+              </span>
+            </>
+          ) : (
+            <>
+              <span>
+                <i className="swatch ink" />
+                {classes[1]}
+              </span>
+              <span>
+                <i className="swatch clear" />
+                {classes[0]}
+              </span>
+              <span>
+                <i className="swatch nodata" />
+                Sin dato
+              </span>
+            </>
+          )}
         </div>
         <label className="check">
           <input type="checkbox" checked={paint} onChange={(e) => setPaint(e.target.checked)} />
@@ -157,12 +189,13 @@ function Painting({
     const draw = (p: number) => {
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, scene.w, scene.h);
-      ctx.drawImage(mode === "scene" ? scene.base : scene.classes, 0, 0);
+      ctx.drawImage(mode === "classes" ? scene.classes : scene.base, 0, 0);
       if (paint) {
         const rows = Math.round(p * scene.h);
         if (rows > 0) {
+          const layer = mode === "agree" && scene.fusion ? scene.fusion : scene.overlay;
           ctx.globalAlpha = mode === "scene" ? 0.62 : 1;
-          ctx.drawImage(scene.overlay, 0, 0, scene.w, rows, 0, 0, scene.w, rows);
+          ctx.drawImage(layer, 0, 0, scene.w, rows, 0, 0, scene.w, rows);
           ctx.globalAlpha = 1;
         }
         if (p < 1) {

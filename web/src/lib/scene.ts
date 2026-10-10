@@ -12,6 +12,7 @@ export interface Scene {
   base: HTMLCanvasElement;
   classes: HTMLCanvasElement;
   overlay: HTMLCanvasElement;
+  fusion: HTMLCanvasElement | null;
   cols: Float32Array;
   rows: Float32Array;
 }
@@ -45,6 +46,9 @@ function pixels(img: HTMLImageElement, w: number, h: number): Uint8ClampedArray 
 async function build(a: Analysis): Promise<Scene> {
   const mask = await loadImage(a.artifacts.mask_png);
   const rgb = a.artifacts.preview_png ? await loadImage(a.artifacts.preview_png).catch(() => null) : null;
+  const fusionPng = a.artifacts.fusion_png
+    ? await loadImage(a.artifacts.fusion_png).catch(() => null)
+    : null;
   const scale = Math.min(1, MAX_SIDE / Math.max(mask.naturalWidth, mask.naturalHeight));
   const w = Math.round(mask.naturalWidth * scale);
   const h = Math.round(mask.naturalHeight * scale);
@@ -101,7 +105,14 @@ async function build(a: Analysis): Promise<Scene> {
   classesCtx.putImageData(cImg, 0, 0);
   overlayCtx.putImageData(oImg, 0, 0);
 
-  return { id: a.id, w, h, valid, positive, base, classes, overlay, cols, rows };
+  let fusion: HTMLCanvasElement | null = null;
+  if (fusionPng) {
+    const [fc, fctx] = canvas(w, h);
+    fctx.drawImage(fusionPng, 0, 0, w, h);
+    fusion = fc;
+  }
+
+  return { id: a.id, w, h, valid, positive, base, classes, overlay, fusion, cols, rows };
 }
 
 export function useScene(a: Analysis | null): { scene: Scene | null; error: string | null } {
