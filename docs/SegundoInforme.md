@@ -409,4 +409,4 @@ Riesgos: red en la primera descarga; nubosidad; GFM sin cobertura en la ventana;
 14. Sculley, D., et al. (2015). Hidden Technical Debt in Machine Learning Systems. NeurIPS.
 15. GitHub. *Tune*. https://github.com/Charlsz/Tune
 
-Decisiones internas: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [ADR 010](./decisions/010-inundacion-como-cambio.md), [ADR 011](./decisions/011-catalogo-stac.md), [ADR 013](./decisions/013-retiro-pronostico.md), [ADR 014](./decisions/014-fusion-operativa.md), [ADR 015](./decisions/015-exposicion-global.md), [arquitectura v2](./architecture/v2.md).
+Decisiones internas: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [ADR 010](./decisions/010-inundacion-como-cambio.md), [ADR 011](./decisions/011-catalogo-stac.md), [ADR 013](./decisions/013-retiro-pronostico.md), [ADR 014](./decisions/014-fusion-operativa.md), [ADR 015](./decisions/015-exposicion-global.md), [ADR 016](./decisions/016-validacion-global.md), [arquitectura v2](./architecture/v2.md).
