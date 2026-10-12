@@ -4,251 +4,261 @@
 **Tutor:** Daniel Romero
 **Segundo informe** · octubre de 2026 · repositorio [tune](https://github.com/Charlsz/Tune)
 
-Este documento describe la solución **vigente**. El [Primer Informe](./PrimerInforme.md) queda como planteamiento original (congelado el 2026-08-29). Cada ajuste de alcance se justifica aquí, no se narra como bitácora.
+Este documento describe la solución vigente. El [Primer Informe](./PrimerInforme.md) queda como planteamiento original, congelado el 2026-08-29. El ajuste de alcance se justifica en la sección 3.3 y se mantiene coherente en objetivos, solución, alternativas y resultados.
 
 ## Resumen / Abstract
 
-El problema que Tune resuelve no es “correr un modelo de visión”. Es convertir un GeoTIFF (o una escena Sentinel-2 buscada por coordenada) en un análisis **recuperable** de inundación o de cicatriz de incendio, con una definición operativa que no confunde el cauce con el desborde. El checkpoint publicado `Prithvi-EO-2.0-300M-TL-Sen1Floods11` clasifica agua, no inundación. Sin una referencia de agua permanente, un río en época seca sale como “inundado”. Esa crítica, hecha en tutoría, es el eje de la solución actual.
+El problema que este informe defiende ya no es el costo de reentrenar un modelo. Es producir, a partir de una escena satelital, un análisis de inundación o de cicatriz de incendio que se pueda abrir otra vez y que no llame inundación al cauce. El checkpoint publicado `Prithvi-EO-2.0-300M-TL-Sen1Floods11` clasifica agua. Sin una referencia de agua permanente, un río en época seca queda etiquetado como área inundada. Esa distinción —detectar agua, mapear el agua nueva y pronosticar caudal— organiza todo el alcance que sigue.
 
-La solución vigente es una aplicación cliente-servidor (FastAPI + React) que ejecuta dos checkpoints IBM-NASA ya fine-tuneados, calcula \(F_t = W_t \land \lnot P\) frente a JRC Global Surface Water o al historial del mismo territorio, compara la máscara con Copernicus GFM cuando el producto responde, y traduce el agua nueva a cobertura ESA WorldCover y población GHSL. El usuario no está atado a un país: el catálogo STAC y las capas de referencia son globales. El pronóstico hidrológico se retiró porque no usa el modelo y el profesor lo excluyó del alcance defendible.
+La solución vigente es una aplicación cliente-servidor (FastAPI y React). Recibe un GeoTIFF de seis bandas o una escena Sentinel-2 L2A buscada por coordenada, ejecuta el checkpoint publicado de la tarea (`flood` o `burn_scar`) y calcula el cambio frente a una referencia: en inundación, \(F_t = W_t \land \lnot P\), con \(P\) el agua permanente de JRC Global Surface Water (occurrence ≥ 75 %) o, si esa capa no responde, el historial del mismo territorio; en cicatriz, la referencia es ese historial. Cuando Copernicus GFM devuelve un ítem, el sistema registra el acuerdo con la máscara. El agua nueva se cruza con ESA WorldCover 2021 y con población GHSL 2020. La serie ordena las escenas del lugar por fecha de adquisición y los sectores de cerca de 1 km se rankean por kilómetros cuadrados nuevos. El pronóstico de caudal queda fuera: no sale de la imagen ni del modelo.
 
-El estado del desarrollo es un prototipo de extremo a extremo: 139 pruebas automáticas sin GPU ni red, API documentada, web con catálogo y bloque “frente a referencia”, persistencia compatible con `analysis.json` antiguos. Lo que falta hacia la entrega es una corrida documentada con pesos reales (`make validate-sites`) que llene IoU, `new_km2` y población en al menos dos sitios, y el informe final. El laboratorio de fine-tuning (`lab/`) permanece como anexo: no es el núcleo ni el argumento de este avance.
+El estado del desarrollo es un prototipo de extremo a extremo. La batería `pytest -m "not gpu"` reúne 139 pruebas, sin GPU y sin red. La API está documentada, la web muestra catálogo, overlay y el bloque frente a referencia, y un `analysis.json` anterior sigue abriendo. La validación con pesos reales (`make validate-sites`) todavía no tiene la tabla de pasó o no pasó llena: el protocolo y los controles ya están escritos, y esa corrida es trabajo de cierre, no un resultado que este informe simule.
 
 ## 1. Introducción
 
-El desarrollo de foundation models geoespaciales desplazó parte del trabajo práctico desde el preentrenamiento hacia el **uso** de pesos ya especializados. Prithvi-EO 2.0, TerraTorch y los repositorios Hugging Face de IBM-NASA dejan dos checkpoints listos para inundación (Sen1Floods11) y cicatriz (HLS Burn Scars). En un proyecto de grado, el hueco no es “inventar un detector”: es un sistema que reciba un raster, respete el procedimiento oficial de inferencia y deje un resultado que se pueda abrir, citar y repetir.
+Los foundation models geoespaciales desplazaron parte del trabajo práctico desde el preentrenamiento hacia el uso de pesos ya especializados. Prithvi-EO 2.0 (Szwarcman et al., 2024), TerraTorch y los repositorios de IBM-NASA en Hugging Face dejan dos checkpoints listos: uno de agua, afinado con Sen1Floods11, y uno de cicatriz, afinado con HLS Burn Scars. En un proyecto de grado el hueco deja de ser inventar un detector. El hueco es un sistema que reciba un raster, respete el procedimiento oficial de inferencia y deje un resultado que se pueda citar y repetir.
 
-Ese hueco se malinterpreta con facilidad. Un script de `inference.py` produce una máscara y se detiene. Un laboratorio MLOps que compara estrategias de entrenamiento produce una tabla de mIoU si las corridas terminan, y no produce un análisis servido si la GPU no arranca. El planteamiento inicial de este proyecto era precisamente ese laboratorio. El tutor pidió comprometer tarea, dataset, modelo y criterios verificables, y más adelante señaló que “usar Prithvi” no basta si el producto llama inundación a todo el agua. Ambas observaciones se incorporan aquí como alcance vigente, no como relato del trabajo anterior.
+Ese hueco se malinterpreta si el entregable es solo un entrenamiento. Un script de inferencia produce una máscara y se detiene. Un laboratorio que compara estrategias de fine-tuning produce, cuando la corrida termina, una tabla de recursos y de mIoU, y no produce un análisis de un lugar. El planteamiento inicial de Tune era ese laboratorio: baseline contra una estrategia más barata, registro de la corrida y servicio del modelo elegido. El desarrollo mostró dos límites de esa formulación. El primero es de calendario y de cómputo: reentrenar cerca de 300 millones de parámetros no entrega un análisis si la corrida no cierra, y los pesos de las dos tareas ya están publicados. El segundo apareció al servir esos pesos: la máscara de inundación es una máscara de agua, y un pronóstico de caudal de los próximos días no observa la escena.
 
-Tune, en su estado actual, es el sistema que responde a esas dos exigencias. Compromete dos tareas, dos datasets de procedencia y dos modelos publicados. Define inundación como agua nueva frente a una referencia global. Permite buscar cualquier coordenada. Compara, cuando hay dato, con un producto operativo (GFM). El impacto esperado es un flujo comprobable: escena válida entra; análisis con `model_id`, `change`, y si aplica `fusion` y `exposure`, sale. El estado del trabajo es ese flujo cableado y cubierto por pruebas; la evidencia de inferencia real es el hito de cierre.
+Tune, en el estado que este informe describe, responde a esos dos límites con una sola aplicación. Compromete dos tareas, dos datasets de procedencia y dos modelos publicados. Define la inundación como agua nueva frente a una referencia global, guarda el historial del lugar como progresión y como referencia de respaldo, compara la máscara con un producto operativo de radar cuando el producto responde, y traduce el agua nueva a cobertura y población. El impacto esperado es un flujo comprobable: entra una escena válida; sale un análisis con `model_id` y, cuando los datos existen, con `change`, `fusion` y `exposure`.
 
 ## 2. Marco conceptual
 
-Este apartado fija el vocabulario con el que se leen el problema, la solución y las decisiones técnicas. Sin él, “inundación”, “checkpoint” y “referencia” se confunden.
+Esta sección fija el vocabulario con el que se leen el problema, la solución y las decisiones. Sin esa fijación, “inundación”, “checkpoint” y “referencia” se usan para cosas distintas.
 
 ### 2.1 Raster, bandas Prithvi y segmentación
 
-Una imagen operativa no es un JPG. Es un raster georreferenciado: bandas espectrales, CRS y una transformación afín. Prithvi-EO 2.0 espera **seis** bandas (BLUE, GREEN, RED, NIR_NARROW, SWIR_1, SWIR_2). Tune acepta un GeoTIFF de esas seis o, en inundación, un Sentinel-2 L1C del que extrae los índices correspondientes. Un RGB de tres canales se rechaza.
+Una imagen operativa no es un JPG. Es un raster georreferenciado: bandas espectrales, un sistema de coordenadas y una transformación afín. Prithvi-EO 2.0 espera seis bandas (BLUE, GREEN, RED, NIR_NARROW, SWIR_1, SWIR_2). Tune acepta un GeoTIFF con esas seis bandas o, en inundación, un Sentinel-2 L1C del que toma los índices equivalentes (B02, B03, B04, B8A, B11, B12). El catálogo recorta esas mismas bandas de una escena L2A y las remuestrea a 20 m. Un RGB de tres canales se rechaza.
 
-La segmentación semántica asigna una clase a cada píxel. El checkpoint de inundación distingue “sin agua” y “agua”. El de cicatriz, “no quemado” y “cicatriz”. El área en km² se obtiene del tamaño de píxel por el recuento de la clase positiva, excluyendo nodata. Sin CRS hay máscara y no hay ubicación.
+La segmentación semántica asigna una clase a cada píxel. El checkpoint de inundación distingue “sin agua” y “agua”. El de cicatriz distingue “no quemado” y “cicatriz”. El área en km² sale del tamaño de píxel por el recuento de la clase positiva, con el nodata excluido. Sin CRS hay máscara y no hay ubicación en el mapa. La fecha que ordena el historial es la de adquisición de la escena (`acquired_at`), leída de los tags del GeoTIFF o del ítem STAC. La fecha en que Tune corrió el modelo no es la fecha del lugar.
 
-Tres consecuencias de diseño siguen de aquí. Tune no detecta inundación en cualquier fotografía. El porcentaje “afectado” del modelo es agua (o cicatriz) detectada, no inundación. El visor es un overlay de esa máscara, no un GIS de propósito general.
+De ahí salen tres consecuencias que el resto del informe usa sin volver a demostrarlas. Tune no detecta inundación en una fotografía cualquiera. El porcentaje “afectado” del modelo es agua detectada, o cicatriz detectada, y todavía no es el desborde. El visor superpone esa máscara al mapa; no es un SIG de propósito general.
 
 ### 2.2 Foundation model, checkpoint y procedimiento oficial
 
-Un foundation model geoespacial aprende representaciones sobre series HLS y se especializa después. Un **checkpoint** es el par pesos + `config.yaml`. Tune consume, sin reentrenar:
+Un foundation model geoespacial aprende representaciones sobre series de observación de la Tierra y después se especializa. Un checkpoint es el par de pesos y `config.yaml`. Tune consume, sin reentrenar, dos checkpoints publicados:
 
 | Tarea | Dataset de procedencia | Repositorio Hugging Face |
 |---|---|---|
-| `flood` | Sen1Floods11 (vía óptica Sentinel-2) | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` |
+| `flood` | Sen1Floods11, vía óptica Sentinel-2 | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` |
 | `burn_scar` | HLS Burn Scars | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars` |
 
-La inferencia oficial recorta ventanas 512×512 y recompone la máscara. Tune porta esa lógica con TerraTorch (`LightningInferenceModel.from_config`). El `model_id` viaja en cada análisis. Entrenar Prithvi-300M es un experimento de adaptación; inferir con el checkpoint publicado es un problema de ingeniería. Este informe se sitúa en lo segundo. El `lab/` queda para quien quiera comparar estrategias; no es condición de la demo.
+Sen1Floods11 (Bonafilia et al., 2020) es un corpus georreferenciado de inundación. El checkpoint que Tune ejecuta es la variante óptica publicada por IBM-NASA, no un modelo SAR. HLS Burn Scars (Phillips et al., 2023) es la procedencia del segundo peso. La inferencia oficial recorta ventanas de 512×512 y recompone la máscara. Tune porta esa lógica con TerraTorch (`LightningInferenceModel.from_config`). El `model_id` viaja en cada análisis, de modo que el resultado nombra el peso que lo produjo.
+
+Entrenar Prithvi-300M es un experimento de adaptación. Inferir con el checkpoint publicado es un problema de ingeniería: validar bandas, ejecutar el procedimiento, interpretar la máscara y persistirla. Este informe se sitúa en lo segundo. Otros foundation models abiertos, en particular TerraMind (Jakubik et al., 2025) y Clay (Clay Foundation, 2024), muestran que el campo sigue moviendo el preentrenamiento. Usarlos aquí sería abrir otro proyecto de adaptación. Los dos checkpoints ya especializados cubren las dos tareas que el alcance compromete. El directorio `lab/` conserva el experimento de fine-tuning para quien quiera compararlo; no es condición del análisis.
 
 ### 2.3 Cambio hídrico, fusión y exposición
 
-El checkpoint detecta \(W_t\). Inundación se define \(F_t = W_t \land \lnot P\), con \(P\) el agua permanente (JRC occurrence ≥ 75 % o historial del territorio). Cicatriz nueva es \(B_t \land \lnot B_{ref}\). Esa definición no es original (GFM y UN-SPIDER la usan); lo que Tune aporta es aplicarla al checkpoint fundacional y servirla.
+El checkpoint de inundación entrega \(W_t\): agua en la fecha \(t\). La inundación que este sistema defiende es \(F_t = W_t \land \lnot P\), donde \(P\) es agua permanente. \(P\) sale del primer proveedor que responde. En inundación, el primero es JRC Global Surface Water v1.4 (Pekel et al., 2016), con occurrence de al menos 75 %. Si JRC no responde, \(P\) se construye con el historial del mismo territorio: ocurrencia de al menos 75 % en al menos dos fechas previas. En cicatriz, JRC no aplica (es una capa de agua) y la referencia es ese historial: cicatriz nueva \(= B_t \land \lnot B_{ref}\). Sin referencia, el análisis se guarda igual y `change` queda vacío. La definición no es original: GFM separa el agua de la inundación con capas de referencia (Wagner et al., 2026). Lo que Tune aporta es aplicarla al checkpoint fundacional y servir el resultado.
 
-La **fusión** compara \(W_t\) de Tune con una capa operativa (GFM ensemble, opcionalmente OPERA DSWx) alineada a la misma grilla. El IoU y los residuales (solo Tune, solo externo, sin dato) son la métrica de acuerdo, no una afirmación de que Tune “gane” a GFM. La **exposición** cruza el agua nueva con ESA WorldCover 2021 y población GHSL 2020. El usuario de gestión de riesgo no consume “12 % de píxeles”; consume km² de cultivo y personas.
+La fusión compara \(W_t\) con una capa operativa alineada a la misma grilla. La capa por defecto es el ensamble de Copernicus GFM. OPERA DSWx puede sumarse si hay token de Earthdata; viene apagado. El IoU y los residuales (acuerdo, solo Tune, solo externo, sin dato) miden concordancia. No afirman que la máscara óptica “gane” al radar. GFM y OPERA solo se consultan en inundación.
 
-La arquitectura hexagonal (puertos `HazardSegmenter`, `ReferenceProvider`, `ObservationProvider`, `ExposureProvider`, `SceneCatalog`) mantiene el dominio libre de numpy, torch y rasterio. Un proveedor que falle no tumba el análisis: se guarda sin `change`, sin `fusion` o sin `exposure`.
+La exposición cruza el agua nueva —o la máscara afectada, si no hubo cambio— con ESA WorldCover 2021 (Zanaga et al., 2022) y con el grid de población GHSL 2020 (Schiavina et al., 2023). La salida son km² por clase de cobertura y una suma de personas sobre esos píxeles. Quien gestiona una emergencia no consume un porcentaje de píxeles: consume extensión, tipo de suelo y gente (UN-SPIDER). La serie, el diff entre dos fechas y los sectores de cerca de 1 km son agregados de esa misma máscara de cambio, no un modelo distinto.
 
 ## 3. Planteamiento del problema
 
 ### 3.1 Descripción del problema
 
-Producir un mapa de inundación a partir de una escena satelital exige coordinar raster, modelo, georreferencia y un modo de consultar el resultado. En un equipo académico ese proceso se parte: o se invierte el semestre en fine-tuning y no hay producto, o se corre un script una vez y queda un archivo en disco. El planteamiento inicial de Tune era el primer camino (laboratorio MLOps, baseline vs optimizado, promoción de modelo). Ese camino no entrega un análisis usable si la corrida no cierra, y no responde a la crítica de que el detector publicado ve agua.
+Producir un mapa de inundación a partir de una escena exige coordinar raster, modelo, georreferencia y una definición de qué cuenta como desborde. En el planteamiento inicial ese problema se formuló como fine-tuning caro y poco comparable: baseline contra estrategia optimizada, GPU-hours y mIoU, con el modelo elegido servido al final. Esa formulación describe un laboratorio de adaptación. No describe un análisis de un río. Las causas del hueco que este informe atiende son tres, y las tres se observaron al construir el sistema.
 
-Las causas son tres. Primera, el costo de reentrenar 300 M de parámetros empuja a “cuando la GPU termine”. Segunda, las herramientas cubren fragmentos (TerraTorch infiere, Hugging Face aloja, un GIS dibuja) y no unen validar, inferir, restar permanente, comparar con un producto operativo y persistir. Tercera, llamar “inundación” a \(W_t\) produce un falso positivo sistemático en ríos y ciénagas; el usuario no técnico no puede distinguir cauce de desborde.
+La primera es que reentrenar el foundation model aplaza el resultado hasta que una GPU termine, y el detector de las dos tareas ya está publicado. La segunda es que las herramientas cubren fragmentos: TerraTorch infiere, Hugging Face aloja pesos, un SIG dibuja, un API hidrológico pronostica caudal. Ninguna de esas piezas, sola, valida la entrada, resta el agua permanente, compara con un producto operativo y deja el paquete recuperable. La tercera es de significado. Llamar inundación a \(W_t\) produce un falso positivo sistemático en ríos y ciénagas. Un pronóstico de caudal a quince días responde otra pregunta —qué podría pasar— y no corrige la máscara de lo que la escena ya muestra.
 
-La población afectada son estudiantes, ingenieros y, en la demo, un tutor o un analista que necesita un resultado demostrable **sin** plataforma enterprise y **sin** semanas de GPU. El estado negativo es: el modelo existe, el dataset existe, y aun así no hay un análisis que se pueda defender como inundación ni recuperar mañana.
+La población afectada, en este prototipo, es el equipo que opera el análisis y quien evalúa la entrega. El estado negativo es concreto: el modelo existe, el dataset de procedencia existe, y aun así no hay un análisis que se pueda defender como inundación ni recuperar al día siguiente con su `model_id`, su referencia y su cifra de agua nueva.
 
-> **Disponer de un foundation model y de un dataset de inundación no produce, por sí solo, un análisis de inundación. Quienes reentrenan quedan expuestos a corridas que no cierran. Quienes solo infieren quedan con agua etiquetada como inundación. Falta un sistema que, con checkpoints publicados y una referencia global, transforme una escena de cualquier coordenada en agua nueva, acuerdo externo y exposición, recuperables por API.**
+> **Disponer de un foundation model y de un dataset de inundación no produce, por sí solo, un análisis de inundación. Reentrenar deja el resultado atado a una corrida que puede no cerrar. Inferir sin referencia deja el agua permanente etiquetada como inundación. Falta un sistema que, con los checkpoints publicados y una referencia global, transforme una escena de cualquier coordenada en agua nueva, acuerdo externo cuando existe, y exposición, recuperables por API.**
 
-### 3.2 Justificación
+La pertinencia técnica está en que los pesos ya existen y la carencia es el flujo: validar, inferir con el procedimiento oficial, restar \(P\), comparar con GFM cuando hay dato y persistir. La pertinencia en Ingeniería de Sistemas está en el contrato (bandas, tareas, referencia, fusión, exposición) y en la arquitectura que lo sirve. El modelo publicado, sin ese contrato, sigue siendo un comando (Sculley et al., 2015). Lo que se evalúa es que el prototipo respete el contrato y que los objetivos de la sección 4 se puedan verificar. No se exige un mIoU nuevo del detector: la calidad de \(W_t\) es la que IBM-NASA publicó.
 
-Atender este problema es pertinente porque los checkpoints **ya existen**. La carencia es el flujo que valida la entrada, ejecuta el procedimiento oficial, resta \(P\), compara con GFM cuando hay dato y deja artefactos. Usar el peso publicado y mostrar `new_km2` e IoU es evidencia que se abre en un navegador y se repite con Docker.
+### 3.2 Restricciones y supuestos de diseño
 
-Es pertinente en Ingeniería de Sistemas porque el aporte no es Prithvi ni GFM. El aporte es el contrato (bandas, tareas, referencia, fusión, exposición) y la arquitectura que los sirve. Sin ese sistema, el modelo publicado sigue siendo un comando. Lo que se evalúa es que el prototipo respete el contrato y que los objetivos se puedan verificar con las métricas declaradas en la sección 4.
+El proyecto es un prototipo académico. No hay autenticación, cola de trabajos ni acuerdo de nivel de servicio. Los pesos se descargan de Hugging Face en la primera inferencia (cerca de 1,2 GB por modelo) y se cachean. Sin red en esa primera corrida no hay inferencia; el historial ya guardado sigue en disco. La entrada válida es un GeoTIFF de las seis bandas, un Sentinel-2 L1C amplio en inundación, o una escena L2A del catálogo Earth Search, con un lado máximo configurable (30 km por defecto) y un tope de carga de 200 MB. CPU basta para demostrar. GPU acelera. Se procesa un análisis a la vez.
 
-Es defendible en este ciclo porque el objetivo verificable es concreto: un GeoTIFF o una escena STAC válida produce un análisis con `model_id`; si hay referencia, `change.new_area_km2` es la cifra de inundación; si hay GFM, `fusion.iou` queda registrado; una entrada inválida se rechaza. No se exige un mIoU nuevo del detector. La calidad de \(W_t\) es la que IBM-NASA publicó; lo que se valida es el sistema y la definición operativa.
+Se asume que JRC GSW v1.4 y WorldCover 2021 cubren el recuadro pedido: son productos globales, y Tune lee una ventana, no el mosaico entero. GFM cubre tierra no polar con Sentinel-1. Si en la ventana temporal no hay ítem, `fusion` queda vacío y el análisis se guarda. OPERA DSWx exige token Earthdata y está apagado por defecto. El checkpoint de inundación se entrenó con reflectancia de tope de atmósfera (L1C). El catálogo entrega reflectancia de superficie (L2A) y, desde el baseline del 2022-01-25, aplica el offset de −1000. Ese sesgo se declara; no se corrige con un recalibrado que este alcance no tiene. Una escena cuya fracción de nubes en el recuadro supera el 40 % (clases SCL 3, 8, 9, 10 y 11) se rechaza.
 
-### 3.3 Restricciones y supuestos de diseño
+Esas restricciones fijan lo que se puede comprobar. La salida es máscara, `change` si hay \(P\), `fusion` si hay capa externa y `exposure` si WorldCover responde. Quedan fuera PostGIS, cuentas de usuario, profundidad del agua y pronóstico. La profundidad a partir de extensión y un modelo de elevación es un producto distinto (Cohen et al., 2019): la máscara óptica no trae el calado. La magnitud que la escena permite medir es la extensión del agua nueva, en km², y su concentración en sectores de cerca de 1 km.
 
-El proyecto es un prototipo académico. No hay autenticación, cola ni SLA. Los pesos se descargan de Hugging Face en la primera inferencia (~1,2 GB) y se cachean. Sin red en esa primera corrida no hay inferencia. La entrada válida es GeoTIFF de seis bandas, L1C amplio en inundación, o una escena L2A del catálogo Earth Search. CPU basta para demostrar; GPU acelera. Un análisis a la vez.
+### 3.3 Alcance actualizado
 
-Se asume que JRC GSW v1.4 y WorldCover 2021 cubren el bbox pedido (son globales). GFM cubre tierra no polar con Sentinel-1; si no hay ítem en la ventana temporal, `fusion` queda vacío y el análisis se guarda igual. OPERA DSWx exige token Earthdata y está apagado por defecto. L2A (BOA) no es L1C (TOA): hay un sesgo sistemático que se declara, no se oculta. PostGIS, profundidad (FwDET + DEM) y pronóstico quedan fuera.
+Respecto del planteamiento inicial hay dos reemplazos. El primero sustituyó el laboratorio de fine-tuning por una aplicación que infiere con checkpoints publicados. El segundo, que es la solución que este informe defiende, sustituyó esa aplicación —una máscara de agua presentada como inundación, más una consulta de pronóstico— por el análisis de cambio hídrico. Los apartados que siguen dan la razón de cada reemplazo y el alcance que queda.
 
-Esas restricciones fijan lo que el jurado puede comprobar. La entrada es un raster de contrato. La salida es máscara, `change` si hay \(P\), `fusion` si hay capa externa, `exposure` si WorldCover responde. El modelo no se entrena en la demo.
+El planteamiento inicial (ADR 001, congelado en el primer informe) es un laboratorio MLOps: un modelo, un dataset, dos estrategias de entrenamiento, métricas de GPU y de calidad, y al final un modelo servido. Ese alcance se sustituye como núcleo. Reentrenar Prithvi no produce un análisis de una coordenada si la corrida no termina, y para inundación y cicatriz los pesos especializados ya están publicados (ADR 005). Comparar LoRA contra un fine-tuning completo sigue siendo un experimento válido; no es lo que esta entrega evalúa. El directorio `lab/` permanece en el repositorio y queda fuera de los objetivos de la sección 4.
 
-### 3.4 Alcance actualizado
+La aplicación intermedia, la que solo servía la máscara, tampoco es la solución vigente. El checkpoint de Sen1Floods11 clasifica agua. Sobre un cauce permanente la máscara enciende el río, y el porcentaje afectado cuenta ese río como inundación. Una consulta externa de caudal (GloFAS y un índice de incendio, a quince días, por el centro de la escena) no usa Prithvi ni la imagen: informa un riesgo futuro y deja intacto el falso positivo del cauce. Por eso el pronóstico sale del alcance. En su lugar, la inundación es el agua que no está en \(P\). \(P\) es JRC cuando la capa responde, y el historial del territorio cuando hace falta al menos dos fechas previas o cuando la tarea es cicatriz. La cifra que se presenta como inundación es `new_area_km2`. La serie ordena esas cifras por fecha de adquisición de la escena, no por el momento en que se lanzó el proceso. Los sectores rankean celdas de cerca de 1 km según esa agua nueva. La escena que se lee como situación actual es la adquisición elegida (la del catálogo o el GeoTIFF cargado). Las adquisiciones anteriores quedan en el historial del lugar: sirven de progresión y, si alcanzan el umbral, de referencia. No hay una imagen garantizada cada día. Sentinel-2 revisita cada varios días y el filtro de nubes descarta escenas; la progresión avanza con las adquisiciones que sí entran.
 
-El planteamiento inicial (laboratorio que compara N estrategias de entrenamiento y promueve un alias) **se sustituye** como núcleo. El tutor pidió comprometer tarea, dataset, modelo y umbrales verificables; más adelante, que el informe reflejara el último cambio de solución y que el producto no se defendiera como “usar Prithvi”. El alcance vigente es la **aplicación de análisis** con definición de cambio, no el laboratorio. El `lab/` permanece en el repositorio y no se evalúa en este informe.
-
-**Incluye.** Ingesta GeoTIFF (≤ 200 MB) o escena Sentinel-2 L2A por coordenada. Tareas `flood` y `burn_scar` con los dos checkpoints nombrados. Inferencia oficial 512×512. Inundación como \(W_t \land \lnot P\) (JRC u historial). Serie, diff y sectores del territorio. Fusión con GFM (OPERA opcional). Exposición WorldCover + GHSL. API, CLI, web, Docker. Pruebas sin red ni GPU. Validación multi-sitio (`make validate-sites`), no un territorio exclusivo.
-
-**No incluye.** Fine-tuning como entregable principal. Pronóstico (retirado; ADR 013). Profundidad del agua. PostGIS, login, colas, Kubernetes. Un piloto anclado a La Mojana como único caso: ese sitio es *un* control en `sitios.yaml`, no el producto.
-
-**Usuarios.** El equipo opera. El tutor o el jurado abre la web, elige una coordenada o una escena oficial, y lee máscara, agua nueva y, si hay dato, acuerdo y exposición.
-
-**Resultado esperado.** Prototipo: dos tareas, cambio hídrico global, fusión opcional, exposición, controles multi-sitio con pasó/no pasó.
+El alcance vigente, dicho en una pieza, es el siguiente. Incluye la ingesta de un GeoTIFF (hasta 200 MB) o de una escena Sentinel-2 L2A por coordenada; las tareas `flood` y `burn_scar` con los dos checkpoints nombrados; la inferencia por ventanas de 512×512; la inundación como \(W_t \land \lnot P\) y la cicatriz nueva frente al historial; la serie, el diff y los sectores; la fusión con GFM y, en opt-in, con OPERA; la exposición WorldCover y GHSL; la API, la CLI, la web y Docker; las pruebas sin red ni GPU; y una validación multi-sitio. No incluye el fine-tuning como entregable, el pronóstico, la profundidad del agua, PostGIS, login, colas y Kubernetes. Tampoco incluye anclar el producto a un solo humedal. Sen1Floods11 y HLS Burn Scars son los datasets de los pesos, y son globales. No apareció un corpus etiquetado de un solo municipio que los reemplace. La Mojana, el Magdalena, Pakistán 2022 y las escenas oficiales `spain` e `india` son controles de [sitios.yaml](./validation/sitios.yaml), no la marca del sistema. Quien opera es el equipo. Quien revisa la entrega abre la web, elige una coordenada o una escena de ejemplo, y lee máscara, agua nueva y, si el dato existe, acuerdo y exposición. El resultado esperado del prototipo es ese flujo, con pasó o no pasó en los controles cuando la corrida con pesos reales se ejecute.
 
 ## 4. Objetivos
 
-Los objetivos se redactan como resultados experimentales reproducibles, con tarea, dataset, modelo y umbrales. No son una lista de “implementar módulos”.
+Los objetivos se redactan como resultados comprobables de la solución vigente. Nombran tarea, dataset de procedencia, modelo y umbral. No son una lista de módulos por implementar, ni vuelven a las métricas de entrenamiento del primer informe.
 
 ### 4.1 Objetivo general
 
-**Ejecutar, sobre un GeoTIFF válido o una escena Sentinel-2 L2A de cualquier coordenada, el checkpoint publicado de la tarea elegida; persistir el análisis con el `model_id` de ese checkpoint; calcular inundación como agua nueva frente a JRC o historial cuando la referencia exista; registrar el acuerdo con GFM cuando el producto responda; y servir máscara, `change`, `fusion` y `exposure` por la API comprometida.**
+**Ejecutar, sobre un GeoTIFF válido o una escena Sentinel-2 L2A de cualquier coordenada, el checkpoint publicado de la tarea elegida; persistir el análisis con el `model_id` de ese checkpoint; calcular la inundación como agua nueva frente a JRC o al historial cuando la referencia exista; registrar el acuerdo con GFM cuando el producto responda; y servir máscara, `change`, `fusion` y `exposure` por la API comprometida.**
 
-Compromiso concreto:
+El objetivo se cumple cuando `pytest -m "not gpu"` pasa, cuando `POST /api/analyze` persiste `model_id`, cuando un `analysis.json` anterior carga, y cuando `make validate-sites` deja pasó o no pasó en los controles de la tabla. No se cumple por añadir pantallas. La corrida multi-sitio con pesos reales es el cierre de este objetivo; las 139 pruebas cierran el contrato sin red.
 
 | Pieza | Valor |
 |---|---|
 | Tareas | `flood`, `burn_scar` |
 | Datasets de procedencia | Sen1Floods11, HLS Burn Scars (pesos; no se versionan en Git) |
 | Modelos | `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11`, `...-BurnScars` |
-| Estrategias de **interpretación** (N = 3) | S1 agua cruda \(W_t\); S2 cambio \(W_t \land \lnot P\); S3 fusión Tune vs GFM |
-| Criterio de calidad (S2) | en escena con cauce visible (`spain`): `persistent_km2 > 0` y `new_km2 < affected_km2` |
-| Criterio de calidad (S2, río en seca) | `new_km2 / affected_km2 < 0.15` cuando hay fecha seca |
-| Criterio de calidad (S3) | `fusion.iou` se registra si GFM responde; no se exige umbral mínimo a priori (se reporta) |
-| Criterio de eficiencia | un análisis a la vez; demo en CPU; primera descarga de pesos cacheada |
-| Promoción | no hay alias MLflow en la demo; se “promueve” la cifra `new_km2` (S2) sobre `affected_km2` (S1) como la que se defiende |
+| Estrategias de interpretación (N = 3) | S1 agua cruda \(W_t\); S2 cambio \(W_t \land \lnot P\); S3 fusión Tune frente a GFM |
+| Criterio de S2, cauce visible | en la escena `spain`: `persistent_km2 > 0` y `new_km2 < affected_km2` |
+| Criterio de S2, río en seca | `new_km2 / affected_km2 < 0.15` cuando hay fecha seca |
+| Criterio de S3 | `fusion.iou` se registra si GFM responde; no se exige un umbral mínimo a priori |
+| Criterio de eficiencia | un análisis a la vez; la demo corre en CPU; la primera descarga de pesos queda cacheada |
+| Cifra que se defiende | `new_km2` (S2) es la inundación; `affected_km2` (S1) queda como agua detectada |
 
-El objetivo se cumple cuando `pytest -m "not gpu"` pasa, cuando `POST /api/analyze` persiste `model_id`, cuando un `analysis.json` viejo carga, y cuando `make validate-sites` deja pasó/no pasó de los controles de la tabla. No se cumple por tener más UI.
+S1, S2 y S3 no son tres modelos. Son tres lecturas de la misma escena. S1 es la salida cruda del checkpoint y se conserva porque sin ella no se puede ver cuánta del agua detectada era cauce. S2 es la lectura que el sistema presenta como inundación, y solo existe si hubo referencia. S3 existe solo si GFM devolvió un ítem; su ausencia no invalida S2. En cicatriz, S2 compara contra el historial del territorio y S3 no se calcula, porque GFM es un producto de inundación.
 
 ### 4.2 Objetivos específicos
 
-1. **Contrato de entrada y salida.** Seis bandas Prithvi (o L1C / L2A del catálogo); salida con máscara, bounds, `model_id`, `change` opcional, `fusion` opcional, `exposure` opcional.
-2. **Integrar** los dos checkpoints mediante TerraTorch, sin reentrenar, con el procedimiento de ventana 512×512.
-3. **Calcular S2** (`compare`) sobre la misma grilla; persistir `change.png` y `reference.tif`; no tumbar el análisis si la referencia falla.
-4. **Calcular S3** (`fuse`) contra GFM cuando el STAC de EODC devuelva un ítem; persistir `fusion.png`.
-5. **Exponer** agua nueva sobre WorldCover y GHSL; no tumbar el análisis si el tile no responde.
-6. **Servir** el mismo caso de uso por API, CLI y web, con catálogo `GET /api/catalog/search` y `POST /api/catalog/{id}/analyze`.
-7. **Validar** con pruebas unitarias e integración (fakes, sin red) y con el protocolo multi-sitio sobre la API real.
+El primero fija el contrato de entrada y de salida. Entran seis bandas Prithvi, un L1C de inundación o una escena L2A del catálogo. Salen máscara, bounds, `model_id` y, cuando el dato existe, `change`, `fusion` y `exposure`. Una entrada que no cumple el contrato se rechaza con un código explícito, y el historial previo no se borra.
 
-Enunciado verificable:
+El segundo integra los dos checkpoints mediante TerraTorch, sin reentrenar, con la ventana de 512×512, y deja el `model_id` en el análisis. El tercero calcula S2 sobre la misma grilla, persiste `change.png` y `reference.tif`, y no tumba el análisis si la referencia falla. El cuarto calcula S3 contra GFM cuando el catálogo de EODC devuelve un ítem, y persiste `fusion.png`. El quinto expone el agua nueva sobre WorldCover y GHSL, con la misma regla de fallo parcial.
 
-> Bajo las mismas condiciones (mismo GeoTIFF o misma escena STAC, mismo dispositivo), registrar S1 (`affected_km2`), S2 (`new_km2`, `persistent_km2`) y S3 (`fusion.iou` si hay GFM); defender como inundación únicamente S2; rechazar archivos que no sean GeoTIFF y tareas desconocidas.
+El sexto sirve el mismo caso de uso por API, CLI y web, con búsqueda `GET /api/catalog/search` y análisis `POST /api/catalog/{id}/analyze`. El séptimo valida con pruebas unitarias e integración, con dobles y sin red, y con el protocolo multi-sitio sobre la API real. El enunciado verificable de los tres primeros números es este: bajo la misma escena y el mismo dispositivo, registrar S1 (`affected_km2`), S2 (`new_km2`, `persistent_km2`) y, si hay GFM, S3 (`fusion.iou`); defender como inundación únicamente S2; rechazar lo que no sea un GeoTIFF de contrato y las tareas desconocidas.
 
 ## 5. Estado del arte / soluciones relacionadas
 
 ### 5.1 Fuentes de referencia
 
-El corpus es corto a propósito: las fuentes sin las cuales no se puede nombrar modelo, dataset ni producto operativo. Prithvi-EO 2.0 (Szwarcman et al., 2024) y los dos repositorios Hugging Face fijan el detector. Sen1Floods11 (Bonafilia et al., 2020) y HLS Burn Scars (Phillips et al., 2023) son la procedencia de los pesos. JRC GSW (Pekel et al., 2016) es \(P\). Copernicus GFM (Wagner et al., 2026; PUM 4.0) es la capa de acuerdo. ESA WorldCover 2021 y GHSL 2020 son exposición. UN-SPIDER documenta el cruce de extensión con población y cultivos.
+El corpus que permite nombrar el modelo, el dataset y el producto operativo es corto a propósito. Prithvi-EO 2.0 (Szwarcman et al., 2024) y los dos repositorios de Hugging Face fijan el detector. Sen1Floods11 (Bonafilia et al., 2020) y HLS Burn Scars (Phillips et al., 2023) son la procedencia de los pesos. JRC GSW (Pekel et al., 2016) es la capa \(P\) global. Copernicus GFM (Wagner et al., 2026) es la capa de acuerdo. ESA WorldCover 2021 y GHSL 2020 son la exposición. La práctica recomendada de UN-SPIDER documenta el cruce de extensión de inundación con población y cultivos en Earth Engine. En el entorno local, Rojas Sánchez (2025) integra Prithvi-EO 2.0 en una arquitectura de visión y lenguaje: es un antecedente de uso del mismo foundation model en la Universidad de los Andes, con otro producto (una interfaz de lenguaje, no un contrato de cambio hídrico).
 
-Ese corpus alcanza para posicionar Tune. No se revisa aquí el mercado de seguros (Floodbase, ICEYE) más que para marcar el techo: Tune no compite en latencia global ni en profundidad a nivel de edificio.
+TerraMind (Jakubik et al., 2025), de IBM y la ESA, y Clay (Clay Foundation, 2024) son foundation models abiertos de observación de la Tierra, posteriores o paralelos a Prithvi. Confirman que el preentrenamiento geoespacial ya es un campo con varios pesos públicos. No cambian la decisión de este proyecto: las dos tareas tienen checkpoint publicado, y el trabajo pendiente era interpretarlos y servirlos. Un fine-tuning de nicho sobre otro modelo sería, otra vez, el laboratorio que la sección 3.3 dejó fuera del núcleo.
 
-La lectura de esas fuentes fija una distinción que el primer informe no tenía: **detectar agua**, **mapear inundación** y **pronosticar caudal** son tres problemas. Tune hace los dos primeros. El tercero se retiró.
+Ese corpus separa tres problemas que el primer informe trataba como uno solo. Detectar agua en una escena, mapear la inundación como agua nueva, y pronosticar el caudal son tareas distintas. Tune hace las dos primeras. La tercera tiene su propia literatura y sus propios sistemas operativos, y no forma parte de esta solución.
 
 ### 5.2 Productos operativos y herramientas abiertas
 
-Copernicus GFM procesa Sentinel-1 con un ensamble (LIST, DLR, TU Wien), entrega extensión, agua de referencia, verosimilitud y exclusión, con latencia típica menor a ocho horas y archivo desde 2015. NASA OPERA DSWx produce agua superficial a 30 m (HLS y S1). Google Flood Hub pronostica caudal e inundación fluvial (y, en 2026, flash floods urbanos, con cobertura en Colombia). MapBiomas Agua mapea permanente vs estacional a escala nacional. HydraFloods y la práctica UN-SPIDER en Earth Engine hacen cambio SAR + exposición. FwDET estima profundidad a partir de extensión y DEM.
+Copernicus GFM procesa Sentinel-1 en polarización VV, de forma automática, con un ensamble de tres algoritmos (LIST, DLR y TU Wien). Entrega extensión de inundación, agua de referencia, verosimilitud y una capa de exclusión. Wagner et al. (2026) sitúan la entrega típica en torno a cinco horas desde la adquisición, con archivo desde 2015. NASA OPERA DSWx (Jones y Shiroma, 2023) produce extensión de agua superficial a 30 m a partir de HLS y, en un producto hermano, de Sentinel-1. Esos dos productos ya calculan agua o inundación a escala global. Tune los usa como acuerdo externo, no como un detector que haya que volver a entrenar. OPERA queda detrás de un token y apagado por defecto; GFM es la comparación que la demo puede intentar sin cuenta.
 
-UNGRD, en emergencias del Caribe colombiano, activa International Charter y Copernicus EMS: consume productos, no reentrena un foundation model. IDEAM opera FEWS y pronóstico hidrológico. Esos son el usuario institucional real.
+Google Flood Hub es un sistema de pronóstico. Nearing et al. (2024) muestran un modelo de caudales extremos en cuencas no aforadas, incorporado a un servicio operativo de alerta fluvial con horizonte de días. Eso es hidrología de pronóstico. Cubre el problema que este alcance dejó fuera, y lo cubre con una infraestructura que un prototipo académico no replica. MapBiomas Agua Colombia reconstruye, con Landsat y Earth Engine, una serie mensual de agua superficial (en la colección documentada, 1998-2024) y separa agua permanente (seis meses o más en el año) de agua estacional (de uno a cinco meses) (MapBiomas Colombia, 2025). Es una referencia nacional del mismo tipo que JRC, con una serie mensual y una clase estacional que el occurrence global no etiqueta igual. Tune usa JRC porque el catálogo y la demo no están atados a un país. MapBiomas permanece como referencia de contraste para Colombia, no como capa cableada.
 
-Frente a ese mapa, Tune no es un sustituto de GFM ni de Flood Hub. Es un prototipo que **usa** un foundation model óptico, **resta** permanente, **compara** con GFM cuando hay dato y **traduce** a exposición, en cualquier coordenada, con un contrato auditable.
+En herramientas abiertas, HYDRAFloods (SERVIR-Mekong) compone mapas de agua con varios sensores sobre Earth Engine, y puede densificar la serie combinando fuentes. FwDET estima el calado a partir de la extensión y un DEM (Cohen et al., 2019). Las dos muestran caminos que este alcance no toma: la serie de Tune sigue las adquisiciones ópticas que pasan el filtro de nubes, y el calado exigiría un modelo de elevación. En el plano institucional, IDEAM opera alertas hidrológicas sobre una plataforma FEWS, y la UNGRD, en una emergencia, activa mecanismos como el International Charter y consume cartografía de Copernicus EMS. Esos organismos son usuarios de productos, no equipos que reentrenen un foundation model. Marcan para quién tendría que ser legible un análisis: extensión, y debajo de ella suelo y personas.
+
+El techo comercial queda nombrado para no confundir el prototipo con un servicio de seguros. Floodbase agrega fuentes para seguros paramétricos. ICEYE Flood Insights deriva extensión y profundidad con su propia constelación SAR, a una escala que baja al edificio. Tune no compite en latencia global, en observación bajo nubes ni en profundidad a nivel de edificio.
 
 ### 5.3 Posicionamiento
 
-Tune no gana en cobertura, ni en nubes (óptico vs SAR), ni en latencia operativa. El diferencial defendible es de ingeniería y de interpretación: el mismo checkpoint que un notebook pinta como “inundación” aquí se sirve como \(W_t\), se corrige con \(P\), se confronta con un producto de radar y se agrega por clase de suelo. Eso es lo que un jurado puede abrir en `:8080` sin cuenta Earth Engine.
+Frente a ese mapa, Tune es un prototipo que usa un foundation model óptico, resta el agua permanente, compara con GFM cuando hay un ítem y traduce el agua nueva a cobertura y población, en cualquier coordenada, con un contrato que una prueba automática puede ejercer. No sustituye a GFM: el óptico se detiene en las nubes y el radar no. No sustituye a Flood Hub: no pronostica. No sustituye a MapBiomas: no publica la serie mensual nacional. El diferencial que un jurado puede abrir en un navegador, sin cuenta de Earth Engine, es de interpretación y de ingeniería. El mismo checkpoint que un notebook pinta como “inundación” aquí se sirve como \(W_t\), se corrige con \(P\), se confronta con un producto de radar y se agrega por clase de suelo y por sector.
 
-El laboratorio MLOps del primer informe se posiciona ahora como **fuera del núcleo**. Comparar LoRA contra full fine-tune es un experimento válido; no es lo que este avance entrega ni lo que el tutor pidió priorizar una vez existió el producto de inferencia.
+El laboratorio MLOps del primer informe queda fuera de ese diferencial. Comparar estrategias de entrenamiento mide GPU y mIoU. No mide `new_km2` ni el acuerdo con GFM. La frase de este informe es una evaluación servible del checkpoint fundacional como detector de agua, con definición de cambio, fusión opcional y exposición global.
 
-La frase de tesis de este informe, por tanto, no es “aplicación que usa Prithvi”. Es: evaluación servible de un checkpoint fundacional como detector de agua, con definición de cambio, fusión opcional con GFM y exposición global.
+La consecuencia para el lector es de expectativa. Una concordancia baja con GFM es un resultado, porque el óptico y el radar no ven lo mismo. Una escena sin `change` es un resultado, porque la referencia no respondió. Una serie con huecos de varios días es un resultado, porque la revisita y las nubes dejan esos huecos. El informe los reporta. No los rellena.
 
 ## 6. Solución propuesta
 
-Tune es una aplicación de análisis satelital. Recibe un GeoTIFF o una escena L2A del catálogo Earth Search, una tarea, y ejecuta el checkpoint publicado. Devuelve máscara, estadísticas, agua nueva frente a referencia, acuerdo con GFM si hay capa, y exposición. Los usuarios de la demo son el equipo y el tutor. No hay roles.
+Tune es una aplicación de análisis satelital. Recibe un GeoTIFF o una escena L2A del catálogo Earth Search, recibe una tarea, y ejecuta el checkpoint publicado. Devuelve la máscara, las estadísticas de agua o de cicatriz, el agua nueva frente a la referencia, el acuerdo con GFM si hay capa, y la exposición. No hay roles. Quien opera y quien revisa usan la misma pantalla.
 
-El enfoque es **consumir especialización publicada e interpretarla**. IBM-NASA fine-tuneó; Tune descarga, infiere y persiste. JRC y el historial dan \(P\). GFM da una segunda opinión SAR. WorldCover y GHSL dan el “y qué”. La propuesta de valor: el operador elige un punto en cualquier continente, analiza, y lee km² nuevos y, si hay dato, IoU y población, sin fine-tuning y sin pronóstico.
+El enfoque es consumir la especialización publicada e interpretarla. IBM-NASA afinó los pesos. Tune los descarga, infiere y persiste. JRC, y en su defecto el historial, dan \(P\). GFM da una segunda observación SAR de la misma ventana. WorldCover y GHSL responden qué hay bajo el agua nueva: clase de cobertura y personas. La serie y los sectores responden dónde crece y qué celda concentra la extensión. La propuesta de valor es que una coordenada en cualquier continente produzca esas cifras sin un ciclo de entrenamiento y sin una consulta de pronóstico.
 
-El flujo es:
+El flujo queda así:
 
 ```text
 GeoTIFF o escena STAC + tarea
-  → validación / 6 bandas
-  → Prithvi (512×512) → W_t
-  → P (JRC u historial) → change
-  → GFM (si hay ítem) → fusion
+  → validación de contrato / seis bandas
+  → Prithvi (ventanas 512×512) → W_t o B_t
+  → P (JRC en inundación, si no historial) → change
+  → GFM si hay ítem y la tarea es inundación → fusion
   → WorldCover + GHSL → exposure
   → artifacts/analyses/<id>/
-  → API / CLI / web
+  → API, CLI y web
 ```
 
-La experiencia demostrable es abrir `:8080`, analizar `spain` o buscar un lat/lon, ver overlay, bloque “frente a referencia”, y si GFM respondió, IoU. Verificar el éxito es leer `model_id`, `change.new_area_km2` y el rechazo de un PNG.
+La experiencia que se puede mostrar es abrir el puerto 8080, analizar la escena de ejemplo `spain` o buscar un par latitud-longitud, ver el overlay, leer el bloque frente a referencia y, si GFM respondió, el IoU. Verificar el éxito es leer `model_id` y `change.new_area_km2`, y comprobar que un PNG se rechaza. Las adquisiciones anteriores del mismo territorio aparecen en la línea de tiempo, ordenadas por fecha de toma, como historial del lugar.
 
 ## 7. Metodología de desarrollo
 
-Se adoptó prototipado iterativo porque el sistema mezcla raster, modelo, API e interfaz. Cada ciclo deja un contrato o una frontera (puerto, test, ADR) y se ajusta cuando el código o la tutoría contradicen el plan.
+Se adoptó prototipado iterativo. El sistema mezcla raster, modelo, API e interfaz, y cada ciclo deja un contrato comprobable: un puerto, una prueba y una decisión escrita en `docs/decisions/`. El ciclo siguiente parte de lo que esa prueba ya fija. Cuando una pieza contradice la definición de inundación, se retira la pieza y se conserva el análisis.
 
-Las iteraciones del semestre, en el orden que el jurado puede ver en git, son: (1) laboratorio MLOps y arquitectura hexagonal; (2) pivote a aplicación de inferencia con checkpoints publicados (ADR 005), tras el pedido de comprometer tarea/dataset/modelo; (3) metadatos, timeline y búsqueda por coordenada; (4) pronóstico Open-Meteo (ADR 009), luego retirado (ADR 013) porque el profesor lo excluyó y no usa Prithvi; (5) definición \(F = W \land \lnot P\), JRC, historial, serie y sectores (ADR 010, 012); (6) catálogo STAC (ADR 011); (7) fusión GFM y exposición global, y validación multi-sitio en lugar de un piloto único (ADR 014, 015).
+El primer ciclo construyó el laboratorio del planteamiento inicial: arquitectura por capas, configuración de experimentos y el intento de comparar estrategias de entrenamiento. El hallazgo fue de producto, no de hiperparámetros. Una corrida que no termina no deja un análisis, y los checkpoints de inundación y de cicatriz ya existían. El ciclo siguiente convirtió Tune en aplicación de inferencia: mismos puertos, pesos de Hugging Face, máscara georreferenciada, metadatos de adquisición y línea de tiempo por territorio. Sobre esa aplicación se probó una consulta de pronóstico a quince días. El hallazgo fue de significado. El número de caudal no sale de la escena, no corrige el río marcado como inundado y desplaza la lectura hacia un riesgo que el alcance no puede defender con el modelo. Esa consulta se eliminó. El ciclo que este informe documenta como solución vigente definió \(F = W \land \lnot P\), encadenó JRC e historial, agregó serie, diff y sectores, abrió el catálogo STAC, y añadió la fusión con GFM y la exposición. La validación pasó de un piloto contado como “el” territorio a una lista de controles.
 
-La validación de cada ciclo combina pytest en CI (sin GPU, sin red: fakes y monkeypatch) y revisión del flujo en la interfaz. Los hallazgos que cambiaron el diseño fueron: el checkpoint ve agua; affine 3 rompe al iterar; WorldPop mosaico no admite HTTP Range (se eligió GHSL); OPERA exige token (queda opt-in). La regla de prioridad es: primero un análisis defendible en cualquier coordenada; después pulido; nunca reabrir pronóstico ni anclar el producto a un municipio.
+La validación de cada ciclo combina la batería de pytest en integración continua (sin GPU y sin red: dobles y monkeypatch) con la revisión del flujo en la interfaz. Los hallazgos que cambiaron el diseño, además de los dos reemplazos de alcance, fueron de implementación. Un affine de tres coeficientes rompe al iterar la grilla. El mosaico global de WorldPop no admite HTTP Range, y por eso la población es GHSL, que sí se lee por ventana dentro de un zip. OPERA exige token, y por eso queda opt-in. La regla de prioridad que sale de esos ciclos es una sola: primero un análisis defendible en cualquier coordenada; después el pulido de la interfaz. El pronóstico no se reabre. El producto no se vuelve a marcar con un municipio.
 
 ## 8. Requerimientos
 
 ### 8.1 Funcionales
 
-RF1. El sistema lista `flood` y `burn_scar` con el `repo_id` Hugging Face. RF2. Acepta GeoTIFF + tarea o una escena del catálogo (`lat`, `lon`, fechas) y persiste un análisis con id único. RF3. El análisis incluye válidos, afectados, razón, km², CRS, bounds, latencia y `model_id`. RF4. Si hay referencia, incluye `change` (nuevo, persistente, retirado) y artefactos `change.png` / `reference.tif`. RF5. Si GFM (u OPERA) responde, incluye `fusion` y `fusion.png`. RF6. Si WorldCover responde, incluye `exposure` (clases y población si GHSL responde). RF7. Historial, timeline, serie, diff y sectores. RF8. Rechazo explícito: no GeoTIFF (400), tarea desconocida (422), > 200 MB (413), modelo no cargado (503). RF9. CLI `tune analyze` comparte el caso de uso. RF10. La web muestra overlay, cifras de cambio, acuerdo y exposición cuando existen.
+El sistema ofrece dos tareas, `flood` y `burn_scar`, y cada una nombra el repositorio de Hugging Face del checkpoint que va a ejecutar. Acepta un GeoTIFF junto con la tarea, o una escena del catálogo definida por latitud, longitud y un rango de fechas, y persiste un análisis con identificador único. El análisis incluye píxeles válidos, píxeles afectados, la razón, el área en km², el CRS, los bounds, la latencia y el `model_id`. Esos campos existen aunque después fallen la referencia, la fusión o la exposición.
 
-Esos requerimientos son comprobables sin leer el código. El rechazo es comportamiento, no anexo. La interfaz no inventa coordenadas si no hay CRS ni IoU si GFM no respondió.
+Si hay referencia, el análisis incluye el cambio: píxeles y km² nuevos, persistentes y retirados, más los archivos `change.png` y `reference.tif`. Si GFM u OPERA responden, incluye `fusion` y `fusion.png`, con IoU y residuales. Si WorldCover responde, incluye la exposición por clase y, si GHSL responde, la población. El historial, la línea de tiempo por territorio, la serie por fecha de adquisición, el diff entre dos análisis y los sectores forman parte del mismo caso de uso. La web muestra el overlay y esas cifras cuando existen, y no inventa un IoU ni una coordenada cuando el dato no está.
+
+El rechazo es comportamiento observable. Lo que no es un GeoTIFF responde 400. Una tarea desconocida o unas bandas que no cumplen el contrato responden 422. Un archivo por encima de 200 MB, o un raster que no cabe en memoria, responde 413. El modelo no cargado responde 503. La CLI `tune analyze` ejecuta el mismo caso de uso que `POST /api/analyze`. Un `analysis.json` escrito antes de que existieran `change`, `fusion` y `exposure` sigue cargando, con esos campos vacíos.
 
 ### 8.2 No funcionales
 
-RNF1. Reproducibilidad: `make app-up` levanta API y web; pesos en `hf-cache`. RNF2. Portabilidad: demo en CPU. RNF3. Mantenibilidad: el dominio no importa torch ni rasterio; proveedores perezosos. RNF4. Claridad de fallo: 422/503 explícitos; un proveedor caído no borra el análisis. RNF5. Desempeño de demo: un análisis a la vez; no hay throughput comprometido. RNF6. Seguridad: prototipo local, sin auth. RNF7. Compatibilidad: `analysis.json` sin `change`/`fusion`/`exposure` carga con null. RNF8. Tests: `pytest -m "not gpu"` sin red.
+La reproducibilidad de la demo es un comando: `make app-up` levanta la API y la web, y el volumen `hf-cache` guarda los pesos. La portabilidad es la CPU. Una GPU NVIDIA es una aceleración, no una condición del flujo. La mantenibilidad se apoya en que el dominio no importa torch ni rasterio; los proveedores se cargan en la infraestructura y una prueba sustituye el segmentador, el catálogo y las capas por dobles.
 
-Reproducibilidad y portabilidad fijan la entrega. Mantenibilidad se verifica porque CI inyecta `FakeSegmenter`, `FakeCatalog` y capas sintéticas. Desempeño y seguridad se declaran al tamaño de la demo.
+El fallo tiene que ser legible y parcial. Los códigos 422 y 503 dicen qué no se pudo hacer. Si JRC, GFM o WorldCover no responden, el análisis de la máscara permanece. No hay un objetivo de disponibilidad de servicio ni de peticiones por segundo: la demo es un análisis a la vez, en una máquina con Docker. La seguridad es la de un prototipo local, sin autenticación y sin datos de personas más allá del grid agregado de GHSL, que es un producto público. La compatibilidad hacia atrás de los JSON ya guardados es un requerimiento, porque el historial del territorio es parte de la referencia y de la serie.
+
+La usabilidad queda atada a una sola pantalla y a cifras con nombre. Quien abre la web tiene que poder distinguir el agua del modelo, el agua nueva, el acuerdo con GFM y la exposición, sin un manual. El desempeño comprometido es el de esa sesión: la primera inferencia paga la descarga de pesos, las siguientes leen la caché, y las capas externas se piden por ventana del recuadro. Esas cotas son las que la sección 9 usa para descartar el laboratorio y el pronóstico.
 
 ## 9. Evaluación de alternativas
 
-Las alternativas reales, bajo la carga de una demo (un operador, un análisis), son cuatro. Los criterios del template (latencia, acoplamiento, fallos) se aplican a esa carga, no a un millar de usuarios.
+Las alternativas se comparan bajo la carga real de la demo: una persona, un análisis, una escena. Los criterios son la latencia de esa operación, el throughput, el comportamiento si hubiera concurrencia, la dependencia de servicios externos, el acoplamiento entre módulos, la facilidad de sustituir un componente, y qué queda en pie si una parte falla.
 
 ### 9.1 Alternativas consideradas
 
-A1. Fine-tuning propio como núcleo (baseline vs N estrategias, promoción de alias). Cumple el enunciado original del laboratorio. No entrega análisis si la corrida no cierra. A2. Cambiar solo el dataset y seguir entrenando. Mejora pertinencia; no quita la GPU. A3. Clasificador pequeño en CPU. Rápido; no es geoespacial. A4. Checkpoints publicados + aplicación de cambio, fusión y exposición (seleccionada). Compromete tarea, dataset y modelo. CPU. Cifras defendibles: `new_km2`, IoU, población.
+La primera alternativa es el fine-tuning propio como núcleo: baseline contra varias estrategias, promoción de un alias en un registry. Cumple el enunciado del primer informe. Entrega una tabla de entrenamiento si la corrida cierra, y no entrega el análisis de una coordenada si no cierra. La segunda es cambiar solo el dataset y seguir entrenando. Mejora la pertinencia del dominio y deja intacta la dependencia de la GPU. La tercera es un clasificador pequeño en CPU, ajeno al raster geoespacial. Responde rápido y responde otra tarea: no hay seis bandas, ni CRS, ni agua permanente.
+
+La cuarta alternativa, que es la seleccionada, consume los checkpoints publicados y les añade la definición de cambio, la fusión opcional y la exposición. Compromete tarea, dataset de procedencia y modelo. Corre en CPU. Las cifras que se pueden abrir en un navegador son `new_km2`, el IoU cuando GFM responde, y la población cuando GHSL responde. Una quinta alternativa se construyó y se descartó sobre la cuarta: acoplar a la escena un pronóstico externo de caudal y de índice de incendio a quince días. Esa consulta es barata en latencia y no observa la imagen. Deja el río marcado como inundado y añade un servicio (Open-Meteo) cuya caída no dice nada de la máscara. Se retiró. La solución que se compara en los apartados siguientes es la cuarta, frente al laboratorio y frente al pronóstico.
 
 ### 9.2 ¿Cuál alternativa ofrece mejor desempeño bajo la carga esperada?
 
-La carga es un `POST /api/analyze`. A1 y A2 no sirven inferencia si no entrenaron. A3 sirve otro problema. A4 tiene latencia dominada por la primera descarga de pesos y por las ventanas 512×512; JRC/GFM/WorldCover leen ventanas, no tiles completos. Concurrencia: un análisis a la vez, modelo cacheado en proceso. El criterio que importa es **tiempo hasta un análisis visible con `change`**, no peticiones por segundo.
+La operación crítica es obtener un análisis visible de una escena, con `model_id` y, si la referencia responde, con `change`. No es atender miles de sesiones simultáneas. Bajo esa carga, el laboratorio no tiene latencia de inferencia: tiene tiempo de entrenamiento, del orden de días, y un fallo de cómputo deja el tiempo en cero análisis. El pronóstico externo responde en una petición HTTP y no produce la máscara. La aplicación vigente tiene la latencia dominada por la primera descarga de pesos y por las ventanas de 512×512; JRC, GFM y WorldCover leen ventanas, no teselas enteras de decenas de megabytes. Con los pesos ya en caché, un análisis de demostración cabe en minutos en CPU.
 
-| Criterio (demo) | A1 Train | A3 CPU classif. | A4 App + checkpoints |
+El throughput y la concurrencia se declaran en el tamaño de la demo. Un análisis a la vez, con el modelo cacheado en el proceso. Subir la concurrencia no acerca el proyecto al objetivo de la sección 4. El criterio que ordena la tabla es el tiempo hasta un análisis de la escena que se pueda defender como inundación.
+
+| Criterio (un análisis) | Laboratorio | Pronóstico externo | Aplicación vigente |
 |---|---|---|---|
-| Tiempo a resultado visible | Días / bloqueable | Horas, otra tarea | Minutos tras caché |
-| Latencia de una inferencia | N/A | Baja | Media en CPU |
-| Throughput concurrente | No aplica | Alto e irrelevante | Uno a la vez (aceptado) |
+| Tiempo hasta un resultado de la escena | Días, y bloqueable | Segundos, sin máscara | Minutos tras la caché de pesos |
+| Latencia de la operación crítica | La del entrenamiento | Una consulta HTTP | Inferencia en CPU y lecturas por ventana |
+| Concurrencia | No es la carga de este proyecto | No corrige la máscara | Un análisis a la vez, aceptado |
 
 ### 9.3 ¿Qué grado de acoplamiento introduce cada opción?
 
-A4 depende de Hugging Face, TerraTorch, JRC (GCS), Earth Search, GFM (EODC) y, si se enciende, Earthdata. Cada dependencia está detrás de un puerto; un 503 o un `None` no tumba el resto. El acoplamiento interno es bajo: `FakeSegmenter` y `FakeCatalog` sustituyen en tests. A1 acopla al hardware de entrenamiento. A3 desacopla el dominio satelital y lo abandona. Sustituir el frontend o el repositorio en disco no exige tocar Prithvi. Sustituir Prithvi exige el puerto y las seis bandas.
+La aplicación vigente depende de Hugging Face para los pesos, de TerraTorch para la inferencia, de JRC en Google Cloud Storage para \(P\), de Earth Search para el catálogo, de EODC para GFM y de los tiles de WorldCover y GHSL para la exposición. OPERA suma Earthdata solo si se enciende. Cada dependencia está detrás de un puerto (`HazardSegmenter`, `ReferenceProvider`, `ObservationProvider`, `ExposureProvider`, `SceneCatalog`). Un 503 o un vacío no arrastra al resto. El acoplamiento interno se comprueba porque `FakeSegmenter` y `FakeCatalog` sustituyen las piezas en las pruebas, y porque cambiar el frontend o el directorio de artefactos no exige tocar el checkpoint.
+
+El laboratorio acopla el resultado al hardware de entrenamiento y al registry. Sustituir la estrategia de fine-tuning no produce, por esa sustitución, un `new_km2`. El pronóstico acopla la tarjeta de “riesgo” a un API meteorológico que el dominio de la máscara no necesita. El clasificador pequeño desacopla el sistema del raster y, con eso, abandona el problema. Sustituir Prithvi, en la alternativa elegida, exige respetar el puerto y las seis bandas; no exige reescribir la persistencia ni la web.
 
 ### 9.4 ¿Qué nivel de disponibilidad y tolerancia a fallos ofrece cada alternativa?
 
-Ninguna es un servicio con uptime. En A4, si Hugging Face no responde en la primera corrida no hay inferencia y el historial previo sigue. Si JRC o GFM fallan, el análisis se guarda sin `change` o sin `fusion`. Si WorldCover falla, sin `exposure`. Bandas incorrectas: 422. No hay réplicas; hay carpetas en `artifacts/`. En A1, un OOM deja cero producto. Se elige A4 porque es la única que, en el calendario, produce un análisis verificable con las tres estrategias de interpretación (S1–S3) y con fallo parcial acotado.
+Ninguna alternativa de este proyecto es un servicio con un uptime comprometido. En la aplicación vigente, si Hugging Face no responde en la primera corrida, no hay inferencia nueva y el historial previo sigue en disco. Si JRC o el historial no arman \(P\), el análisis se guarda sin `change`. Si GFM no tiene ítem o no responde, se guarda sin `fusion`. Si WorldCover no responde, se guarda sin `exposure`. Un PNG recibe 400. Unas bandas incorrectas reciben 422. No hay réplicas ni reintentos de cola: hay una carpeta por análisis en `artifacts/`. El impacto de un fallo parcial es la ausencia de un campo, no la pérdida del análisis ni la del historial.
+
+En el laboratorio, un fallo de memoria en el entrenamiento deja cero producto que mostrar. En el pronóstico, un fallo del API externo deja la tarjeta vacía y la máscara, si se hubiera calculado, sigue mal interpretada como inundación. Se elige la aplicación de cambio porque es la que, en el calendario, produce un análisis verificable con S1, S2 y S3, y acota el fallo de cada proveedor externo.
 
 ## 10. Diseño y arquitectura
 
 ### 10.1 Descripción general de la arquitectura
 
-Tune es cliente-servidor en dos contenedores: nginx sirve el build de Vite (8080) y FastAPI (`eo-api`, 8000) orquesta `AnalyzeUseCase`. No es BaaS. La inferencia corre en el mismo proceso (sin cola), coherente con A4 y con un análisis a la vez.
+Tune es cliente-servidor en dos contenedores. Nginx sirve el build de Vite en el puerto 8080. FastAPI (`eo-api`, puerto 8000) recibe HTTP y llama a `AnalyzeUseCase`. No es un backend como servicio de un proveedor de nube: la inferencia corre en el mismo proceso, sin cola, coherente con un análisis a la vez y con la alternativa elegida en la sección 9.
 
-El enfoque es hexagonal: las dependencias apuntan al dominio. TerraTorch, rasterio, pystac-client y `/vsicurl/` viven en infraestructura. La alternativa A4 se materializa en `PrithviSegmenter`, `JrcReferenceProvider`, `StacObservationProvider` y `RasterExposureProvider`. El resto no conoce nombres de archivo `.pt` ni URLs de tiles.
+El enfoque es hexagonal. Las dependencias apuntan al dominio. TerraTorch, rasterio, pystac-client y las lecturas `/vsicurl/` viven en infraestructura. La alternativa seleccionada se materializa en `PrithviSegmenter`, `JrcReferenceProvider`, `HistoryReferenceProvider`, `StacObservationProvider` y `RasterExposureProvider`. El resto del sistema no conoce nombres de archivo `.pt` ni URLs de tiles. El detalle de capas y de rutas está en [architecture/v2.md](./architecture/v2.md).
+
+Esa separación es la que permite el fallo parcial de la sección 9.4. El caso de uso pide referencia, observación y exposición después de tener la máscara, y cada puerto puede devolver vacío. La máscara y el `model_id` ya están decididos antes de esas llamadas.
 
 ### 10.2 Componentes del sistema
 
+La web carga un archivo o busca una escena, dibuja el overlay y muestra estadísticas, cambio, acuerdo, exposición, historial, serie y sectores. La API valida la entrada y traduce HTTP a los casos de uso. `AnalyzeUseCase` ordena segmentar, comparar, fusionar, exponer y persistir. `PrithviSegmenter` resuelve los pesos y la ventana. Los proveedores de referencia, observación, exposición y catálogo encapsulan JRC, el historial, GFM, OPERA, WorldCover, GHSL y Earth Search. `FileAnalysisRepository` escribe `artifacts/analyses/<id>/`. El volumen `hf-cache` guarda los pesos. La CLI Typer llama al mismo caso de uso.
+
+Cada componente se puede seguir hasta un requerimiento de la sección 8. La web y la API cubren la ingesta, el historial y el rechazo. El caso de uso cubre el análisis completo. El segmentador cubre el objetivo de integrar los checkpoints. La referencia cubre S2. La observación cubre S3. La exposición cubre el cruce con cobertura y población. El repositorio cubre la recuperación del análisis y la compatibilidad de los JSON antiguos.
+
 | Componente | Responsabilidad | Requerimientos |
 |---|---|---|
-| `web/` | Carga, catálogo, visor, stats, historial | RF2, RF7, RF10 |
-| `eo-api` | HTTP, validación | RF1–RF8 |
-| `AnalyzeUseCase` | Segmentar → change → fusion → exposure → persistir | RF2–RF6, RF9 |
-| `PrithviSegmenter` | Pesos HF + ventana 512×512 | RF2, obj. 2 |
-| `ReferenceProvider` | JRC / historial | RF4 |
-| `ObservationProvider` | GFM / OPERA | RF5 |
-| `ExposureProvider` | WorldCover + GHSL | RF6 |
-| `SceneCatalog` | Earth Search L2A | RF2 |
-| `FileAnalysisRepository` | `artifacts/analyses/<id>/` | RF3, RF7, RNF7 |
-| Volumen `hf-cache` | Pesos | RNF1 |
-| CLI Typer | Mismo caso de uso | RF9 |
+| `web/` | Carga, catálogo, visor, cifras, historial | Ingesta, historial, presentación |
+| `eo-api` | HTTP y validación del contrato | Tareas, análisis, rechazo |
+| `AnalyzeUseCase` | Segmentar, change, fusion, exposure, persistir | Análisis completo y CLI |
+| `PrithviSegmenter` | Pesos y ventana 512×512 | Integración de los checkpoints |
+| `ReferenceProvider` | JRC y, si no responde, historial | Cambio |
+| `ObservationProvider` | GFM y OPERA opt-in | Fusión |
+| `ExposureProvider` | WorldCover y GHSL | Exposición |
+| `SceneCatalog` | Earth Search L2A | Búsqueda por coordenada |
+| `FileAnalysisRepository` | `artifacts/analyses/<id>/` | Persistencia y compatibilidad |
+| Volumen `hf-cache` | Pesos | Reproducibilidad de la demo |
+| CLI Typer | El mismo caso de uso | `tune analyze` |
+
+La tabla no añade un servicio de pronóstico ni un motor de entrenamiento. Esos componentes existieron en decisiones anteriores y salieron del diagrama porque no participan en \(F_t\). Lo que sí está, y es fácil de pasar por alto, es el orden de la referencia: JRC primero, historial después. En cicatriz el primero devuelve vacío y el segundo construye \(B_{ref}\) con al menos dos fechas del mismo territorio.
 
 **Figura 1. Arquitectura de Tune.**
 
@@ -267,9 +277,11 @@ flowchart LR
 
 ### 10.3 Interacción entre módulos
 
-El navegador no habla con TerraTorch. Llama `/api`. El router valida, escribe un temporal o pide al catálogo las seis bandas, y llama al caso de uso. El segmentador infiere. El caso de uso pide referencia, observación y exposición **después** de tener máscara; cada una puede devolver `None`. El repositorio escribe JSON y PNG. Las descargas posteriores son archivos.
+El navegador no habla con TerraTorch. Llama a `/api`. El router valida, escribe un temporal o pide al catálogo las seis bandas, y llama al caso de uso. El segmentador infiere. El caso de uso pide referencia, observación y exposición cuando ya tiene máscara. El repositorio escribe JSON y PNG. Las descargas posteriores son archivos estáticos de esa carpeta.
 
-Las dependencias van de interfaz a aplicación a dominio. Infraestructura implementa puertos. El acoplamiento entre tareas es un diccionario de fichas: inundación y cicatriz comparten el camino; JRC y GFM solo aplican a `flood`.
+Las dependencias van de la interfaz a la aplicación y de la aplicación al dominio. La infraestructura implementa los puertos. Inundación y cicatriz comparten el camino de segmentación, persistencia y exposición. JRC devuelve vacío en cicatriz, y entonces el historial es la referencia. GFM y OPERA solo se consultan en inundación. El acoplamiento entre tareas es un diccionario de fichas de modelo, no una bifurcación del proceso HTTP.
+
+El flujo de datos de un análisis nuevo es de ida: raster o ítem STAC, máscara, capas opcionales, disco, respuesta 201. El flujo de una consulta posterior es de vuelta: el identificador localiza la carpeta y la web pide el PNG. La serie y los sectores leen análisis ya persistidos; no vuelven a ejecutar Prithvi.
 
 **Figura 2. Interacción entre módulos.**
 
@@ -279,14 +291,14 @@ sequenceDiagram
   participant API
   participant Caso
   participant Seg
-  participant Ext as JRC/GFM/WC
+  participant Ext as JRC/GFM/WorldCover
   participant Disco
   Web->>API: POST /api/analyze o /api/catalog/{id}/analyze
   API->>Caso: execute
   Caso->>Seg: segment
   Seg-->>Caso: W_t
   Caso->>Ext: reference / observe / expose
-  Ext-->>Caso: capas o None
+  Ext-->>Caso: capas o vacío
   Caso->>Disco: json + png
   Disco-->>API: Analysis
   API-->>Web: 201
@@ -294,9 +306,11 @@ sequenceDiagram
 
 ### 10.4 Comportamiento
 
-La secuencia feliz es corta: elegir tarea y escena, inferir, restar \(P\), fusionar si hay GFM, exponer, guardar, pintar. El cuello es la inferencia (y la primera descarga). Las lecturas remotas son ventanas, no tiles de 70 MB enteros. El desacoplamiento se verifica en CI: la API se prueba con segmentador falso; fusión y exposición se prueban con arrays sintéticos.
+La secuencia que se quiere mostrar es corta. Se elige la tarea y la escena, se infiere, se resta \(P\), se fusiona si hay GFM, se expone, se guarda y se pinta. El cuello de botella es la inferencia y, la primera vez, la descarga de pesos. Las lecturas remotas son ventanas del recuadro, no el tile completo. No hay un paso de entrenamiento en ese camino, ni una llamada de pronóstico. El desacoplamiento se ve en la integración continua: la API se prueba con un segmentador falso, y la fusión y la exposición se prueban con arreglos sintéticos.
 
-Los fallos no tumban el historial. PNG → 400. Bandas → 422. Modelo → 503. GFM caído → análisis sin `fusion`. JSON viejo → `fusion` y `exposure` en null.
+Los fallos no tumban el historial. Un PNG recibe 400. Unas bandas que no cumplen el contrato reciben 422. El modelo ausente recibe 503. GFM caído, o sin ítem en la ventana, deja un 201 sin `fusion`. Un JSON viejo abre con `fusion` y `exposure` vacíos. Una coordenada fuera de toda caja deja el historial filtrado vacío y no borra los análisis.
+
+La serie y los sectores son lecturas. `GET /api/timeline/series` resume, por fecha de adquisición, los km² afectados, nuevos, permanentes y retirados. `GET /api/analyses/{a}/diff/{b}` compara dos máscaras. `GET /api/analyses/{id}/sectors` agrega el agua nueva en celdas de cerca de 1 km (el lado es un parámetro, entre 100 m y 10 km) y las rankea. Si el análisis no tiene `change`, los sectores usan la máscara afectada y lo declaran en el campo `basis`.
 
 **Figura 3. Análisis válido.**
 
@@ -305,7 +319,7 @@ sequenceDiagram
   actor Usuario
   participant Web
   participant API
-  Usuario->>Web: Coordenada o escena oficial
+  Usuario->>Web: Coordenada o escena de ejemplo
   Web->>API: analyze
   API-->>Web: 201, change, fusion, exposure
   Web-->>Usuario: Overlay y cifras
@@ -319,7 +333,7 @@ sequenceDiagram
   participant API
   Usuario->>API: PNG
   API-->>Usuario: 400
-  Usuario->>API: GeoTIFF válido, GFM caído
+  Usuario->>API: GeoTIFF válido, GFM sin ítem
   API-->>Usuario: 201 sin fusion, historial intacto
 ```
 
@@ -327,86 +341,112 @@ sequenceDiagram
 
 ### 11.1 Stack tecnológico
 
-Backend en Python 3.11: FastAPI, Typer, TerraTorch/PyTorch (extra `training`), rasterio, pystac-client, NumPy, Pillow. Frontend TypeScript, React 19, Vite. Compose: `eo-api` + `web`. Pruebas: pytest, ruff. No hay PostgreSQL: el historial es una carpeta por análisis. Hugging Face, JRC GCS, Earth Search, EODC STAC, WorldCover S3 y GHSL JRC son las fuentes externas, todas leídas por ventana o por API de búsqueda.
+El backend está en Python 3.11. FastAPI expone HTTP, Typer expone la CLI, y TerraTorch con PyTorch ejecuta la inferencia (extra de instalación `training`, aunque la demo no entrena). Rasterio lee y escribe GeoTIFF. pystac-client habla con Earth Search y con el STAC de GFM. NumPy opera las máscaras y Pillow escribe los PNG de overlay. El frontend está en TypeScript, con React 19 y Vite. Docker Compose levanta `eo-api` y `web`. Las pruebas usan pytest y el estilo usa ruff.
 
-La elección cierra con A4. No hay segundo lenguaje de servidor ni base espacial.
+No hay PostgreSQL. El historial es una carpeta por análisis, con un `analysis.json` y los rásteres. Esa elección cierra con la carga de la sección 9: no hay consultas espaciales de muchos usuarios, y un escaneo de los JSON alcanza para la línea de tiempo. Si ese historial dejara de caber en una demo, el reemplazo previsto es PostGIS; con el volumen actual no hace falta. Hugging Face, JRC en Cloud Storage, Earth Search, el STAC de EODC, los tiles de WorldCover en S3 y los zip de GHSL son las fuentes externas. Todas se leen por ventana o por una búsqueda, no por una descarga del producto mundial.
+
+La elección de TerraTorch no es cosmética. Es la biblioteca con la que IBM-NASA publicó el procedimiento de inferencia de estos checkpoints. Sustituirla por otro runtime obligaría a reimplementar la ventana de 512×512 y el `config.yaml`. FastAPI y React cubren el contrato HTTP y la pantalla única. No hay un segundo lenguaje de servidor.
 
 ### 11.2 Componentes implementados
 
-Dominio: `HazardTask`, `Analysis`, `ChangeSummary`, `FusionSummary`, `ExposureSummary`, `RasterGrid`, puertos. Aplicación: `AnalyzeUseCase`, `compare`, `fuse`, `expose`, `series`, `sectors`. Infraestructura: `PrithviSegmenter`, `FileAnalysisRepository`, JRC, historial, composite, `StacCatalog`, `StacObservationProvider` (presets GFM y OPERA), WorldCover, GHSL, contenedor. API: tareas, ejemplos, analyze, catálogo, timeline, serie, diff, sectores, artefactos (incluye `fusion_png`). Web: carga, catálogo, visor, StatsCard con cambio/fusión/exposición, historial. Docker CPU/port GPU.
+En el dominio están la tarea, el análisis, el resumen de cambio, el de fusión, el de exposición, la grilla y los puertos. En la aplicación están el caso de uso de análisis, la comparación contra la referencia, la fusión, la exposición, la serie y los sectores. En la infraestructura están el segmentador Prithvi, el repositorio en disco, JRC, el historial, el compuesto que prueba proveedores en orden, el catálogo STAC, el proveedor de observación con presets GFM y OPERA, WorldCover, GHSL y el contenedor de dependencias.
 
-El estado es funcional en el repositorio. El flujo se ejerce de extremo a extremo una vez cacheados los pesos. `pytest -m "not gpu"`: 139 passed.
+La API expone tareas, ejemplos, análisis, catálogo, línea de tiempo, serie, diff, sectores y artefactos, incluido el PNG de fusión. La web tiene carga, catálogo, visor, ficha de estadísticas con cambio, fusión y exposición, e historial. Hay un Compose de CPU y un override de GPU. El flujo se ejerce de extremo a extremo una vez cacheados los pesos. El estado de las pruebas automáticas, en la recolección actual del repositorio, es 139 pruebas bajo `pytest -m "not gpu"`.
+
+Ese inventario corresponde a la solución de la sección 6, no a la del primer informe. No hay un registry de modelos en el camino de la demo, ni un endpoint de pronóstico, ni una comparación baseline contra LoRA servida por la API. Esas piezas, donde siguen en el árbol, viven bajo `lab/` y no las llama `AnalyzeUseCase`.
 
 ### 11.3 Integraciones realizadas
 
-Hugging Face (config + pesos, `HF_HOME`). Earth Search v1 (búsqueda y recorte L2A, offset BOA desde 2022-01-25, SCL → nodata). JRC GSW occurrence por `/vsicurl/` y caché de recorte. GFM STAC EODC (`ensemble_flood_extent`). WorldCover 2021 tiles 3°. GHSL POP 2020 tiles 10° en zip (WorldPop mosaico se descartó: no admite Range). OPERA STAC se cableó y se deja opt-in por token. No hay login ni Copernicus EMS on-demand.
+Hugging Face aporta el `config.yaml` y los pesos, con caché en `HF_HOME`. Earth Search v1 aporta la búsqueda y el recorte L2A: bandas B02, B03, B04, B8A, B11 y B12 a 20 m, offset de superficie desde el 2022-01-25, y nodata a partir de la capa SCL. JRC GSW se lee por `/vsicurl/`, con occurrence y caché del recorte. El STAC de EODC aporta el ítem de GFM (`ensemble_flood_extent`), alineado a la grilla del análisis. WorldCover 2021 se lee por tiles de 3°. GHSL POP 2020 se lee por tiles de 10° empaquetados en zip. El mosaico de WorldPop se probó y se dejó: no admite peticiones por rango, y una ventana no puede bajar el archivo entero.
+
+OPERA está cableado con el mismo puerto de observación y permanece opt-in por `TUNE_OBSERVE_OPERA` y `EARTHDATA_TOKEN`. No hay login de usuarios, ni activación de Copernicus EMS bajo demanda, ni suscripción al Charter. Las banderas `TUNE_REFERENCE_JRC`, `TUNE_JRC_PERMANENT_PCT`, `TUNE_CATALOG_MAX_KM`, `TUNE_OBSERVE_GFM` y `TUNE_EXPOSURE` encienden o apagan esas integraciones sin recompilar el dominio.
+
+Cada integración puede faltar sin borrar el análisis. Sin JRC y sin dos fechas previas, no hay `change`. Sin ítem de GFM, no hay `fusion`. Sin tile de WorldCover, no hay `exposure`. Los pesos de Hugging Face son la única integración cuya ausencia impide el análisis nuevo: sin ellos no hay máscara. El historial ya escrito sigue en disco.
 
 ### 11.4 Pendientes para la entrega final
 
-Corrida `make validate-sites` con pesos reales y tabla pasó/no pasó llena (IoU, ratios, población). Capturas de usabilidad. Informe final. Fine-tune de dominio y profundidad (FwDET) quedan explícitamente fuera de este cierre. Una escena local solo si cumple bandas y CRS, después de la corrida multi-sitio.
+Falta la corrida `make validate-sites` con los pesos reales y la tabla de pasó o no pasó llena: IoU, razones de agua nueva y población en los controles que respondan. Faltan capturas del visor con `change` y, cuando GFM responda, con el acuerdo. Falta el informe final, escrito sobre este texto. Esas tres piezas son de evidencia y de redacción. No cambian la definición de inundación.
+
+Quedan fuera de ese cierre, de forma explícita, un fine-tuning de dominio y la profundidad por FwDET. Una escena local adicional solo entra si cumple bandas y CRS, y solo después de la corrida multi-sitio. No hace falta un módulo de pronóstico ni anclar el producto a un municipio para cerrar la entrega.
+
+Esos pendientes no reabren el alcance de la sección 3.3. La corrida multi-sitio mide S2 y S3 sobre controles ya elegidos (`spain`, una fecha seca, un evento documentado). Las capturas muestran la misma pantalla que la sección 13.3 describe. El informe final incorpora los números de esa corrida al texto que este avance ya fija.
 
 ## 12. Despliegue y operación preliminar
 
-El entorno de demo es Docker Compose en una máquina con Docker y RAM suficiente. No hay hosting de pago.
+El entorno de la demo es Docker Compose en una máquina con Docker y RAM suficiente para torch y para un análisis. No hay hosting de pago ni un dominio público. La secuencia de operación es copiar `.env.example` a `.env`, levantar con `make app-up`, y bajar con `make app-down`. La documentación de instalación está en [Instalación.md](./Instalación.md). La API queda en `http://localhost:8000/docs` y la web en el puerto 8080.
 
-```bash
-cp .env.example .env
-make app-up
-make validate-sites
-make app-down
-```
+El volumen `hf-cache` persiste los pesos entre arranques, que es lo que vuelve tolerable la primera descarga. Los análisis persisten en `artifacts/analyses/`. Las variables que cambian el comportamiento sin tocar código son `TUNE_REFERENCE_JRC`, `TUNE_JRC_PERMANENT_PCT`, `TUNE_CATALOG_MAX_KM`, `TUNE_OBSERVE_GFM`, `TUNE_OBSERVE_OPERA`, `EARTHDATA_TOKEN` y `TUNE_EXPOSURE`. `make validate-sites` habla con la API en el puerto 8000 y escribe `docs/validation/sitios-resultados.json` cuando la API responde. Si la API no está arriba, el script falla con un mensaje explícito y no inventa la tabla.
 
-API en `http://localhost:8000/docs`. Volumen `hf-cache` para pesos. Análisis en `artifacts/analyses/`. Variables: `TUNE_REFERENCE_JRC`, `TUNE_JRC_PERMANENT_PCT`, `TUNE_CATALOG_MAX_KM`, `TUNE_OBSERVE_GFM`, `TUNE_OBSERVE_OPERA`, `EARTHDATA_TOKEN`, `TUNE_EXPOSURE`. Detalle en [Instalación.md](./Instalación.md). Esto no es producción 24/7.
+Esto no es una operación de 24 horas. No hay reinicio automático, ni balanceo, ni monitor de los proveedores externos. El modo de fallo operativo es el de la sección 9.4: un proveedor caído omite su campo; un puerto ocupado o un Docker ausente impiden levantar la demo, y el repositorio sigue conteniendo las pruebas.
 
 ## 13. Validación preliminar
 
 ### 13.1 Pruebas por componentes
 
-`test_analyze.py`, `test_change.py`, `test_fusion.py`, `test_exposure.py` cubren conteos e IoU con arrays sintéticos. `test_jrc_reference.py`, `test_history_reference.py`, `test_stac_catalog.py`, `test_observation.py`, `test_worldcover_population.py` cubren proveedores con monkeypatch (sin red). `test_grid.py` usa GeoTIFF sintéticos locales. CI: `pytest -m "not gpu"`.
+La comparación, la fusión, la exposición, la serie y los sectores tienen pruebas con arreglos sintéticos: cuentas de píxeles, km², IoU y el rankeo de celdas, sin abrir la red y sin cargar Prithvi. Los proveedores de JRC, de historial, de catálogo STAC, de observación y de WorldCover/GHSL se prueban con monkeypatch del cliente HTTP y de la lectura por ventana. La grilla se prueba con GeoTIFF sintéticos locales, incluidos el CRS y el área de píxel. El caso de uso de análisis se prueba con un segmentador falso, de modo que un fallo de referencia no borra la máscara y un fallo de fusión no borra el cambio.
+
+Esas pruebas fijan el contrato de S1, S2 y S3 antes de cualquier escena real. Un cambio en la fórmula de agua nueva, en el umbral de 75 % o en el residual del IoU rompe la prueba correspondiente. La marca de pytest `not gpu` excluye la inferencia con los pesos. La integración continua corre esa marca. El número recogido en el repositorio es 139 pruebas.
+
+Lo que estas pruebas no dicen es el IoU de una inundación documentada ni el `new_km2` del Magdalena en una fecha seca. Dicen que el código que calculará esas cifras hace la aritmética que la sección 4 nombra.
 
 ### 13.2 Pruebas de integración
 
-`test_api_analyses.py` verifica tareas, análisis, artefactos, catálogo con `FakeCatalog`, rechazo de entradas inválidas. El segmentador real no se carga. OpenAPI lista cada ruta con summary y description.
+`test_api_analyses.py` recorre tareas, alta de análisis, descarga de artefactos, catálogo con `FakeCatalog`, y el rechazo de entradas inválidas. El segmentador real no se carga. Un doble parametrizado comprueba que un TIFF ilegible y unas bandas incorrectas responden 422, un archivo que no cabe responde 413, y un fallo de runtime o de importación del modelo responde 503. OpenAPI lista cada ruta con resumen y descripción, y una prueba lo comprueba.
+
+La integración no llama a Earth Search, ni a JRC, ni a EODC. Esa frontera es deliberada: la integración continua no depende de que un tile remoto esté en pie el día del commit. La contraparte es que el acuerdo entre la máscara y GFM, sobre una escena verdadera, solo aparece cuando `make validate-sites` corre contra la API con pesos y con red. El protocolo de esa corrida está escrito en [validation/sitios.md](./validation/sitios.md): río en seca por debajo de 0,15 en el Magdalena, cauce visible en `spain`, un evento con agua nueva (Pakistán 2022 o el pico del Magdalena) y el IoU en el primer sitio donde GFM responda.
+
+Un `analysis.json` sin los campos nuevos se lee en las pruebas de repositorio como análisis con cambio, fusión y exposición vacíos. Eso cubre el requerimiento de compatibilidad de la sección 8.2.
 
 ### 13.3 Pruebas de usabilidad
 
-Guion: abrir la web, analizar `spain` o buscar un lat/lon, ver máscara, agua nueva, y si hay fusión, IoU. Usuarios: equipo y tutor. Aún no hay pasada registrada con capturas; esa evidencia es del plan de cierre. El diseño es una sola pantalla, sin login.
+El guion de uso es uno solo, en una pantalla, sin login. Se abre la web, se analiza `spain` o se busca un par latitud-longitud, se mira la máscara, se lee el agua nueva y, si la fusión existe, el IoU. La línea de tiempo muestra las otras adquisiciones del lugar. Los sectores y la exposición están en la misma ficha, cuando el análisis los trae. Quien recorre el guion es el equipo, y el mismo guion es el que puede recorrer quien evalúa la entrega.
 
-Los controles de coherencia (río en seca, cauce `spain`, evento con `new_km2 > 0`) viven en [validation/sitios.md](./validation/sitios.md). La Mojana no es el alcance: es un renglón opcional de ese YAML.
+Todavía no hay una pasada de ese guion archivada con capturas. La interfaz existe y las rutas que la alimentan están cubiertas por la API de prueba; la evidencia visual es parte del cierre, junto con la corrida multi-sitio. El diseño no pide cuentas ni un tutorial de varias páginas, coherente con un prototipo de una sola tarea a la vez.
+
+El criterio de usabilidad que sí está especificado, aunque falte la foto, es que la cifra grande de inundación sea el agua nueva y que el agua del modelo siga visible como agua. Si la pantalla volviera a titular “inundación” el porcentaje de \(W_t\), el guion fallaría aunque el PNG se viera bien.
 
 ## 14. Resultados parciales y discusión
 
-El hallazgo principal no es un mIoU nuevo. Es que el sistema **ya expresa** las tres estrategias de interpretación (S1 agua, S2 cambio, S3 fusión) y la exposición, con compatibilidad hacia atrás y 139 pruebas verdes. Frente a los objetivos específicos, 1–6 están implementados en código; el 7 (corrida real multi-sitio) es el trabajo inmediato.
+El hallazgo de este avance no es un mIoU nuevo del detector. Es que el sistema ya expresa las tres estrategias de interpretación de la sección 4 —S1 agua, S2 cambio, S3 fusión— y la exposición, con compatibilidad hacia atrás y con 139 pruebas en verde bajo la marca sin GPU. Los objetivos específicos 1 a 6 están implementados en código y cubiertos por esas pruebas. El objetivo 7, la corrida real multi-sitio, tiene protocolo y sitios, y no tiene todavía la tabla numérica. Publicar aquí un IoU o un `new_km2` de Pakistán o del Magdalena sería inventar la medición.
 
-La interpretación es que el pivote desde el laboratorio MLOps hacia la aplicación de cambio está justificado: cumple el pedido de comprometer tarea, dataset y modelo, y responde a la crítica de que Tune “solo usa Prithvi” y llama inundación al río. El riesgo que queda es operativo (nubes en L2A, GFM sin ítem, sesgo TOA/BOA). Se mitiga declarando `fusion.unknown_pixels` y el sesgo L2A en limitaciones, no ocultándolos.
+La lectura de ese estado, frente al último cambio de solución, es la siguiente. El paso del laboratorio a la aplicación está justificado porque los objetivos vigentes se pueden ejercer sin una corrida de entrenamiento, y porque los pesos comprometidos son los publicados. El paso de “la máscara es la inundación” al cambio frente a \(P\) está justificado porque S2 tiene una cifra distinta de S1, y porque las pruebas de cambio fallarían si el río permanente se contara como agua nueva. El retiro del pronóstico está justificado porque ningún objetivo de la sección 4 lo mide, y porque la arquitectura de la sección 10 ya no lo llama. El riesgo que queda es operativo: nubes en L2A, GFM sin ítem en la ventana, y el sesgo entre L1C y L2A. Se mitiga declarando `unknown_pixels` en la fusión y el sesgo en las restricciones. No se mitiga ocultando el campo.
 
-Lo que no se afirma: Tune no sustituye a GFM, no pronostica, no mide profundidad y no está calibrado para un solo humedal. Está construido para cualquier coordenada y se valida con controles, no con una marca de territorio.
+Lo que este avance no afirma, y no debe leerse entre líneas, es una sustitución de GFM, un pronóstico, un calado en metros, una imagen cada día civil, o una calibración para un solo humedal. La extensión defendible es `new_km2`. La prioridad espacial es el rankeo de sectores. La progresión es la serie de adquisiciones disponibles. La validación de que esas cifras se comportan en `spain`, en un río en seca y en un evento documentado queda para la corrida de cierre.
 
 ## 15. Plan de cierre hacia la entrega final
 
-1. **Corrida `make validate-sites`** con pesos cacheados; llenar pasó/no pasó (spain, un sitio seco, un evento).
-2. **Usabilidad evidenciada:** capturas del visor con `change` y, si hay, `fusion`.
-3. **Informe final** sobre este texto; no reabrir pronóstico ni fine-tune como núcleo.
-4. **Escena local opcional** solo si el GeoTIFF cumple bandas y CRS.
+El cierre tiene tres entregas y un orden. Primero se cachean los pesos y se corre `make validate-sites`, y se llena la tabla de pasó o no pasó con los controles de [sitios.md](./validation/sitios.md): cauce en `spain`, río en seca, un evento con agua nueva, y el IoU donde GFM responda. Segundo, se archivan capturas del visor en las que se lea `change` y, si la fusión existió, el acuerdo. Tercero, el informe final se escribe sobre este texto: misma definición de inundación, con los números de esa corrida ya puestos en la sección de resultados. Una escena local adicional solo se suma si el GeoTIFF cumple bandas y CRS, y solo después de esa tabla.
 
-Riesgos: red en la primera descarga; nubosidad; GFM sin cobertura en la ventana; sesgo L2A. Mitigación: pre-cachear; ampliar `window_days`; reportar unknown e IoU tal cual. Criterio de listo: Docker levanta, S2 se defiende como inundación, S3 se registra cuando existe, el YAML de sitios tiene valores, el informe describe esa solución de forma autónoma.
+Los riesgos de ese plan son de datos, no de alcance. La primera descarga de pesos necesita red. La nubosidad puede dejar un sitio del YAML sin escena en la ventana, y el protocolo ya contempla ampliar los días de búsqueda. GFM puede no tener ítem, y en ese caso S3 se reporta como ausente, que es el criterio escrito: registrar el IoU cuando el producto responde, sin umbral mínimo inventado. El sesgo L2A/L1C se reporta junto al número; no se “corrige” a mano. La mitigación común es correr, guardar el JSON de resultados y no sustituir un control fallido por una frase.
+
+El criterio de listo para la entrega final es comprobable. Docker levanta. S2 es la cifra que la interfaz llama inundación. S3 queda registrado cuando existe. El YAML de sitios tiene valores. El informe final describe esa solución sin volver al laboratorio como núcleo y sin volver a abrir el pronóstico. Nada de eso exige un módulo nuevo antes de la corrida.
 
 ## 16. Referencias
 
-1. Szwarcman, D., Roy, S., Fraccaro, P., et al. (2024). *Prithvi-EO-2.0: A Versatile Multi-Temporal Foundation Model for Earth Observation Applications*. arXiv:2412.02732.
-2. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-TL-Sen1Floods11*. Hugging Face.
-3. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-BurnScars*. Hugging Face.
-4. Bonafilia, D., Tellman, B., Anderson, T., & Issenberg, E. (2020). Sen1Floods11. *CVPRW*.
-5. Phillips, C., Roy, S., Ankur, K., & Ramachandran, R. (2023). *HLS Foundation Burnscars Dataset*.
-6. Pekel, J.-F., Cottam, A., Gorelick, N., & Belward, A. S. (2016). High-resolution mapping of global surface water. *Nature*, 540, 418–422.
-7. Wagner, W., et al. (2026). The fully-automatic Sentinel-1 Global Flood Monitoring service. *Remote Sensing of Environment*.
-8. Copernicus EMS. *GFM Product User Manual* v4.0 (2025).
-9. NASA JPL. OPERA DSWx product suite.
-10. Zanaga, D., et al. (2022). ESA WorldCover 10 m 2021 v200.
-11. Schiavina, M., et al. (2023). GHS-POP R2023A.
-12. UN-SPIDER. Recommended practice: flood mapping with Sentinel-1 in Google Earth Engine.
-13. Rojas Sánchez, D. S. (2025). Trabajo de grado, Universidad de los Andes.
-14. Sculley, D., et al. (2015). Hidden Technical Debt in Machine Learning Systems. NeurIPS.
-15. GitHub. *Tune*. https://github.com/Charlsz/Tune
+1. Szwarcman, D., Roy, S., Fraccaro, P., et al. (2024). *Prithvi-EO-2.0: A versatile multi-temporal foundation model for Earth observation applications*. arXiv:2412.02732. https://arxiv.org/abs/2412.02732
+2. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-TL-Sen1Floods11*. Hugging Face. https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11
+3. IBM-NASA Geospatial. *Prithvi-EO-2.0-300M-BurnScars*. Hugging Face. https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-BurnScars
+4. Bonafilia, D., Tellman, B., Anderson, T., & Issenberg, E. (2020). Sen1Floods11: A georeferenced dataset to train and test deep learning flood algorithms for Sentinel-1. *Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops*.
+5. Phillips, C., Roy, S., Kumar, A., & Ramachandran, R. (2023). *HLS Foundation Burnscars Dataset*. https://huggingface.co/datasets/ibm-nasa-geospatial/hls_burn_scars
+6. Pekel, J.-F., Cottam, A., Gorelick, N., & Belward, A. S. (2016). High-resolution mapping of global surface water and its long-term changes. *Nature, 540*, 418–422. https://doi.org/10.1038/nature20584
+7. Wagner, W., Bauer-Marschallinger, B., Roth, F., et al. (2026). The fully-automatic Sentinel-1 Global Flood Monitoring service: Scientific challenges and future directions. *Remote Sensing of Environment, 333*, 115108. https://doi.org/10.1016/j.rse.2025.115108
+8. Jones, J. W., & Shiroma, G. (2023). *Product specification document for dynamic surface water extent from Harmonized Landsat and Sentinel-2* (OPERA DSWx-HLS, JPL D-107395). NASA.
+9. Nearing, G., Cohen, D., Dube, V., et al. (2024). Global prediction of extreme floods in ungauged watersheds. *Nature, 627*, 559–563. https://doi.org/10.1038/s41586-024-07145-1
+10. MapBiomas Colombia. (2025). *Agua superficial en Colombia: algoritmo teórico y serie mensual* (ATBD, Colección 3). https://colombia.mapbiomas.org/metodologia-mapbiomas-agua/
+11. Zanaga, D., Van De Kerchove, R., Daems, D., et al. (2022). *ESA WorldCover 10 m 2021 v200*. https://doi.org/10.5281/zenodo.7254221
+12. Schiavina, M., Freire, S., Carioli, A., & MacManus, K. (2023). *GHS-POP R2023A — GHS population grid multitemporal (1975–2030)*. European Commission, Joint Research Centre. http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe
+13. UN-SPIDER. *Recommended practice: Flood mapping and damage assessment using Sentinel-1 SAR data in Google Earth Engine*. United Nations Office for Outer Space Affairs. https://www.un-spider.org/advisory-support/recommended-practices/recommended-practice-google-earth-engine-flood-mapping
+14. Jakubik, J., Yang, F., Blumenstiel, B., et al. (2025). TerraMind: Large-scale generative multimodality for Earth observation. *Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)*, 7383–7394. https://arxiv.org/abs/2504.11171
+15. Clay Foundation. (2024). *Clay foundation model*. https://github.com/Clay-foundation/model
+16. SERVIR-Mekong. *HYDRAFloods: Hydrologic Remote Sensing Analysis for Floods*. https://servir-mekong.github.io/hydra-floods/
+17. Cohen, S., Raney, A., Munasinghe, D., et al. (2019). The Floodwater Depth Estimation Tool (FwDET v2.0) for improved remote sensing analysis of coastal flooding. *Natural Hazards and Earth System Sciences, 19*, 2053–2065. https://doi.org/10.5194/nhess-19-2053-2019
+18. Instituto de Hidrología, Meteorología y Estudios Ambientales (IDEAM). *Alertas hidrológicas*. https://www.ideam.gov.co/
+19. Unidad Nacional para la Gestión del Riesgo de Desastres (UNGRD); International Charter Space and Major Disasters. https://portal.gestiondelriesgo.gov.co/ y https://disasterscharter.org/
+20. Copernicus Emergency Management Service. *Global Flood Monitoring* y mapeo bajo demanda. https://emergency.copernicus.eu/
+21. Floodbase. Inteligencia de inundación para seguros paramétricos. https://floodbase.com/
+22. ICEYE. *Flood Insights*. https://www.iceye.com/
+23. Rojas Sánchez, D. S. (2025). *Integración del modelo fundacional geoespacial Prithvi-EO-2.0 en una arquitectura visión-lenguaje para el análisis avanzado de imágenes satelitales* [Trabajo de grado, Universidad de los Andes]. Repositorio Institucional Séneca. https://repositorio.uniandes.edu.co/entities/publication/596f1f99-9f00-48dd-80f1-5f735830b17f
+24. Sculley, D., Holt, G., Golovin, D., et al. (2015). Hidden technical debt in machine learning systems. *Advances in Neural Information Processing Systems, 28*.
+25. GitHub. *Tune*. https://github.com/Charlsz/Tune
 
-Decisiones internas: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [ADR 010](./decisions/010-inundacion-como-cambio.md), [ADR 011](./decisions/011-catalogo-stac.md), [ADR 013](./decisions/013-retiro-pronostico.md), [ADR 014](./decisions/014-fusion-operativa.md), [ADR 015](./decisions/015-exposicion-global.md), [ADR 016](./decisions/016-validacion-global.md), [arquitectura v2](./architecture/v2.md).
+Decisiones internas que fijan el alcance de este texto: [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md), [ADR 010](./decisions/010-inundacion-como-cambio.md), [ADR 011](./decisions/011-catalogo-stac.md), [ADR 012](./decisions/012-serie-y-sectores.md), [ADR 013](./decisions/013-retiro-pronostico.md), [ADR 014](./decisions/014-fusion-operativa.md), [ADR 015](./decisions/015-exposicion-global.md), [ADR 016](./decisions/016-validacion-global.md) y [arquitectura v2](./architecture/v2.md).
