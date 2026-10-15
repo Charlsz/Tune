@@ -1,93 +1,28 @@
-# Instalación — Tune (aplicación)
+# Instalacion de Tune
 
-**Proyecto:** análisis de imágenes satelitales (inundación / cicatriz) con checkpoints Prithvi-EO 2.0 publicados.
+Tune analiza inundacion en imagenes satelitales con el checkpoint Prithvi-EO 2.0 de Sen1Floods11.
 
-El laboratorio de fine-tuning (opcional) está documentado en [lab/README.md](../lab/README.md).
+## Requisitos
 
-## 1. Qué se instala
+Git y Docker con Docker Compose. CPU basta. GPU es opcional.
 
-El paquete `tune` (CLI `tune analyze` + API `/api`) y, con Docker, el frontend en el puerto 8080. El extra `[training]` trae TerraTorch/PyTorch para inferir; Docker ya lo incluye.
-
-## 2. Requisitos
-
-- Git, Docker + Docker Compose (camino recomendado)
-- Opcional: Python 3.11, Node 22 (desarrollo del frontend)
-- GPU NVIDIA opcional (`make app-up-gpu`); CPU basta para la demo
-
-## 3. Docker (recomendado)
+## Levantar, ver logs y apagar
 
 ```bash
 git clone https://github.com/Charlsz/Tune.git
 cd Tune
 cp .env.example .env
 make app-up
-# Web  http://localhost:8080
-# API  http://localhost:8000/docs
+make app-logs
+make app-down
 ```
 
-La primera inferencia descarga ~1,2 GB de pesos (caché en el volumen `hf-cache`). Escenas de prueba: [examples/README.md](../examples/README.md).
+make app-up construye y levanta la API y la web. La web queda en http://localhost:8080 y la API en http://localhost:8000/docs.
 
-Variables de referencia y catálogo (también en `.env.example`):
+make app-logs muestra los logs de la API en tiempo real. En la primera inferencia se descargan alrededor de 1,2 GB de pesos. Quedan cacheados para las siguientes corridas.
 
-| Variable | Default | Qué hace |
-|----------|---------|----------|
-| `TUNE_REFERENCE_JRC` | `true` | Usa JRC GSW como agua permanente |
-| `TUNE_JRC_PERMANENT_PCT` | `75` | Umbral de occurrence (%) |
-| `TUNE_CATALOG_MAX_KM` | `30` | Lado máximo del bbox STAC |
-| `TUNE_OBSERVE_GFM` | `true` | Fusiona con Copernicus GFM si hay capa |
-| `TUNE_OBSERVE_OPERA` | `false` | OPERA DSWx (pide `EARTHDATA_TOKEN`) |
-| `TUNE_EXPOSURE` | `true` | WorldCover + población GHSL |
+make app-down detiene y elimina los contenedores. Los analisis en disco y la cache de pesos se conservan.
 
-Validación multi-sitio (API levantada): `make validate-sites` → [validation/sitios.md](./validation/sitios.md).
+## Desarrollo local opcional
 
-Apagar: `make app-down`.
-
-## 4. Instalación local (desarrollo)
-
-```bash
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -U pip
-pip install -e ".[api,dev]"
-cp .env.example .env
-pytest -q
-tune --help
-```
-
-API sin Docker (hace falta el extra `training` para Prithvi):
-
-```bash
-pip install -e ".[api,training,dev]"
-uvicorn tune.interfaces.api.main:app --reload
-```
-
-Frontend: `make web-dev` (Vite en `:5173`, espera la API en `:8000`).
-
-## 5. Verificación rápida
-
-| Chequeo | Comando / URL | OK si… |
-|---------|---------------|--------|
-| Tests | `pytest -q` | pasan (sin GPU) |
-| CLI | `tune analyze --help` | documenta `--task` / `--input` |
-| App | `make app-up` | mapa en `:8080`, OpenAPI en `:8000/docs` |
-| Compose | `docker compose config -q` | sin error (tras `.env`) |
-
-## 6. Solución de problemas
-
-| Síntoma | Qué hacer |
-|---------|-----------|
-| `No module named tune` | `pip install -e ".[api,dev]"` desde la raíz |
-| `docker compose` pide `.env` | `cp .env.example .env` |
-| Inferencia 503 / falta terratorch | usar `make app-up` o extra `training` |
-| Raster 422 | GeoTIFF con 6 bandas Prithvi (o L1C en inundación) |
-| Overlay sin mapa | el GeoTIFF no trae CRS |
-
-## 7. Laboratorio de fine-tuning
-
-No forma parte de esta instalación. Ver [lab/README.md](../lab/README.md) y [lab/docs/research/ComoProbar.md](../lab/docs/research/ComoProbar.md).
-
-## 8. Referencias
-
-- [Desarrollo.md](./Desarrollo.md)
-- [architecture/v2.md](./architecture/v2.md)
-- [ADR 005](./decisions/005-app-inferencia-checkpoints-publicados.md)
+Para trabajar el codigo sin Docker, crear un entorno virtual, instalar el paquete con extras api y dev, y ejecutar pytest. El frontend en modo desarrollo usa npm run dev con la API en el puerto 8000. El detalle de arquitectura esta en docs/architecture/v2.md.
