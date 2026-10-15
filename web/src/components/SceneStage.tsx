@@ -4,7 +4,7 @@ import { type Scene, useScene } from "../lib/scene";
 import type { Analysis, TaskInfo } from "../types";
 import { Skeleton } from "./Skeleton";
 
-type View = "scene" | "classes" | "agree";
+type View = "scene" | "classes" | "change" | "agree";
 
 interface Props {
   analysis: Analysis | null;
@@ -17,13 +17,20 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
   const { scene, error } = useScene(analysis);
   const [view, setView] = useState<View>("scene");
   const [paint, setPaint] = useState(true);
-
-  useEffect(() => {
-    if (view === "agree" && !analysis?.artifacts.fusion_png) setView("scene");
-  }, [analysis, view]);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const size = useFit(box, scene ? scene.w / scene.h : 1, `${analysis?.id}-${busy}`);
+
+  useEffect(() => {
+    if (view === "agree" && !analysis?.artifacts.fusion_png) setView("scene");
+    if (view === "change" && !analysis?.artifacts.change_png) setView("scene");
+  }, [analysis, view]);
+
+  useEffect(() => {
+    if (!analysis) return;
+    if (analysis.artifacts.change_png) setView("change");
+    else setView("scene");
+  }, [analysis?.id]);
 
   if (busy) {
     return (
@@ -38,15 +45,31 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
   if (!analysis) {
     return (
       <main className="stage">
-        <div className="placeholder">
+        <div className="placeholder welcome">
           {loading ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "60%", padding: "8px 12px", background: "var(--paper)" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                width: "60%",
+                padding: "8px 12px",
+                background: "var(--paper)",
+              }}
+            >
               <Skeleton style={{ height: 12, width: "100%" }} />
               <Skeleton style={{ height: 12, width: "80%" }} />
               <Skeleton style={{ height: 12, width: "55%" }} />
             </div>
           ) : (
-            <span>Sube un GeoTIFF. Tune pinta cada píxel con la clase que predice el modelo.</span>
+            <div className="welcome-copy">
+              <p className="welcome-title">Análisis de inundación</p>
+              <p>
+                Sube un GeoTIFF, elige una escena oficial o busca Sentinel-2 por latitud y
+                longitud. Tune detecta agua con Prithvi y calcula inundación como agua nueva
+                frente a una referencia permanente. Si hay producto externo, muestra el acuerdo.
+              </p>
+            </div>
           )}
         </div>
       </main>
@@ -62,14 +85,39 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
           {analysis.input_filename}
         </span>
         <div className="tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={view === "scene"} onClick={() => setView("scene")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "scene"}
+            onClick={() => setView("scene")}
+          >
             Escena
           </button>
-          <button type="button" role="tab" aria-selected={view === "classes"} onClick={() => setView("classes")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "classes"}
+            onClick={() => setView("classes")}
+          >
             Clases
           </button>
+          {analysis.artifacts.change_png && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "change"}
+              onClick={() => setView("change")}
+            >
+              Cambio
+            </button>
+          )}
           {analysis.artifacts.fusion_png && (
-            <button type="button" role="tab" aria-selected={view === "agree"} onClick={() => setView("agree")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "agree"}
+              onClick={() => setView("agree")}
+            >
               Acuerdo
             </button>
           )}
@@ -118,6 +166,21 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
                 Sin dato
               </span>
             </>
+          ) : view === "change" ? (
+            <>
+              <span>
+                <i className="swatch tune-only" />
+                Nueva
+              </span>
+              <span>
+                <i className="swatch persistent" />
+                Permanente
+              </span>
+              <span>
+                <i className="swatch receded" />
+                Retirada
+              </span>
+            </>
           ) : (
             <>
               <span>
@@ -136,7 +199,11 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
           )}
         </div>
         <label className="check">
-          <input type="checkbox" checked={paint} onChange={(e) => setPaint(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={paint}
+            onChange={(e) => setPaint(e.target.checked)}
+          />
           Pintar
         </label>
         <Readout analysis={analysis} scene={scene} hover={hover} classes={classes} />
@@ -193,7 +260,12 @@ function Painting({
       if (paint) {
         const rows = Math.round(p * scene.h);
         if (rows > 0) {
-          const layer = mode === "agree" && scene.fusion ? scene.fusion : scene.overlay;
+          const layer =
+            mode === "agree" && scene.fusion
+              ? scene.fusion
+              : mode === "change" && scene.change
+                ? scene.change
+                : scene.overlay;
           ctx.globalAlpha = mode === "scene" ? 0.62 : 1;
           ctx.drawImage(layer, 0, 0, scene.w, rows, 0, 0, scene.w, rows);
           ctx.globalAlpha = 1;
@@ -245,9 +317,21 @@ function Painting({
   );
 }
 
-function Profile({ values, axis, mark, size }: { values: Float32Array; axis: "x" | "y"; mark?: number; size: number }) {
+function Profile({
+  values,
+  axis,
+  mark,
+  size,
+}: {
+  values: Float32Array;
+  axis: "x" | "y";
+  mark?: number;
+  size: number;
+}) {
   const n = values.length;
-  const pts = Array.from(values, (v, i) => (axis === "x" ? `${i + 0.5},${1 - v}` : `${v},${i + 0.5}`)).join(" ");
+  const pts = Array.from(values, (v, i) =>
+    axis === "x" ? `${i + 0.5},${1 - v}` : `${v},${i + 0.5}`,
+  ).join(" ");
   const area = axis === "x" ? `0,1 ${pts} ${n},1` : `0,0 ${pts} 0,${n}`;
   return (
     <svg

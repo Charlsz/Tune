@@ -12,6 +12,7 @@ export interface Scene {
   base: HTMLCanvasElement;
   classes: HTMLCanvasElement;
   overlay: HTMLCanvasElement;
+  change: HTMLCanvasElement | null;
   fusion: HTMLCanvasElement | null;
   cols: Float32Array;
   rows: Float32Array;
@@ -46,6 +47,9 @@ function pixels(img: HTMLImageElement, w: number, h: number): Uint8ClampedArray 
 async function build(a: Analysis): Promise<Scene> {
   const mask = await loadImage(a.artifacts.mask_png);
   const rgb = a.artifacts.preview_png ? await loadImage(a.artifacts.preview_png).catch(() => null) : null;
+  const changePng = a.artifacts.change_png
+    ? await loadImage(a.artifacts.change_png).catch(() => null)
+    : null;
   const fusionPng = a.artifacts.fusion_png
     ? await loadImage(a.artifacts.fusion_png).catch(() => null)
     : null;
@@ -105,6 +109,12 @@ async function build(a: Analysis): Promise<Scene> {
   classesCtx.putImageData(cImg, 0, 0);
   overlayCtx.putImageData(oImg, 0, 0);
 
+  let change: HTMLCanvasElement | null = null;
+  if (changePng) {
+    const [cc, cctx] = canvas(w, h);
+    cctx.drawImage(changePng, 0, 0, w, h);
+    change = cc;
+  }
   let fusion: HTMLCanvasElement | null = null;
   if (fusionPng) {
     const [fc, fctx] = canvas(w, h);
@@ -112,7 +122,7 @@ async function build(a: Analysis): Promise<Scene> {
     fusion = fc;
   }
 
-  return { id: a.id, w, h, valid, positive, base, classes, overlay, fusion, cols, rows };
+  return { id: a.id, w, h, valid, positive, base, classes, overlay, change, fusion, cols, rows };
 }
 
 export function useScene(a: Analysis | null): { scene: Scene | null; error: string | null } {

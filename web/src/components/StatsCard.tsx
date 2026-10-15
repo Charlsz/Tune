@@ -23,6 +23,14 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
   const positive = tasks.find((t) => t.id === a.task)?.classes[1] ?? meta.name;
   const area = affectedKm2(a);
   const point = sceneCenter(a);
+  const hasChange = a.change != null;
+  const heroKm2 = hasChange ? a.change!.new_area_km2 : area.value;
+  const heroEstimated = hasChange ? false : area.estimated;
+  const heroLabel = hasChange
+    ? a.task === "flood"
+      ? "Agua nueva"
+      : "Area nueva"
+    : `Area de ${positive}`;
 
   return (
     <div className="result">
@@ -33,23 +41,55 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
         </button>
       </div>
 
-      <div className="figure num">
-        {fmt.pct(a.affected_ratio)}
-        <span>%</span>
-      </div>
-      <p className="caption">de los píxeles válidos son «{positive}»</p>
+      {heroKm2 != null ? (
+        <>
+          <div className="figure num">
+            {heroEstimated && <span className="approx">≈</span>}
+            {fmt.km2(heroKm2)}
+            <span> km²</span>
+          </div>
+          <p className="caption">{heroLabel}</p>
+        </>
+      ) : (
+        <>
+          <div className="figure num">
+            {fmt.pct(a.affected_ratio)}
+            <span>%</span>
+          </div>
+          <p className="caption">
+            de los píxeles válidos son «{positive}»
+            {hasChange ? " · sin área métrica" : ""}
+          </p>
+        </>
+      )}
+
+      {hasChange && a.task === "flood" && (
+        <p className="callout">
+          La cifra de inundación es el agua nueva, no todo el agua del modelo (
+          {fmt.pct(a.affected_ratio)}% de píxeles de agua).
+        </p>
+      )}
 
       <dl className="rows">
-        <Row k="Área afectada">
+        <Row k={hasChange ? "Agua detectada" : "Area afectada"}>
           {area.value == null ? (
             <span className="muted">Sin CRS</span>
           ) : (
             <>
-              {area.estimated && "≈ "}
+              {area.estimated && "aprox. "}
               {fmt.km2(area.value)} km²
             </>
           )}
         </Row>
+        {hasChange && (
+          <Row k={a.task === "flood" ? "Agua nueva" : "Area nueva"}>
+            {a.change!.new_area_km2 == null ? (
+              <span className="muted">{fmt.int(a.change!.new_pixels)} px</span>
+            ) : (
+              <>{fmt.km2(a.change!.new_area_km2)} km²</>
+            )}
+          </Row>
+        )}
         <Row k="Píxeles afectados">
           {fmt.int(a.affected_pixels)} <span className="muted">de {fmt.int(a.valid_pixels)}</span>
         </Row>
@@ -76,17 +116,8 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
 
       {a.change && (
         <>
-          <h4 className="caption" style={{ marginTop: 12 }}>
-            Frente a referencia ({a.change.reference_source})
-          </h4>
+          <h4 className="caption strategy">Frente a referencia ({a.change.reference_source})</h4>
           <dl className="rows">
-            <Row k="Agua nueva">
-              {a.change.new_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change.new_pixels)} px</span>
-              ) : (
-                <>{fmt.km2(a.change.new_area_km2)} km²</>
-              )}
-            </Row>
             <Row k="Permanente">
               {a.change.persistent_area_km2 == null ? (
                 <span className="muted">{fmt.int(a.change.persistent_pixels)} px</span>
@@ -107,8 +138,9 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
 
       {a.fusion && (
         <>
-          <h4 className="caption" style={{ marginTop: 12 }}>
-            Acuerdo con {a.fusion.sources.filter((s) => s !== "prithvi").join(" + ") || "producto externo"}
+          <h4 className="caption strategy">
+            Acuerdo con{" "}
+            {a.fusion.sources.filter((s) => s !== "prithvi").join(", ") || "producto externo"}
           </h4>
           <dl className="rows">
             <Row k="IoU">{a.fusion.iou == null ? "—" : a.fusion.iou.toFixed(2)}</Row>
@@ -133,9 +165,7 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
 
       {a.exposure && (
         <>
-          <h4 className="caption" style={{ marginTop: 12 }}>
-            Exposición ({a.exposure.landcover_source})
-          </h4>
+          <h4 className="caption strategy">Exposición ({a.exposure.landcover_source})</h4>
           <dl className="rows">
             <Row k="Población">
               {a.exposure.population_exposed == null
@@ -153,15 +183,23 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
       )}
 
       <details className="detail">
-        <summary>Detalle</summary>
+        <summary>Detalle técnico</summary>
         <dl className="rows">
-          <Row k="Adquisición">{a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}</Row>
+          <Row k="Adquisición">
+            {a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}
+          </Row>
           <Row k="Tamaño">
             {a.width} × {a.height} px
           </Row>
           <Row k="CRS">{crsLabel(a.crs)}</Row>
           <Row k="Modelo">
-            <a className="ellipsis" href={`https://huggingface.co/${a.model_id}`} target="_blank" rel="noreferrer" title={a.model_id}>
+            <a
+              className="ellipsis"
+              href={`https://huggingface.co/${a.model_id}`}
+              target="_blank"
+              rel="noreferrer"
+              title={a.model_id}
+            >
               {a.model_id.split("/")[1]}
             </a>
           </Row>

@@ -93,7 +93,7 @@ export function App() {
     <div className="app">
       <header className="top">
         <span className="brand">Tune</span>
-        <span className="muted">Análisis satelital con Prithvi-EO 2.0</span>
+        <span className="muted">Análisis satelital de inundación</span>
         {online === null ? (
           <Skeleton style={{ marginLeft: "auto", width: 80, height: 11, borderRadius: 3 }} />
         ) : (

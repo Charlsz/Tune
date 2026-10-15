@@ -59,7 +59,7 @@ export function CatalogPanel({
   return (
     <form className="section" onSubmit={search}>
       <h3>Catálogo Sentinel-2</h3>
-      <p className="caption">Busca escenas L2A por fecha alrededor del punto.</p>
+      <p className="caption">Escenas Sentinel-2 alrededor del punto elegido.</p>
       <label className="field">
         Desde
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
