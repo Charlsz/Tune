@@ -26,5 +26,10 @@ make validate-sites
 python scripts/validate_sites.py --api http://localhost:8000
 ```
 
-El script escribe `docs/validation/sitios-resultados.json`. Si la API no
-responde, falla con mensaje claro. Los controles quedan como pasó / no pasó.
+El script escribe `docs/validation/sitios-resultados.json` y una tabla en
+`docs/validation/sitios-resultados.md` lista para pegar en el informe. Si la
+API no responde, falla con mensaje claro. Los controles quedan como pasó /
+no pasó.
+
+Esa tabla es evidencia del equipo. La app, por su lado, acepta cualquier
+coordenada en la web sin pasar por este YAML.

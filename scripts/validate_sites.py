@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 YAML_PATH = ROOT / "docs" / "validation" / "sitios.yaml"
 OUT_PATH = ROOT / "docs" / "validation" / "sitios-resultados.json"
+MD_PATH = ROOT / "docs" / "validation" / "sitios-resultados.md"
 
 
 def _load_yaml(path: Path) -> dict:
@@ -180,8 +181,60 @@ def main() -> int:
             }
 
     OUT_PATH.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    MD_PATH.write_text(_to_markdown(results), encoding="utf-8")
     print(f"Escrito {OUT_PATH}")
+    print(f"Escrito {MD_PATH}")
     return 0
+
+
+def _fmt(v: object) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, float):
+        return f"{v:.3f}"
+    return str(v)
+
+
+def _to_markdown(results: dict) -> str:
+    lines = [
+        "# Resultados de validación multi-sitio",
+        "",
+        "Generado por `make validate-sites`. Estos sitios son **controles de",
+        "calidad**, no el alcance geográfico del producto.",
+        "",
+        "| Sitio | Grupo | S1 km² | S2 km² | ratio | IoU | pop | s |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for site in results.get("sites", []):
+        for run in site.get("runs", []):
+            if "error" in run:
+                lines.append(
+                    f"| {site['id']} | {run.get('group', '—')} | error | "
+                    f"{run['error'][:40]} | — | — | — | — |"
+                )
+                continue
+            aff = run.get("affected_km2")
+            new = run.get("new_km2")
+            ratio = (new / aff) if aff and new is not None else None
+            lines.append(
+                "| {sid} | {group} | {aff} | {new} | {ratio} | {iou} | {pop} | {lat} |".format(
+                    sid=site["id"],
+                    group=run.get("group", "—"),
+                    aff=_fmt(aff),
+                    new=_fmt(new),
+                    ratio=_fmt(ratio),
+                    iou=_fmt(run.get("fusion_iou")),
+                    pop=_fmt(run.get("population_exposed")),
+                    lat=_fmt(run.get("latency_s")),
+                )
+            )
+    lines.extend(["", "## Controles", ""])
+    for name, ctrl in (results.get("controls") or {}).items():
+        passed = ctrl.get("passed")
+        mark = "pasó" if passed else "no pasó" if passed is False else "sin dato"
+        lines.append(f"- **{name}**: {mark} — `{json.dumps(ctrl, ensure_ascii=False)}`")
+    lines.append("")
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
