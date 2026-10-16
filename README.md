@@ -16,13 +16,6 @@ make app-down    # apaga todo
 - Web: http://localhost:8080
 - API: http://localhost:8000/docs
 
-Documentación: [docs/SegundoInforme.md](./docs/SegundoInforme.md), [docs/Instalación.md](./docs/Instalación.md), [docs/architecture/v2.md](./docs/architecture/v2.md).
+Documentación: empieza por [docs/GuiaDeUso.md](./docs/GuiaDeUso.md). También [Instalación](./docs/Instalación.md), [Segundo informe](./docs/SegundoInforme.md) y [arquitectura](./docs/architecture/v2.md).
 
-## Estudiantes
-
-| Nombre | GitHub |
-|---|---|
-| Carlos Andrés Galvis Pájaro | [@Charlsz](https://github.com/Charlsz) |
-| Zenen Contreras Royero | [@zenencontreras](https://github.com/zenencontreras) |
-
-Tutor: Daniel Romero. Repo: https://github.com/Charlsz/Tune
+Repo: https://github.com/Charlsz/Tune

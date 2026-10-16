@@ -1,10 +1,14 @@
-# Instalacion de Tune
+# Instalación de Tune
 
-Tune analiza inundacion en imagenes satelitales con el checkpoint Prithvi-EO 2.0 de Sen1Floods11.
+Tune analiza inundación en imágenes satelitales con el checkpoint Prithvi-EO 2.0 de Sen1Floods11.
+
+Para el flujo completo de uso (escenas, mapa, resultados), lee [GuiaDeUso.md](./GuiaDeUso.md).
 
 ## Requisitos
 
-Git y Docker con Docker Compose. CPU basta. GPU es opcional.
+- Git
+- Docker Desktop con Docker Compose (CPU basta; GPU opcional)
+- En Windows: GNU Make (`winget install ezwinports.make`) y Git for Windows (el Makefile usa bash)
 
 ## Levantar, ver logs y apagar
 
@@ -17,12 +21,31 @@ make app-logs
 make app-down
 ```
 
-make app-up construye y levanta la API y la web. La web queda en http://localhost:8080 y la API en http://localhost:8000/docs.
+| Comando | Efecto |
+|---|---|
+| `make app-up` | Construye y levanta API + web |
+| `make app-logs` | Logs de la API en tiempo real |
+| `make app-down` | Detiene y elimina contenedores |
 
-make app-logs muestra los logs de la API en tiempo real. En la primera inferencia se descargan alrededor de 1,2 GB de pesos. Quedan cacheados para las siguientes corridas.
+- Web: http://localhost:8080
+- API: http://localhost:8000/docs
 
-make app-down detiene y elimina los contenedores. Los analisis en disco y la cache de pesos se conservan.
+La primera inferencia descarga ~1,2 GB de pesos. Quedan cacheados. Los análisis en disco se conservan al apagar.
+
+### Si `make` no existe en PowerShell
+
+```powershell
+winget install ezwinports.make
+# Cierra y abre la terminal para refrescar el PATH
+```
+
+Equivalente sin Make (mismo efecto que `app-up`):
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d --build
+```
 
 ## Desarrollo local opcional
 
-Para trabajar el codigo sin Docker, crear un entorno virtual, instalar el paquete con extras api y dev, y ejecutar pytest. El frontend en modo desarrollo usa npm run dev con la API en el puerto 8000. El detalle de arquitectura esta en docs/architecture/v2.md.
+Entorno virtual, `pip install -e ".[api,dev]"`, `pytest -m "not gpu"`. Frontend: `npm run dev` en `web/` con la API en el puerto 8000. Detalle en [Desarrollo.md](./Desarrollo.md) y [architecture/v2.md](./architecture/v2.md).
