@@ -125,6 +125,10 @@ def test_examples_lists_official_scenes(client):
     body = r.json()
     assert {s["id"] for s in body} == {"india", "spain", "usa", "t10seh", "t10sff", "t10sgf"}
     assert {s["task"] for s in body} == {"flood", "burn_scar"}
+    usa = next(s for s in body if s["id"] == "usa")
+    assert usa["size_bytes"] > 0
+    assert "cached" in usa
+    assert usa["blurb"]
 
 
 def test_analyze_unknown_example_404(client):
@@ -135,12 +139,14 @@ def test_analyze_example_uses_cached_file(client, tmp_path, monkeypatch):
     dest = tmp_path / "India_900498_S2Hand.tif"
     dest.write_bytes(b"fake-tif")
 
-    def fake_fetch(scene, dest_dir):
+    def fake_fetch(scene, dest_dir, on_progress=None, refresh=True):
         assert scene.id == "india"
         dest_dir.mkdir(parents=True, exist_ok=True)
         out = dest_dir / scene.filename
         out.write_bytes(b"fake-tif")
-        return out
+        if on_progress:
+            on_progress(len(b"fake-tif"), len(b"fake-tif"))
+        return out, False
 
     monkeypatch.setattr(analyses_api, "fetch", fake_fetch)
     monkeypatch.setattr(
@@ -150,6 +156,42 @@ def test_analyze_example_uses_cached_file(client, tmp_path, monkeypatch):
     assert r.status_code == 201, r.text
     assert r.json()["input_filename"] == "India_900498_S2Hand.tif"
     assert r.json()["task"] == "flood"
+
+
+def test_analyze_example_stream_emits_progress(client, tmp_path, monkeypatch):
+    def fake_fetch(scene, dest_dir, on_progress=None, refresh=True):
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        out = dest_dir / scene.filename
+        out.write_bytes(b"fake-tif")
+        if on_progress:
+            on_progress(0, 100)
+            on_progress(100, 100)
+        return out, True
+
+    monkeypatch.setattr(analyses_api, "fetch", fake_fetch)
+    monkeypatch.setattr(analyses_api, "is_stale", lambda scene, dest_dir: True)
+    monkeypatch.setattr(
+        analyses_api, "get_settings", lambda: type("S", (), {"tune_artifacts_dir": tmp_path})()
+    )
+    r = client.post("/api/examples/india/analyze?stream=true")
+    assert r.status_code == 200, r.text
+    assert "ndjson" in r.headers.get("content-type", "")
+    phases = []
+    analysis = None
+    refreshed = None
+    for line in r.text.strip().splitlines():
+        event = __import__("json").loads(line)
+        phases.append(event["phase"])
+        if event["phase"] == "done":
+            analysis = event["analysis"]
+            refreshed = event.get("refreshed")
+    assert "check" in phases
+    assert "download" in phases
+    assert "infer" in phases
+    assert phases[-1] == "done"
+    assert refreshed is True
+    assert analysis["task"] == "flood"
+    assert analysis["input_filename"] == "India_900498_S2Hand.tif"
 
 
 def _post(client, name: str, task: str = "flood"):

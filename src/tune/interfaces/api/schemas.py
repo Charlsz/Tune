@@ -40,7 +40,13 @@ class ExampleInfo(BaseModel):
     task: str = Field(description="Tarea fija de esa escena")
     label: str = Field(description="Nombre que muestra la web")
     filename: str = Field(description="Archivo GeoTIFF en el repo de Hugging Face")
-    size_bytes: int = Field(description="Tamaño aproximado del archivo")
+    size_bytes: int = Field(description="Tamaño aproximado del archivo GeoTIFF")
+    blurb: str = Field("", description="Una línea sobre qué prueba la escena")
+    cached: bool = Field(False, description="True si el GeoTIFF ya está en disco local")
+    refresh_on_use: bool = Field(
+        True,
+        description="Al analizar se consulta Hugging Face y se vuelve a bajar si cambió",
+    )
 
 
 class BoundsSchema(BaseModel):

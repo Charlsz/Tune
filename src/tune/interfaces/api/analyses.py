@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import tempfile
 from functools import lru_cache
@@ -10,7 +12,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi import Path as PathParam
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from tune.application.analyze import AnalyzeUseCase
 from tune.application.change import change_layers, compare
@@ -22,7 +24,14 @@ from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
 from tune.infrastructure.catalog.stac import CatalogError, bbox_from_point
 from tune.infrastructure.config import get_settings
-from tune.infrastructure.examples import CATALOG, ExampleDownloadError, by_id, fetch
+from tune.infrastructure.examples import (
+    CATALOG,
+    ExampleDownloadError,
+    by_id,
+    cached_path,
+    fetch,
+    is_stale,
+)
 from tune.infrastructure.inference.prithvi import MODEL_CARDS
 from tune.infrastructure.raster.grid import grid_from_meta, reproject_mask
 from tune.interfaces.api.schemas import (
@@ -83,6 +92,7 @@ def tasks() -> list[TaskInfo]:
 @router.get("/examples", response_model=list[ExampleInfo], summary="Escenas oficiales")
 def examples() -> list[ExampleInfo]:
     """Catálogo cerrado de GeoTIFF de ejemplo. No se acepta una URL libre."""
+    dest_dir = get_settings().tune_artifacts_dir / "examples"
     return [
         ExampleInfo(
             id=s.id,
@@ -90,6 +100,9 @@ def examples() -> list[ExampleInfo]:
             label=s.label,
             filename=s.filename,
             size_bytes=s.size_bytes,
+            blurb=s.blurb,
+            cached=cached_path(s, dest_dir) is not None,
+            refresh_on_use=True,
         )
         for s in CATALOG
     ]
@@ -97,7 +110,7 @@ def examples() -> list[ExampleInfo]:
 
 @router.post(
     "/examples/{example_id}/analyze",
-    response_model=AnalysisResponse,
+    response_model=None,
     status_code=201,
     summary="Analizar una escena oficial",
     responses={
@@ -107,24 +120,102 @@ def examples() -> list[ExampleInfo]:
 )
 async def analyze_example(
     example_id: str = PathParam(description="india, spain, usa, t10seh, t10sff o t10sgf"),
+    stream: bool = Query(
+        False,
+        description="Si true, responde NDJSON con progreso de descarga e inferencia",
+    ),
     use_case: AnalyzeUseCase = Depends(get_use_case),
-) -> AnalysisResponse:
-    """Baja el GeoTIFF de Hugging Face si no está en caché y corre la tarea fija de esa escena."""
+):
+    """Consulta Hugging Face por datos nuevos, baja si hace falta y corre la tarea de la escena.
+
+    Con ``stream=true`` emite líneas NDJSON:
+    ``check``, ``download`` (loaded/total, refreshed), ``infer`` y ``done`` (analysis).
+    """
     try:
         scene = by_id(example_id)
     except KeyError as exc:
         raise HTTPException(404, f"Escena de ejemplo desconocida: {example_id}") from exc
     dest_dir = get_settings().tune_artifacts_dir / "examples"
-    try:
-        path = await run_in_threadpool(fetch, scene, dest_dir)
-        analysis = await run_in_threadpool(
-            use_case.execute, path, HazardTask(scene.task), filename=scene.filename
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise _http_for(exc) from exc
-    return AnalysisResponse.from_domain(analysis)
+
+    if not stream:
+        try:
+            path, _refreshed = await run_in_threadpool(fetch, scene, dest_dir)
+            analysis = await run_in_threadpool(
+                use_case.execute, path, HazardTask(scene.task), filename=scene.filename
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise _http_for(exc) from exc
+        return AnalysisResponse.from_domain(analysis)
+
+    return _example_stream(scene, dest_dir, use_case)
+
+
+def _example_stream(scene, dest_dir: Path, use_case: AnalyzeUseCase) -> StreamingResponse:
+    """NDJSON: check → download → infer → done."""
+
+    async def events():
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[dict | None] = asyncio.Queue()
+
+        def on_progress(loaded: int, total: int) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"phase": "download", "loaded": loaded, "total": total},
+            )
+
+        def work() -> None:
+            try:
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {
+                        "phase": "check",
+                        "stale": is_stale(scene, dest_dir),
+                    },
+                )
+                path, refreshed = fetch(scene, dest_dir, on_progress=on_progress, refresh=True)
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {
+                        "phase": "download",
+                        "loaded": path.stat().st_size,
+                        "total": path.stat().st_size,
+                        "refreshed": refreshed,
+                    },
+                )
+                loop.call_soon_threadsafe(queue.put_nowait, {"phase": "infer"})
+                analysis = use_case.execute(path, HazardTask(scene.task), filename=scene.filename)
+                payload = AnalysisResponse.from_domain(analysis).model_dump(mode="json")
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"phase": "done", "analysis": payload, "refreshed": refreshed},
+                )
+            except Exception as exc:  # noqa: BLE001 — se serializa al cliente
+                http = _http_for(exc)
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"phase": "error", "detail": http.detail, "status": http.status_code},
+                )
+            finally:
+                loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        task = asyncio.create_task(asyncio.to_thread(work))
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+        finally:
+            await task
+
+    return StreamingResponse(
+        events(),
+        media_type="application/x-ndjson",
+        status_code=200,
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post(
