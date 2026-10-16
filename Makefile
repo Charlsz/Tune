@@ -3,6 +3,16 @@
 
 .PHONY: help app-up app-down app-logs app-up-gpu eo-pull-base gpu gpu-rebuild gpu-logs gpu-down examples install install-all lint format test test-int clean lab-experiment lab-experiment-full lab-experiment-smoke lab-up lab-down lab-preflight validate-sites piloto web-dev
 
+# On Windows, GNU Make defaults to cmd.exe, which cannot run bash recipes.
+# Prefer Git Bash when present so `make app-up` works in PowerShell.
+ifeq ($(OS),Windows_NT)
+  GIT_BASH := $(wildcard C:/Progra~1/Git/bin/bash.exe)
+  ifneq ($(GIT_BASH),)
+    SHELL := $(GIT_BASH)
+    .SHELLFLAGS := -c
+  endif
+endif
+
 PYTHON ?= python
 export DOCKER_BUILDKIT ?= 1
 export COMPOSE_DOCKER_CLI_BUILD ?= 1
