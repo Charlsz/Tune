@@ -20,7 +20,8 @@ async function json<T>(res: Response): Promise<T> {
 
 export type AnalyzePhase =
   | { phase: "upload"; loaded: number; total: number }
-  | { phase: "fetch" }
+  | { phase: "check"; stale?: boolean }
+  | { phase: "fetch"; loaded: number; total: number; refreshed?: boolean }
   | { phase: "infer" };
 
 export const api = {
@@ -76,15 +77,69 @@ export const api = {
   },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
-  analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
-    onPhase({ phase: "fetch" });
-    return fetch(`/api/examples/${id}/analyze`, { method: "POST" }).then((res) => {
-      onPhase({ phase: "infer" });
-      return json<Analysis>(res);
+  async analyzeExample(id: string, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
+    onPhase({ phase: "check" });
+    const res = await fetch(`/api/examples/${encodeURIComponent(id)}/analyze?stream=true`, {
+      method: "POST",
+      headers: { Accept: "application/x-ndjson" },
     });
+    if (!res.ok) {
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detailOf(body, res.statusText));
+    }
+    if (!res.body) throw new Error("La API no envió progreso de descarga");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let analysis: Analysis | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const event = JSON.parse(trimmed) as {
+          phase: string;
+          loaded?: number;
+          total?: number;
+          refreshed?: boolean;
+          stale?: boolean;
+          analysis?: Analysis;
+          detail?: string;
+        };
+        if (event.phase === "check") {
+          onPhase({ phase: "check", stale: event.stale });
+        } else if (event.phase === "download") {
+          onPhase({
+            phase: "fetch",
+            loaded: event.loaded ?? 0,
+            total: Math.max(event.total ?? 1, 1),
+            refreshed: event.refreshed,
+          });
+        } else if (event.phase === "infer") {
+          onPhase({ phase: "infer" });
+        } else if (event.phase === "done" && event.analysis) {
+          analysis = event.analysis;
+        } else if (event.phase === "error") {
+          throw new Error(event.detail ?? "Error al analizar la escena oficial");
+        }
+      }
+    }
+
+    if (!analysis) throw new Error("La corrida terminó sin resultado");
+    return analysis;
   },
 
-  // XHR en vez de fetch: es la única forma de obtener progreso real de subida.
   analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
     return new Promise((resolve, reject) => {
       const body = new FormData();

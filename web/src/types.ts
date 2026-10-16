@@ -28,6 +28,9 @@ export interface ExampleScene {
   label: string;
   filename: string;
   size_bytes: number;
+  blurb?: string;
+  cached?: boolean;
+  refresh_on_use?: boolean;
 }
 
 export interface Bounds {
