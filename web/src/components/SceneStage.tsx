@@ -90,16 +90,18 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
             role="tab"
             aria-selected={view === "scene"}
             onClick={() => setView("scene")}
+            title="Satélite con la máscara del modelo encima"
           >
-            Escena
+            Satélite
           </button>
           <button
             type="button"
             role="tab"
             aria-selected={view === "classes"}
             onClick={() => setView("classes")}
+            title="Solo lo que el modelo clasificó (toda el agua o cicatriz)"
           >
-            Clases
+            {analysis.task === "flood" ? "Agua" : "Clases"}
           </button>
           {analysis.artifacts.change_png && (
             <button
@@ -107,6 +109,7 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
               role="tab"
               aria-selected={view === "change"}
               onClick={() => setView("change")}
+              title="Agua nueva vs permanente vs retirada (definición de inundación)"
             >
               Cambio
             </button>
@@ -117,6 +120,7 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
               role="tab"
               aria-selected={view === "agree"}
               onClick={() => setView("agree")}
+              title="Coincidencia con producto operativo (p. ej. GFM)"
             >
               Acuerdo
             </button>
@@ -170,7 +174,7 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
             <>
               <span>
                 <i className="swatch tune-only" />
-                Nueva
+                Nueva (= inundación)
               </span>
               <span>
                 <i className="swatch persistent" />
@@ -186,6 +190,7 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
               <span>
                 <i className="swatch ink" />
                 {classes[1]}
+                {view === "classes" && analysis.task === "flood" ? " (modelo)" : ""}
               </span>
               <span>
                 <i className="swatch clear" />
@@ -206,8 +211,14 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
           />
           Pintar
         </label>
-        <Readout analysis={analysis} scene={scene} hover={hover} classes={classes} />
+        <Readout analysis={analysis} scene={scene} hover={hover} classes={classes} view={view} />
       </div>
+      {view === "change" && analysis.change && analysis.change.persistent_pixels === 0 && (
+        <p className="caption stage-note">
+          No hay píxeles permanentes en la referencia: el rojo es toda el agua nueva. Usa la
+          pestaña Agua para ver la máscara completa del modelo.
+        </p>
+      )}
     </main>
   );
 }
@@ -358,14 +369,24 @@ function Readout({
   scene,
   hover,
   classes,
+  view,
 }: {
   analysis: Analysis;
   scene: Scene | null;
   hover: { x: number; y: number } | null;
   classes: string[];
+  view: View;
 }) {
   if (!scene || !hover) {
-    return <span className="muted">{scene ? "Pasa el cursor sobre un píxel" : ""}</span>;
+    return (
+      <span className="muted">
+        {scene
+          ? view === "change"
+            ? "Cursor: clase de cambio en este píxel"
+            : "Pasa el cursor sobre un píxel"
+          : ""}
+      </span>
+    );
   }
   const i = hover.y * scene.w + hover.x;
   const label = !scene.valid[i] ? "Sin dato" : scene.positive[i] ? classes[1] : classes[0];

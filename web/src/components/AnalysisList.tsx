@@ -30,7 +30,7 @@ export function AnalysisList({ items, selectedId, onSelect, onRemove, empty }: P
           ))}
         </ul>
       ) : items.length === 0 ? (
-        <p className="caption">{empty ?? "Aún no hay análisis. Prueba con las escenas de `make examples`."}</p>
+        <p className="caption">{empty ?? "Aún no hay análisis. Prueba una escena oficial arriba."}</p>
       ) : (
         <ul className="list">
           {items.map((a) => (

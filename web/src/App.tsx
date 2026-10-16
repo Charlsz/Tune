@@ -3,7 +3,7 @@ import { type AnalyzePhase, api } from "./api";
 import { AnalysisList } from "./components/AnalysisList";
 import { CatalogPanel } from "./components/CatalogPanel";
 import { CoordinateSearch } from "./components/CoordinateSearch";
-import { Footer } from "./components/Footer";
+import { DocsPanel } from "./components/DocsPanel";
 import { SceneStage } from "./components/SceneStage";
 import { Skeleton } from "./components/Skeleton";
 import { StatsCard } from "./components/StatsCard";
@@ -21,6 +21,7 @@ export function App() {
   const [runTask, setRunTask] = useState<TaskId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
+  const [docsOpen, setDocsOpen] = useState(false);
 
   const refresh = useCallback(() => {
     const query = place ? { lat: place.lat, lon: place.lon } : {};
@@ -101,10 +102,12 @@ export function App() {
             {online ? "API en línea" : "API sin conexión"}
           </span>
         )}
-        <a href={`${location.protocol}//${location.hostname}:8000/docs`} target="_blank" rel="noreferrer">
+        <button type="button" className="docs-link" onClick={() => setDocsOpen(true)}>
           Documentación
-        </a>
+        </button>
       </header>
+
+      <DocsPanel open={docsOpen} onClose={() => setDocsOpen(false)} />
 
       <div className="body">
         <aside className="side">
@@ -150,7 +153,6 @@ export function App() {
           )}
         </div>
       </div>
-      <Footer />
     </div>
   );
 }

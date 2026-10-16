@@ -7,13 +7,18 @@ import { Skeleton } from "./Skeleton";
 type Filter = "all" | TaskId;
 
 const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "Ambas" },
+  { id: "all", label: "Todas" },
   { id: "flood", label: "Inundación" },
   { id: "burn_scar", label: "Incendio" },
 ];
 
 const SKEL_HEIGHTS = [48, 72, 36, 60];
 
+/**
+ * Historial de corridas en el mismo lugar geográfico.
+ * Sirve para comparar fechas cuando hay más de un análisis (serie temporal).
+ * Con una sola corrida solo explica el concepto; no es un filtro de la máscara actual.
+ */
 export function Timeline({
   analysis,
   place,
@@ -41,24 +46,35 @@ export function Timeline({
   }, [place, analysis]);
 
   const shown = (items ?? []).filter((a) => filter === "all" || a.task === filter);
+  const taskVariety =
+    items != null && new Set(items.map((a) => a.task)).size > 1;
+  const showFilters = (items?.length ?? 0) > 1 && taskVariety;
 
   return (
-    <section className="timeline" aria-label="Línea de tiempo del territorio">
+    <section className="timeline" aria-label="Historial del lugar">
       <div className="timeline-head">
-        <h2>Territorio</h2>
-        <div className="filters" role="tablist">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === f.id}
-              onClick={() => setFilter(f.id)}
-            >
-              {f.label}
-            </button>
-          ))}
+        <div>
+          <h2>Historial del lugar</h2>
+          <p className="caption timeline-lead">
+            Otras corridas que cubren las mismas coordenadas. No cambia la máscara de arriba: solo
+            deja elegir un análisis anterior para comparar fechas.
+          </p>
         </div>
+        {showFilters && (
+          <div className="filters" role="tablist" aria-label="Filtrar por tipo de análisis">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={filter === f.id}
+                onClick={() => setFilter(f.id)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {!place && analysis && !analysis.bounds && (
@@ -67,7 +83,7 @@ export function Timeline({
       {error && <p className="caption">{error}</p>}
 
       {(place || analysis?.bounds) && items === null && !error && (
-        <ol className="marks" aria-busy="true" aria-label="Cargando historial de territorio">
+        <ol className="marks" aria-busy="true" aria-label="Cargando historial">
           {SKEL_HEIGHTS.map((h, i) => (
             <li
               key={i}
@@ -92,10 +108,21 @@ export function Timeline({
       {items && shown.length === 0 && (
         <p className="caption">
           Ningún análisis
-          {filter !== "all" && ` de ${TASK_META[filter].name.toLowerCase()}`} en este territorio.
+          {filter !== "all" && ` de ${TASK_META[filter].name.toLowerCase()}`} en este lugar.
         </p>
       )}
-      {items && shown.length === 1 && <p className="caption">Solo hay un análisis de este territorio.</p>}
+
+      {items && shown.length === 1 && (
+        <div className="timeline-single">
+          <p>
+            Por ahora solo hay <strong>una corrida</strong> aquí (
+            {TASK_META[shown[0].task].name.toLowerCase()},{" "}
+            {fmt.day((shown[0].acquired_at ?? shown[0].created_at).slice(0, 10))}
+            ). Cuando analices otra fecha del mismo sitio, aparecerán en fila para comparar.
+          </p>
+        </div>
+      )}
+
       {shown.length > 1 && (
         <ol className="marks">
           {shown.map((a) => (
@@ -117,7 +144,7 @@ export function Timeline({
                       8,
                       a.change?.new_area_km2 != null && a.affected_area_km2
                         ? (a.change.new_area_km2 / Math.max(a.affected_area_km2, 1e-9)) * 100
-                        : a.affected_ratio * 100
+                        : a.affected_ratio * 100,
                     )}%`,
                   }}
                 />

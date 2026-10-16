@@ -24,13 +24,23 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
   const area = affectedKm2(a);
   const point = sceneCenter(a);
   const hasChange = a.change != null;
+  const flood = a.task === "flood";
   const heroKm2 = hasChange ? a.change!.new_area_km2 : area.value;
   const heroEstimated = hasChange ? false : area.estimated;
   const heroLabel = hasChange
-    ? a.task === "flood"
-      ? "Agua nueva"
-      : "Area nueva"
-    : `Area de ${positive}`;
+    ? flood
+      ? "Inundación (agua nueva)"
+      : "Área nueva"
+    : `Área de ${positive}`;
+
+  const permanentKm2 = a.change?.persistent_area_km2 ?? 0;
+  const newEqualsDetected =
+    hasChange &&
+    flood &&
+    area.value != null &&
+    a.change!.new_area_km2 != null &&
+    Math.abs(area.value - a.change!.new_area_km2) < 0.02 &&
+    permanentKm2 < 0.02;
 
   return (
     <div className="result">
@@ -56,22 +66,33 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
             {fmt.pct(a.affected_ratio)}
             <span>%</span>
           </div>
-          <p className="caption">
-            de los píxeles válidos son «{positive}»
-            {hasChange ? " · sin área métrica" : ""}
-          </p>
+          <p className="caption">de los píxeles válidos son «{positive}»</p>
         </>
       )}
 
-      {hasChange && a.task === "flood" && (
+      {hasChange && flood && (
         <p className="callout">
-          La cifra de inundación es el agua nueva, no todo el agua del modelo (
-          {fmt.pct(a.affected_ratio)}% de píxeles de agua).
+          {newEqualsDetected ? (
+            <>
+              En esta escena la referencia permanente (JRC) no marcó casi agua estable, así que{" "}
+              <strong>toda el agua del modelo cuenta como agua nueva</strong>. Por eso «agua
+              detectada» y «agua nueva» coinciden, y en el mapa de Cambio solo se ve rojo (Nueva).
+              Abre la pestaña <strong>Agua</strong> para ver la máscara completa del modelo.
+            </>
+          ) : (
+            <>
+              La cifra grande es <strong>inundación = agua nueva</strong> (agua del modelo menos
+              agua permanente). No es lo mismo que toda el agua detectada (
+              {fmt.pct(a.affected_ratio)}% de píxeles). En el mapa: pestaña <strong>Agua</strong> =
+              modelo; pestaña <strong>Cambio</strong> = nueva / permanente / retirada.
+            </>
+          )}
         </p>
       )}
 
+      <h4 className="caption strategy">Qué midió el modelo</h4>
       <dl className="rows">
-        <Row k={hasChange ? "Agua detectada" : "Area afectada"}>
+        <Row k={flood ? "Agua detectada (modelo)" : "Área afectada"}>
           {area.value == null ? (
             <span className="muted">Sin CRS</span>
           ) : (
@@ -81,18 +102,44 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
             </>
           )}
         </Row>
-        {hasChange && (
-          <Row k={a.task === "flood" ? "Agua nueva" : "Area nueva"}>
-            {a.change!.new_area_km2 == null ? (
-              <span className="muted">{fmt.int(a.change!.new_pixels)} px</span>
-            ) : (
-              <>{fmt.km2(a.change!.new_area_km2)} km²</>
-            )}
-          </Row>
-        )}
-        <Row k="Píxeles afectados">
+        <Row k="Píxeles positivos">
           {fmt.int(a.affected_pixels)} <span className="muted">de {fmt.int(a.valid_pixels)}</span>
         </Row>
+      </dl>
+
+      {hasChange && (
+        <>
+          <h4 className="caption strategy">
+            {flood ? "Inundación frente a referencia" : "Cambio frente a referencia"} (
+            {a.change!.reference_source})
+          </h4>
+          <dl className="rows">
+            <Row k={flood ? "Agua nueva (= inundación)" : "Área nueva"}>
+              {a.change!.new_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change!.new_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change!.new_area_km2)} km²</>
+              )}
+            </Row>
+            <Row k={flood ? "Agua permanente" : "Permanente"}>
+              {a.change!.persistent_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change!.persistent_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change!.persistent_area_km2)} km²</>
+              )}
+            </Row>
+            <Row k="Retirada">
+              {a.change!.receded_area_km2 == null ? (
+                <span className="muted">{fmt.int(a.change!.receded_pixels)} px</span>
+              ) : (
+                <>{fmt.km2(a.change!.receded_area_km2)} km²</>
+              )}
+            </Row>
+          </dl>
+        </>
+      )}
+
+      <dl className="rows">
         <Row k="Ubicación">
           {point ? (
             <span className="where">
@@ -113,28 +160,6 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
           )}
         </Row>
       </dl>
-
-      {a.change && (
-        <>
-          <h4 className="caption strategy">Frente a referencia ({a.change.reference_source})</h4>
-          <dl className="rows">
-            <Row k="Permanente">
-              {a.change.persistent_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change.persistent_pixels)} px</span>
-              ) : (
-                <>{fmt.km2(a.change.persistent_area_km2)} km²</>
-              )}
-            </Row>
-            <Row k="Retirada">
-              {a.change.receded_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change.receded_pixels)} px</span>
-              ) : (
-                <>{fmt.km2(a.change.receded_area_km2)} km²</>
-              )}
-            </Row>
-          </dl>
-        </>
-      )}
 
       {a.fusion && (
         <>
@@ -160,6 +185,11 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
                 : `${fmt.km2(a.fusion.external_only_area_km2)} km²`}
             </Row>
           </dl>
+          {a.fusion.iou == null && a.fusion.agree_pixels === 0 && (
+            <p className="caption">
+              No hubo capa GFM alineada para esta escena; el acuerdo queda vacío.
+            </p>
+          )}
         </>
       )}
 
