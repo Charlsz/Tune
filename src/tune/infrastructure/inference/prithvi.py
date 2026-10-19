@@ -431,6 +431,11 @@ def rgb_preview(data: np.ndarray, valid: np.ndarray, rgb: tuple[int, int, int]) 
 
 
 def sliding_window_predict(x: np.ndarray, model, datamodule, img_size: int, temporal, location):
+    """Ventana deslizante alineada con el ``inference.py`` oficial de Sen1Floods11.
+
+    No añade batch dim antes de ``datamodule.aug``: TerraTorch lo hace ahí.
+    Un ``unsqueeze`` previo provoca AssertionError vacío en el backbone.
+    """
     torch = _import("torch")
     einops = _import("einops")
 
@@ -449,26 +454,34 @@ def sliding_window_predict(x: np.ndarray, model, datamodule, img_size: int, temp
     )
 
     device = next(model.parameters()).device
-    kwargs: dict[str, Any] = {}
-    if temporal is not None:
-        kwargs["temporal_coords"] = torch.tensor(temporal, device=device).unsqueeze(0)
-    if location is not None:
-        kwargs["location_coords"] = torch.tensor(location, device=device).unsqueeze(0)
+    # Oficiales usan torch.Tensor(...) → float32. torch.tensor([[year, doy]])
+    # queda en int64 y Prithvi-TL hace assert en el embedding temporal.
+    temporal_coords = (
+        torch.as_tensor(temporal, dtype=torch.float32, device=device).unsqueeze(0)
+        if temporal is not None
+        else None
+    )
+    location_coords = (
+        torch.as_tensor(location, dtype=torch.float32, device=device).unsqueeze(0)
+        if location is not None
+        else None
+    )
 
     preds = []
     for win in windows:
+        # Oficiales: test_transform → aug(dict) → model. Sin unsqueeze intermedio.
         sample = datamodule.test_transform(image=win.squeeze().numpy().transpose(1, 2, 0))
-        img = sample["image"]
-        if img.dim() == 3:
-            img = img.unsqueeze(0)
-        sample["image"] = img
         img = datamodule.aug(sample)["image"].to(device)
-        out = model(img, **kwargs).output.detach().cpu()
+        out = model(
+            img, temporal_coords=temporal_coords, location_coords=location_coords
+        ).output.detach().cpu()
         y_hat = out.argmax(dim=1)
         y_hat = torch.nn.functional.interpolate(
             y_hat.unsqueeze(1).float(), size=img_size, mode="nearest"
         )
         preds.append(y_hat)
+        # Libera la ventana cuanto antes (CPU con poca RAM).
+        del img, out, y_hat
 
     pred = torch.concat(preds, dim=0)
     pred = einops.rearrange(
