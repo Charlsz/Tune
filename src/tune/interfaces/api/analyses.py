@@ -252,10 +252,43 @@ async def analyze(
                     raise HTTPException(413, f"Archivo mayor a {_MAX_UPLOAD_MB} MB")
                 fh.write(chunk)
         try:
+            await run_in_threadpool(_validate_geotiff_bands, dest, task)
             analysis = await run_in_threadpool(use_case.execute, dest, task, filename=file.filename)
         except Exception as exc:
             raise _http_for(exc) from exc
     return AnalysisResponse.from_domain(analysis)
+
+
+def _validate_geotiff_bands(path: Path, task: HazardTask) -> None:
+    """Comprueba bandas antes de cargar el modelo (falla barato y con mensaje claro)."""
+    try:
+        import rasterio
+    except ImportError:
+        return
+    from tune.infrastructure.inference.prithvi import MODEL_CARDS, PRITHVI_BANDS
+
+    card = MODEL_CARDS[task]
+    with rasterio.open(path) as src:
+        n = src.count
+        width, height = src.width, src.height
+    if width * height > 64_000_000:
+        raise ValueError(
+            f"La imagen es demasiado grande ({width}×{height} px). "
+            "Usa un recorte más pequeño o reduce la resolución."
+        )
+    if n == PRITHVI_BANDS:
+        return
+    if card.wide_input_indices and n > max(card.wide_input_indices):
+        return
+    need = (
+        f"{PRITHVI_BANDS} bandas Prithvi"
+        + (
+            f" o un Sentinel-2 L1C con más de {max(card.wide_input_indices)} bandas"
+            if card.wide_input_indices
+            else ""
+        )
+    )
+    raise ValueError(f"El raster tiene {n} bandas; se esperan {need}.")
 
 
 def _http_for(exc: Exception) -> HTTPException:
@@ -267,10 +300,32 @@ def _http_for(exc: Exception) -> HTTPException:
         return HTTPException(422, f"GeoTIFF no válido: {exc}")
     if isinstance(exc, ValueError):
         return HTTPException(422, str(exc))
+    if isinstance(exc, AssertionError):
+        log.exception("AssertionError en inferencia/análisis")
+        detail = str(exc).strip()
+        if detail:
+            return HTTPException(
+                422,
+                "No se pudo completar el análisis: "
+                f"{detail}. "
+                "Si subiste un archivo, usa 6 bandas Prithvi o Sentinel-2 L1C; "
+                "si viene del catálogo, prueba otra fecha o un recorte más pequeño.",
+            )
+        return HTTPException(
+            422,
+            "El modelo rechazó la forma del tensor de entrada. "
+            "Prueba una escena de ejemplo o otra fecha del catálogo; "
+            "si subes GeoTIFF, verifica 6 bandas Prithvi (BLUE–SWIR2) o Sentinel-2 L1C.",
+        )
     if isinstance(exc, MemoryError):
         return HTTPException(413, "Imagen demasiado grande para la memoria disponible")
     log.exception("Fallo de inferencia")
-    return HTTPException(503, f"Fallo del modelo: {exc}")
+    detail = str(exc).strip() or type(exc).__name__
+    return HTTPException(
+        503,
+        f"Fallo del modelo: {detail}. "
+        "Prueba de nuevo, usa una escena de ejemplo o reduce el tamaño del recorte (lado km).",
+    )
 
 
 @router.get(
@@ -592,6 +647,47 @@ _LABELS = {
 
 
 @router.get(
+    "/geocode",
+    summary="Buscar un lugar por nombre",
+    responses={503: {"description": "El geocodificador no respondió"}},
+)
+def geocode(q: str = Query(..., min_length=2, max_length=120)) -> list[dict[str, float | str]]:
+    """Resuelve nombres de lugar a coordenadas (Nominatim / OpenStreetMap)."""
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    query = q.strip()
+    if not query:
+        return []
+    url = "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode(
+        {"q": query, "format": "json", "limit": 5}
+    )
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "TuneFloodApp/0.1 (geocode; educational)"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise HTTPException(503, f"No se pudo buscar el lugar: {exc}") from exc
+    out: list[dict[str, float | str]] = []
+    for row in payload:
+        try:
+            out.append(
+                {
+                    "label": str(row.get("display_name") or query),
+                    "lat": float(row["lat"]),
+                    "lon": float(row["lon"]),
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+@router.get(
     "/catalog/search",
     response_model=list[CatalogSceneSchema],
     summary="Buscar escenas Sentinel-2",
@@ -644,6 +740,7 @@ async def catalog_analyze(
     lat: float = Form(ge=-90, le=90),
     lon: float = Form(ge=-180, le=180),
     side_km: float = Form(20.0, ge=1, le=50),
+    max_cloud: float = Form(40.0, ge=0, le=100),
     use_case: AnalyzeUseCase = Depends(get_use_case),
     catalog=Depends(get_catalog),
 ) -> AnalysisResponse:
@@ -651,7 +748,13 @@ async def catalog_analyze(
     bbox = bbox_from_point(lat, lon, side_km)
     dest = get_settings().tune_artifacts_dir / "catalog"
     try:
-        path = await run_in_threadpool(catalog.fetch_six_bands, item_id, bbox, dest)
+        path = await run_in_threadpool(
+            catalog.fetch_six_bands,
+            item_id,
+            bbox,
+            dest,
+            max_cloud=max_cloud,
+        )
         analysis = await run_in_threadpool(use_case.execute, path, task, filename=path.name)
     except CatalogError as exc:
         raise HTTPException(422, str(exc)) from exc

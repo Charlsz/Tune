@@ -113,3 +113,64 @@ def test_fetch_six_bands_with_local_cogs(tmp_path: Path, monkeypatch: pytest.Mon
         assert band.max() == pytest.approx(1000)
         assert (band == -9999).any()
         assert "ACQUISITION_DATE" in src.tags()
+
+
+def test_fetch_rejects_crop_clouds_above_user_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """El % de la lista es de la escena; el rechazo usa nubes SCL del recorte."""
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    catalog = StacCatalog()
+    paths: dict[str, Path] = {}
+    for name in ("blue", "green", "red", "nir08", "swir16", "swir22", "scl"):
+        path = tmp_path / f"{name}.tif"
+        # 65 % nubes en SCL (9) → debe fallar con max_cloud=40 y pasar con 70
+        data = np.full((20, 20), 2000 if name != "scl" else 4, dtype=np.uint16)
+        if name == "scl":
+            data[:, :] = 9
+            data[0:7, :] = 4  # 13/20 filas nubladas ≈ 65 %
+        profile = {
+            "driver": "GTiff",
+            "height": 20,
+            "width": 20,
+            "count": 1,
+            "dtype": data.dtype,
+            "crs": "EPSG:32618",
+            "transform": from_origin(500_000, 500_400, 20, 20),
+        }
+        with rasterio.open(path, "w", **profile) as dst:
+            dst.write(data, 1)
+        paths[name] = path
+
+    class FakeAsset:
+        def __init__(self, href: str) -> None:
+            self.href = href
+
+    class FakeItem:
+        id = "S2A_cloudy"
+        properties = {"datetime": "2023-06-15T15:00:00Z", "eo:cloud_cover": 27.0}
+        datetime = None
+        assets = {k: FakeAsset(str(v)) for k, v in paths.items()}
+
+    class FakeSearch:
+        def items(self):
+            return [FakeItem()]
+
+    class FakeClient:
+        def search(self, **kwargs):
+            return FakeSearch()
+
+    monkeypatch.setattr(catalog, "_client", lambda: FakeClient())
+
+    def read_window(href: str, bbox, res_m: float):
+        with rasterio.open(href) as src:
+            return src.read(1).astype(np.float32), src.transform, src.crs
+
+    monkeypatch.setattr(catalog, "_read_window", read_window)
+    bbox = (-75.0, 4.0, -74.0, 5.0)
+    with pytest.raises(CatalogError, match="recorte"):
+        catalog.fetch_six_bands("S2A_cloudy", bbox, tmp_path / "out40", max_cloud=40)
+    out = catalog.fetch_six_bands("S2A_cloudy", bbox, tmp_path / "out70", max_cloud=70)
+    assert out.is_file()

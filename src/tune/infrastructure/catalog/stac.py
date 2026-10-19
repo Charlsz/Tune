@@ -83,9 +83,18 @@ class StacCatalog:
         return items
 
     def fetch_six_bands(
-        self, item_id: str, bbox: tuple[float, float, float, float], dest: Path
+        self,
+        item_id: str,
+        bbox: tuple[float, float, float, float],
+        dest: Path,
+        *,
+        max_cloud: float = 40.0,
     ) -> Path:
-        """Escribe un GeoTIFF de 6 bandas a 20 m con nodata en nubes."""
+        """Escribe un GeoTIFF de 6 bandas a 20 m con nodata en nubes.
+
+        ``eo:cloud_cover`` del catálogo es de toda la escena (~100 km). Aquí se mide
+        la nubosidad SCL solo en el recorte pedido; por eso puede diferir del % de la lista.
+        """
         client = self._client()
         results = list(client.search(collections=[COLLECTION], ids=[item_id], max_items=1).items())
         if not results:
@@ -96,6 +105,7 @@ class StacCatalog:
         dt_str = str(props.get("datetime") or item.datetime.isoformat())
         acquired = date.fromisoformat(dt_str[:10])
         apply_offset = acquired >= OFFSET_CUTOFF
+        tile_cloud = float(props.get("eo:cloud_cover", -1))
 
         arrays = []
         transform = None
@@ -122,9 +132,27 @@ class StacCatalog:
         scl = scl[:h, :w]
         cloudy = np.isin(scl, list(SCL_CLOUD))
         cloud_frac = float(cloudy.mean()) if cloudy.size else 0.0
-        if cloud_frac > 0.4:
+        # Umbral del usuario (mismo filtro de búsqueda). Nunca rechazar por debajo del
+        # valor pedido; nubes se marcan nodata. Tope duro 90 %: recorte casi inútil.
+        limit = min(max(float(max_cloud), 0.0), 90.0) / 100.0
+        hard_cap = 0.90
+        if cloud_frac > hard_cap:
             raise CatalogError(
-                f"Nubosidad en el recorte {cloud_frac:.0%} supera el 40 %. Elige otra fecha."
+                f"El recorte tiene {cloud_frac:.0%} de nubes (capa SCL). "
+                "Casi no queda superficie usable. Elige otra fecha o mueve el punto."
+            )
+        if cloud_frac > limit:
+            tile_note = (
+                f" La escena completa reportaba {tile_cloud:.0f}% de nubes, pero eso es "
+                "un promedio de ~100 km, no de tu recorte."
+                if tile_cloud >= 0
+                else ""
+            )
+            need = max(1, int(math.ceil(cloud_frac * 100)))
+            raise CatalogError(
+                f"Nubosidad en tu recorte: {cloud_frac:.0%} (límite actual {max_cloud:.0f}%)."
+                f"{tile_note} "
+                f"Sube «Nubes máx.» al menos a {need} o elige otra fecha."
             )
         stack[:, cloudy] = -9999
 

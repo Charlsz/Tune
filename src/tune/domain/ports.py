@@ -155,7 +155,12 @@ class SceneCatalog(Protocol):
     ) -> list[SceneItem]: ...
 
     def fetch_six_bands(
-        self, item_id: str, bbox: tuple[float, float, float, float], dest: Path
+        self,
+        item_id: str,
+        bbox: tuple[float, float, float, float],
+        dest: Path,
+        *,
+        max_cloud: float = 40.0,
     ) -> Path: ...
 
 

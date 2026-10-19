@@ -257,7 +257,7 @@ def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
                 )
             ]
 
-        def fetch_six_bands(self, item_id, bbox, dest):
+        def fetch_six_bands(self, item_id, bbox, dest, *, max_cloud=40.0):
             dest = Path(dest)
             dest.mkdir(parents=True, exist_ok=True)
             out = dest / "S2_20240601T150000_fake.tif"
