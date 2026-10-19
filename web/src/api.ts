@@ -19,10 +19,11 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export type AnalyzePhase =
+  | { phase: "prepare"; detail?: string }
   | { phase: "upload"; loaded: number; total: number }
   | { phase: "check"; stale?: boolean }
   | { phase: "fetch"; loaded: number; total: number; refreshed?: boolean }
-  | { phase: "infer" };
+  | { phase: "infer"; detail?: string };
 
 export const api = {
   tasks: () => fetch("/api/tasks").then(json<TaskInfo[]>),
@@ -46,14 +47,17 @@ export const api = {
     if (res.status === 204) return;
     await json(res);
   },
-  catalogSearch(q: {
-    lat: number;
-    lon: number;
-    start: string;
-    end: string;
-    maxCloud?: number;
-    sideKm?: number;
-  }) {
+  catalogSearch(
+    q: {
+      lat: number;
+      lon: number;
+      start: string;
+      end: string;
+      maxCloud?: number;
+      sideKm?: number;
+    },
+    signal?: AbortSignal,
+  ) {
     const p = new URLSearchParams({
       lat: String(q.lat),
       lon: String(q.lon),
@@ -62,18 +66,37 @@ export const api = {
       max_cloud: String(q.maxCloud ?? 40),
       side_km: String(q.sideKm ?? 20),
     });
-    return fetch(`/api/catalog/search?${p}`).then(json<CatalogScene[]>);
+    return fetch(`/api/catalog/search?${p}`, { signal }).then(json<CatalogScene[]>);
   },
-  catalogAnalyze(itemId: string, task: TaskId, place: Place, sideKm: number) {
+  geocode(q: string, signal?: AbortSignal) {
+    const p = new URLSearchParams({ q });
+    return fetch(`/api/geocode?${p}`, { signal }).then(
+      json<{ label: string; lat: number; lon: number }[]>,
+    );
+  },
+
+  async catalogAnalyze(
+    itemId: string,
+    task: TaskId,
+    place: Place,
+    sideKm: number,
+    maxCloud: number,
+    onPhase?: (p: AnalyzePhase) => void,
+  ): Promise<Analysis> {
+    onPhase?.({ phase: "prepare", detail: "Preparando descarga del catálogo…" });
     const body = new FormData();
     body.append("task", task);
     body.append("lat", String(place.lat));
     body.append("lon", String(place.lon));
     body.append("side_km", String(sideKm));
-    return fetch(`/api/catalog/${encodeURIComponent(itemId)}/analyze`, {
+    body.append("max_cloud", String(maxCloud));
+    // Una sola petición servidor = descarga de bandas + inferencia (sin % fino).
+    onPhase?.({ phase: "fetch", loaded: 0, total: 1, refreshed: true });
+    const res = await fetch(`/api/catalog/${encodeURIComponent(itemId)}/analyze`, {
       method: "POST",
       body,
-    }).then(json<Analysis>);
+    });
+    return json<Analysis>(res);
   },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
@@ -142,21 +165,31 @@ export const api = {
 
   analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
     return new Promise((resolve, reject) => {
+      onPhase({
+        phase: "prepare",
+        detail: `Preparando ${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`,
+      });
       const body = new FormData();
       body.append("file", file);
       body.append("task", task);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/analyze");
       xhr.responseType = "json";
+      xhr.upload.onloadstart = () =>
+        onPhase({ phase: "upload", loaded: 0, total: Math.max(file.size, 1) });
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) onPhase({ phase: "upload", loaded: e.loaded, total: e.total });
       };
-      xhr.upload.onload = () => onPhase({ phase: "infer" });
+      xhr.upload.onload = () =>
+        onPhase({
+          phase: "infer",
+          detail: "Archivo recibido. Validando bandas y ejecutando el modelo…",
+        });
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Analysis);
         else reject(new Error(detailOf(xhr.response, `HTTP ${xhr.status}`)));
       };
-      xhr.onerror = () => reject(new Error("Sin conexión con la API"));
+      xhr.onerror = () => reject(new Error("Sin conexión con el servicio. Comprueba que Tune esté en marcha."));
       xhr.send(body);
     });
   },

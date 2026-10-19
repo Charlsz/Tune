@@ -49,7 +49,7 @@ export function remainingSeconds(
 }
 
 export function formatRemain(s: number): string {
-  if (!Number.isFinite(s) || s < 0) return "—";
+  if (!Number.isFinite(s) || s < 0) return "n/d";
   if (s < 1) return "menos de 1 s";
   if (s < 60) return `${Math.ceil(s)} s`;
   const m = Math.floor(s / 60);

@@ -1,4 +1,4 @@
-import { fmt, TASK_META } from "../lib/insights";
+import { affectedKm2, fmt, TASK_META } from "../lib/insights";
 import type { Analysis } from "../types";
 import { Skeleton } from "./Skeleton";
 
@@ -8,29 +8,64 @@ interface Props {
   onSelect: (a: Analysis) => void;
   onRemove: (a: Analysis) => void;
   empty?: string;
+  /** Vista de página completa con más contexto. */
+  page?: boolean;
 }
 
-export function AnalysisList({ items, selectedId, onSelect, onRemove, empty }: Props) {
+function primaryMetric(a: Analysis): string {
+  if (a.change?.new_area_km2 != null) {
+    return `${fmt.km2(a.change.new_area_km2)} km² nuevos`;
+  }
+  const area = affectedKm2(a);
+  if (area.value != null) {
+    return `${area.estimated ? "≈ " : ""}${fmt.km2(area.value)} km²`;
+  }
+  return `${fmt.pct(a.affected_ratio, 0)}%`;
+}
+
+export function AnalysisList({
+  items,
+  selectedId,
+  onSelect,
+  onRemove,
+  empty,
+  page = false,
+}: Props) {
   return (
-    <section className="section">
-      <h3>
-        Historial {items !== null && <span className="muted num">{items.length}</span>}
-      </h3>
+    <section className={`section history-section${page ? " history-page" : ""}`}>
+      {page ? (
+        <header className="page-head">
+          <h1>Historial</h1>
+          <p className="page-lead">
+            Ejecuciones anteriores. Selecciona una para ver el mapa y el resumen; puedes quitar
+            entradas del historial local.
+          </p>
+        </header>
+      ) : (
+        <h3>
+          Historial {items !== null && <span className="muted num">{items.length}</span>}
+        </h3>
+      )}
+
       {items === null ? (
         <ul className="list" aria-busy="true">
           {[0, 1, 2].map((i) => (
-            <li key={i} style={{ padding: "8px", display: "flex", alignItems: "center", gap: 12 }}>
-              <Skeleton style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
+            <li key={i} className="history-skel">
+              <Skeleton style={{ width: 44, height: 44, borderRadius: 8, flexShrink: 0 }} />
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
                 <Skeleton style={{ height: 13, width: "70%" }} />
                 <Skeleton style={{ height: 11, width: "50%" }} />
               </div>
-              <Skeleton style={{ width: 28, height: 13 }} />
+              <Skeleton style={{ width: 48, height: 13 }} />
             </li>
           ))}
         </ul>
       ) : items.length === 0 ? (
-        <p className="caption">{empty ?? "Aún no hay análisis. Prueba una escena oficial arriba."}</p>
+        <div className="empty-state">
+          <p className="caption">
+            {empty ?? "Aún no hay análisis. Inicia uno desde Inicio con una escena oficial o tu GeoTIFF."}
+          </p>
+        </div>
       ) : (
         <ul className="list">
           {items.map((a) => (
@@ -46,11 +81,17 @@ export function AnalysisList({ items, selectedId, onSelect, onRemove, empty }: P
                   <span className="ellipsis">{a.input_filename}</span>
                   <span className="muted">
                     {TASK_META[a.task].name} · {fmt.ago(a.created_at)}
+                    {a.acquired_at ? ` · adquis. ${fmt.day(a.acquired_at)}` : ""}
                   </span>
                 </span>
-                <span className="num">{fmt.pct(a.affected_ratio, 0)}%</span>
+                <span className="num list-metric">{primaryMetric(a)}</span>
               </button>
-              <button type="button" className="close" onClick={() => onRemove(a)}>
+              <button
+                type="button"
+                className="close"
+                aria-label={`Quitar ${a.input_filename}`}
+                onClick={() => onRemove(a)}
+              >
                 Quitar
               </button>
             </li>

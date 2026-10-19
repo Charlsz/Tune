@@ -6,6 +6,7 @@ interface Props {
   analysis: Analysis;
   tasks: TaskInfo[];
   onClose: () => void;
+  compact?: boolean;
 }
 
 export function sceneCenter(a: Analysis): Place | null {
@@ -18,7 +19,7 @@ export function sceneCenter(a: Analysis): Place | null {
   };
 }
 
-export function StatsCard({ analysis: a, tasks, onClose }: Props) {
+export function StatsCard({ analysis: a, tasks, onClose, compact = false }: Props) {
   const meta = TASK_META[a.task];
   const positive = tasks.find((t) => t.id === a.task)?.classes[1] ?? meta.name;
   const area = affectedKm2(a);
@@ -29,7 +30,7 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
   const heroEstimated = hasChange ? false : area.estimated;
   const heroLabel = hasChange
     ? flood
-      ? "Inundación (agua nueva)"
+      ? "Posible inundación (agua nueva)"
       : "Área nueva"
     : `Área de ${positive}`;
 
@@ -42,10 +43,16 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
     Math.abs(area.value - a.change!.new_area_km2) < 0.02 &&
     permanentKm2 < 0.02;
 
+  const extSources =
+    a.fusion?.sources.filter((s) => s !== "prithvi").join(", ") || "producto externo";
+
   return (
-    <div className="result">
+    <div className={`result${compact ? " result-compact" : ""}`}>
       <div className="result-head">
-        <h3>{meta.name}</h3>
+        <div>
+          <p className="result-kicker">Resumen del análisis</p>
+          <h3>{meta.name}</h3>
+        </div>
         <button type="button" className="close" aria-label="Cerrar resultado" onClick={onClose}>
           Cerrar
         </button>
@@ -70,185 +77,218 @@ export function StatsCard({ analysis: a, tasks, onClose }: Props) {
         </>
       )}
 
+      {a.exposure?.population_exposed != null && a.exposure.population_exposed > 0 && (
+        <p className="metric-line">
+          <span className="muted">Población expuesta (aprox.)</span>
+          <strong className="num">{fmt.int(Math.round(a.exposure.population_exposed))}</strong>
+        </p>
+      )}
+      {a.exposure?.population_exposed === 0 && (
+        <p className="caption">Sin población estimada en este recorte.</p>
+      )}
+
+      {hasChange && flood && area.value != null && a.change!.new_area_km2 != null && (
+        <div className="compare-strip">
+          <div>
+            <span className="muted">Agua detectada</span>
+            <strong className="num">{fmt.km2(area.value)} km²</strong>
+          </div>
+          <div>
+            <span className="muted">Posible inundación</span>
+            <strong className="num">{fmt.km2(a.change!.new_area_km2)} km²</strong>
+          </div>
+        </div>
+      )}
+
       {hasChange && flood && (
-        <p className="callout">
+        <p className={`callout${newEqualsDetected ? " warn" : ""}`}>
           {newEqualsDetected ? (
             <>
-              En esta escena la referencia permanente (JRC) no marcó casi agua estable, así que{" "}
-              <strong>toda el agua del modelo cuenta como agua nueva</strong>. Por eso «agua
-              detectada» y «agua nueva» coinciden, y en el mapa de Cambio solo se ve rojo (Nueva).
-              Abre la pestaña <strong>Agua</strong> para ver la máscara completa del modelo.
+              Las dos cifras coinciden porque la referencia no halló agua permanente:{" "}
+              <strong>toda el agua del modelo se cuenta como inundación (agua nueva)</strong>. En el
+              mapa verás la misma zona en ambas capas; el color cambia, no el contorno.
             </>
           ) : (
             <>
-              La cifra grande es <strong>inundación = agua nueva</strong> (agua del modelo menos
-              agua permanente). No es lo mismo que toda el agua detectada (
-              {fmt.pct(a.affected_ratio)}% de píxeles). En el mapa: pestaña <strong>Agua</strong> =
-              modelo; pestaña <strong>Cambio</strong> = nueva / permanente / retirada.
+              La cifra grande es <strong>posible inundación = agua nueva</strong> (detectada menos
+              permanente). Es un subconjunto del agua del modelo (
+              {fmt.pct(a.affected_ratio)}% de píxeles).
             </>
           )}
         </p>
       )}
 
-      <h4 className="caption strategy">Qué midió el modelo</h4>
-      <dl className="rows">
-        <Row k={flood ? "Agua detectada (modelo)" : "Área afectada"}>
-          {area.value == null ? (
-            <span className="muted">Sin CRS</span>
-          ) : (
+      {!hasChange && flood && (
+        <p className="callout warn">
+          No hay referencia histórica de agua permanente para esta escena. Se muestra el agua
+          detectada por el modelo, no una estimación de inundación.
+        </p>
+      )}
+
+      <details className="detail" open={!compact}>
+        <summary>Ver detalles</summary>
+        <div className="detail-body">
+          <h4 className="caption strategy">Qué midió el modelo</h4>
+          <dl className="rows">
+            <Row k={flood ? "Agua detectada (modelo)" : "Área afectada"}>
+              {area.value == null ? (
+                <span className="muted">Sin CRS</span>
+              ) : (
+                <>
+                  {area.estimated && "aprox. "}
+                  {fmt.km2(area.value)} km²
+                </>
+              )}
+            </Row>
+            <Row k="Píxeles positivos">
+              {fmt.int(a.affected_pixels)}{" "}
+              <span className="muted">de {fmt.int(a.valid_pixels)}</span>
+            </Row>
+          </dl>
+
+          {hasChange && (
             <>
-              {area.estimated && "aprox. "}
-              {fmt.km2(area.value)} km²
+              <h4 className="caption strategy">
+                {flood ? "Inundación frente a referencia" : "Cambio frente a referencia"} (
+                {a.change!.reference_source})
+              </h4>
+              <dl className="rows">
+                <Row k={flood ? "Agua nueva (= inundación)" : "Área nueva"}>
+                  {a.change!.new_area_km2 == null ? (
+                    <span className="muted">{fmt.int(a.change!.new_pixels)} px</span>
+                  ) : (
+                    <>{fmt.km2(a.change!.new_area_km2)} km²</>
+                  )}
+                </Row>
+                <Row k={flood ? "Agua permanente" : "Permanente"}>
+                  {a.change!.persistent_area_km2 == null ? (
+                    <span className="muted">{fmt.int(a.change!.persistent_pixels)} px</span>
+                  ) : (
+                    <>{fmt.km2(a.change!.persistent_area_km2)} km²</>
+                  )}
+                </Row>
+                <Row k="Retirada">
+                  {a.change!.receded_area_km2 == null ? (
+                    <span className="muted">{fmt.int(a.change!.receded_pixels)} px</span>
+                  ) : (
+                    <>{fmt.km2(a.change!.receded_area_km2)} km²</>
+                  )}
+                </Row>
+              </dl>
             </>
           )}
-        </Row>
-        <Row k="Píxeles positivos">
-          {fmt.int(a.affected_pixels)} <span className="muted">de {fmt.int(a.valid_pixels)}</span>
-        </Row>
-      </dl>
 
-      {hasChange && (
-        <>
-          <h4 className="caption strategy">
-            {flood ? "Inundación frente a referencia" : "Cambio frente a referencia"} (
-            {a.change!.reference_source})
-          </h4>
           <dl className="rows">
-            <Row k={flood ? "Agua nueva (= inundación)" : "Área nueva"}>
-              {a.change!.new_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change!.new_pixels)} px</span>
+            <Row k="Ubicación">
+              {point ? (
+                <span className="where">
+                  <span>
+                    {point.lat.toFixed(4)}, {point.lon.toFixed(4)}
+                  </span>
+                  <a
+                    className="map-btn"
+                    href={`https://www.openstreetmap.org/?mlat=${point.lat}&mlon=${point.lon}#map=12/${point.lat}/${point.lon}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    OpenStreetMap
+                  </a>
+                </span>
               ) : (
-                <>{fmt.km2(a.change!.new_area_km2)} km²</>
-              )}
-            </Row>
-            <Row k={flood ? "Agua permanente" : "Permanente"}>
-              {a.change!.persistent_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change!.persistent_pixels)} px</span>
-              ) : (
-                <>{fmt.km2(a.change!.persistent_area_km2)} km²</>
-              )}
-            </Row>
-            <Row k="Retirada">
-              {a.change!.receded_area_km2 == null ? (
-                <span className="muted">{fmt.int(a.change!.receded_pixels)} px</span>
-              ) : (
-                <>{fmt.km2(a.change!.receded_area_km2)} km²</>
+                <span className="muted">No se puede ubicar</span>
               )}
             </Row>
           </dl>
-        </>
-      )}
 
-      <dl className="rows">
-        <Row k="Ubicación">
-          {point ? (
-            <span className="where">
-              <span>
-                {point.lat.toFixed(4)}, {point.lon.toFixed(4)}
-              </span>
-              <a
-                className="map-btn"
-                href={`https://www.openstreetmap.org/?mlat=${point.lat}&mlon=${point.lon}#map=12/${point.lat}/${point.lon}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                OpenStreetMap
-              </a>
-            </span>
-          ) : (
-            <span className="muted">No se puede ubicar</span>
+          {a.fusion && (
+            <>
+              <h4 className="caption strategy">Comparación con {extSources}</h4>
+              <dl className="rows">
+                <Row k="IoU">{a.fusion.iou == null ? "n/d" : a.fusion.iou.toFixed(2)}</Row>
+                <Row k="Acuerdo">
+                  {a.fusion.agree_area_km2 == null
+                    ? `${fmt.int(a.fusion.agree_pixels)} px`
+                    : `${fmt.km2(a.fusion.agree_area_km2)} km²`}
+                </Row>
+                <Row k="Solo Tune">
+                  {a.fusion.tune_only_area_km2 == null
+                    ? `${fmt.int(a.fusion.tune_only_pixels)} px`
+                    : `${fmt.km2(a.fusion.tune_only_area_km2)} km²`}
+                </Row>
+                <Row k="Solo externo">
+                  {a.fusion.external_only_area_km2 == null
+                    ? `${fmt.int(a.fusion.external_only_pixels)} px`
+                    : `${fmt.km2(a.fusion.external_only_area_km2)} km²`}
+                </Row>
+              </dl>
+              {a.fusion.iou == null && a.fusion.agree_pixels === 0 && (
+                <p className="caption">
+                  No hubo capa externa alineada para esta escena; la comparación queda vacía.
+                </p>
+              )}
+            </>
           )}
-        </Row>
-      </dl>
 
-      {a.fusion && (
-        <>
-          <h4 className="caption strategy">
-            Acuerdo con{" "}
-            {a.fusion.sources.filter((s) => s !== "prithvi").join(", ") || "producto externo"}
-          </h4>
-          <dl className="rows">
-            <Row k="IoU">{a.fusion.iou == null ? "—" : a.fusion.iou.toFixed(2)}</Row>
-            <Row k="Acuerdo">
-              {a.fusion.agree_area_km2 == null
-                ? `${fmt.int(a.fusion.agree_pixels)} px`
-                : `${fmt.km2(a.fusion.agree_area_km2)} km²`}
-            </Row>
-            <Row k="Solo Tune">
-              {a.fusion.tune_only_area_km2 == null
-                ? `${fmt.int(a.fusion.tune_only_pixels)} px`
-                : `${fmt.km2(a.fusion.tune_only_area_km2)} km²`}
-            </Row>
-            <Row k="Solo externo">
-              {a.fusion.external_only_area_km2 == null
-                ? `${fmt.int(a.fusion.external_only_pixels)} px`
-                : `${fmt.km2(a.fusion.external_only_area_km2)} km²`}
-            </Row>
-          </dl>
-          {a.fusion.iou == null && a.fusion.agree_pixels === 0 && (
-            <p className="caption">
-              No hubo capa GFM alineada para esta escena; el acuerdo queda vacío.
-            </p>
+          {a.exposure && (
+            <>
+              <h4 className="caption strategy">Exposición ({a.exposure.landcover_source})</h4>
+              <dl className="rows">
+                <Row k="Población">
+                  {a.exposure.population_exposed == null
+                    ? "sin dato"
+                    : fmt.int(Math.round(a.exposure.population_exposed))}
+                </Row>
+                {a.exposure.classes.slice(0, 4).map((c) => (
+                  <Row key={c.code} k={c.label}>
+                    {c.area_km2 == null ? `${fmt.int(c.pixels)} px` : `${fmt.km2(c.area_km2)} km²`}
+                    <span className="muted"> {fmt.pct(c.fraction)}%</span>
+                  </Row>
+                ))}
+              </dl>
+            </>
           )}
-        </>
-      )}
-
-      {a.exposure && (
-        <>
-          <h4 className="caption strategy">Exposición ({a.exposure.landcover_source})</h4>
-          <dl className="rows">
-            <Row k="Población">
-              {a.exposure.population_exposed == null
-                ? "sin dato"
-                : fmt.int(Math.round(a.exposure.population_exposed))}
-            </Row>
-            {a.exposure.classes.slice(0, 4).map((c) => (
-              <Row key={c.code} k={c.label}>
-                {c.area_km2 == null ? `${fmt.int(c.pixels)} px` : `${fmt.km2(c.area_km2)} km²`}
-                <span className="muted"> {fmt.pct(c.fraction)}%</span>
-              </Row>
-            ))}
-          </dl>
-        </>
-      )}
+        </div>
+      </details>
 
       <details className="detail">
-        <summary>Detalle técnico</summary>
-        <dl className="rows">
-          <Row k="Adquisición">
-            {a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}
-          </Row>
-          <Row k="Tamaño">
-            {a.width} × {a.height} px
-          </Row>
-          <Row k="CRS">{crsLabel(a.crs)}</Row>
-          <Row k="Modelo">
-            <a
-              className="ellipsis"
-              href={`https://huggingface.co/${a.model_id}`}
-              target="_blank"
-              rel="noreferrer"
-              title={a.model_id}
-            >
-              {a.model_id.split("/")[1]}
+        <summary>Detalles técnicos</summary>
+        <div className="detail-body">
+          <dl className="rows">
+            <Row k="Adquisición">
+              {a.acquired_at ? fmt.day(a.acquired_at) : <span className="muted">Desconocida</span>}
+            </Row>
+            <Row k="Tamaño">
+              {a.width} × {a.height} px
+            </Row>
+            <Row k="CRS">{crsLabel(a.crs)}</Row>
+            <Row k="Modelo">
+              <a
+                className="ellipsis"
+                href={`https://huggingface.co/${a.model_id}`}
+                target="_blank"
+                rel="noreferrer"
+                title={a.model_id}
+              >
+                {a.model_id.split("/")[1]}
+              </a>
+            </Row>
+            <Row k="Dataset">{meta.dataset}</Row>
+            <Row k="Latencia">{fmt.secs(a.latency_s)}</Row>
+            <Row k="Análisis">{fmt.ago(a.created_at)}</Row>
+          </dl>
+          <p className="downloads">
+            <span className="muted">Descargar</span>
+            {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
+            <a href={a.artifacts.mask_png}>PNG</a>
+            {a.artifacts.change_png && <a href={a.artifacts.change_png}>Cambio</a>}
+            {a.artifacts.fusion_png && <a href={a.artifacts.fusion_png}>Acuerdo</a>}
+            {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
+            <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
+              JSON
             </a>
-          </Row>
-          <Row k="Dataset">{meta.dataset}</Row>
-          <Row k="Latencia">{fmt.secs(a.latency_s)}</Row>
-          <Row k="Análisis">{fmt.ago(a.created_at)}</Row>
-        </dl>
-        <p className="downloads">
-          <span className="muted">Descargar</span>
-          {a.artifacts.mask_tif && <a href={a.artifacts.mask_tif}>GeoTIFF</a>}
-          <a href={a.artifacts.mask_png}>PNG</a>
-          {a.artifacts.change_png && <a href={a.artifacts.change_png}>Cambio</a>}
-          {a.artifacts.fusion_png && <a href={a.artifacts.fusion_png}>Acuerdo</a>}
-          {a.artifacts.preview_png && <a href={a.artifacts.preview_png}>RGB</a>}
-          <a href={`/api/analyses/${a.id}`} target="_blank" rel="noreferrer">
-            JSON
-          </a>
-        </p>
-        <MetadataCard analysis={a} />
+          </p>
+          <MetadataCard analysis={a} />
+        </div>
       </details>
     </div>
   );

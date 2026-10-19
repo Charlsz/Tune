@@ -44,7 +44,7 @@ export const fmt = {
   day: (iso: string) =>
     new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" }),
   num(n: number | null) {
-    if (n == null) return "—";
+    if (n == null) return "n/d";
     const a = Math.abs(n);
     return a >= 1000 ? n.toFixed(0) : a >= 1 ? n.toFixed(2) : n.toPrecision(3);
   },

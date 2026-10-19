@@ -18,9 +18,9 @@ export function MetadataCard({ analysis: a }: { analysis: Analysis }) {
             ? `${fmt.num(m.resolution[0])} × ${fmt.num(m.resolution[1])} ${m.resolution_unit}`
             : <span className="muted">Sin CRS</span>}
         </Row>
-        <Row k="EPSG">{m.epsg ?? <span className="muted">—</span>}</Row>
+        <Row k="EPSG">{m.epsg ?? <span className="muted">n/d</span>}</Row>
         <Row k="Centro">
-          {m.center ? `${fmt.coord(m.center.lat, "N", "S")}  ${fmt.coord(m.center.lon, "E", "W")}` : <span className="muted">—</span>}
+          {m.center ? `${fmt.coord(m.center.lat, "N", "S")}  ${fmt.coord(m.center.lon, "E", "W")}` : <span className="muted">n/d</span>}
         </Row>
         <Row k="Formato">
           {m.driver} · {m.dtype ?? "?"}
@@ -29,32 +29,41 @@ export function MetadataCard({ analysis: a }: { analysis: Analysis }) {
         <Row k="Nodata">{m.nodata ?? <span className="muted">No declarado</span>}</Row>
       </dl>
 
-      <table className="bands num">
-        <caption className="caption">Bandas sobre píxeles válidos. En negrita, las que entran al modelo.</caption>
-        <thead>
-          <tr>
-            <th scope="col">#</th>
-            <th scope="col">Descripción</th>
-            <th scope="col">Mín</th>
-            <th scope="col">Máx</th>
-            <th scope="col">Media</th>
-          </tr>
-        </thead>
-        <tbody>
-          {m.bands.map((b) => (
-            <tr key={b.index} className={b.used_by_model ? "used" : ""}>
-              <td>{b.index}</td>
-              <td className="ellipsis" title={[b.description, b.model_band].filter(Boolean).join(" · ")}>
-                {b.description ?? b.model_band ?? <span className="muted">—</span>}
-                {b.description && b.model_band && <span className="muted"> · {b.model_band}</span>}
-              </td>
-              <td>{fmt.num(b.min)}</td>
-              <td>{fmt.num(b.max)}</td>
-              <td>{fmt.num(b.mean)}</td>
+      <div className="table-scroll">
+        <table className="bands num">
+          <caption className="caption">
+            Bandas sobre píxeles válidos. En negrita, las que entran al modelo.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Descripción</th>
+              <th scope="col">Mín</th>
+              <th scope="col">Máx</th>
+              <th scope="col">Media</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {m.bands.map((b) => (
+              <tr key={b.index} className={b.used_by_model ? "used" : ""}>
+                <td>{b.index}</td>
+                <td
+                  className="ellipsis"
+                  title={[b.description, b.model_band].filter(Boolean).join(" · ")}
+                >
+                  {b.description ?? b.model_band ?? <span className="muted">n/d</span>}
+                  {b.description && b.model_band && (
+                    <span className="muted"> · {b.model_band}</span>
+                  )}
+                </td>
+                <td>{fmt.num(b.min)}</td>
+                <td>{fmt.num(b.max)}</td>
+                <td>{fmt.num(b.mean)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {tags.length > 0 && (
         <details className="tags">

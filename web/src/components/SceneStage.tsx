@@ -10,13 +10,26 @@ interface Props {
   analysis: Analysis | null;
   tasks: TaskInfo[];
   busy: boolean;
-  loading?: boolean;
+  onGoHome?: () => void;
 }
 
-export function SceneStage({ analysis, tasks, busy, loading }: Props) {
+const LAYER_HELP: Record<View, string> = {
+  scene: "Satélite con máscara superpuesta.",
+  classes: "Clasificación del modelo (toda el agua o la cicatriz).",
+  change: "Solo agua nueva vs permanente (definición de inundación).",
+  agree: "Acuerdo con producto externo (p. ej. GFM), si hay dato.",
+};
+
+function changeLooksLikeDetected(a: Analysis): boolean {
+  if (!a.change || a.task !== "flood") return false;
+  return a.change.persistent_pixels === 0;
+}
+
+export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
   const { scene, error } = useScene(analysis);
   const [view, setView] = useState<View>("scene");
   const [paint, setPaint] = useState(true);
+  const [layersOpen, setLayersOpen] = useState(true);
   const [hover, setHover] = useState<{ x: number; y: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const size = useFit(box, scene ? scene.w / scene.h : 1, `${analysis?.id}-${busy}`);
@@ -28,15 +41,18 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
 
   useEffect(() => {
     if (!analysis) return;
-    if (analysis.artifacts.change_png) setView("change");
+    // Si no hay agua permanente, inundación ≈ agua detectada: empezamos en «agua»
+    // para que el usuario compare después con la capa de inundación.
+    if (analysis.artifacts.change_png && !changeLooksLikeDetected(analysis)) setView("change");
+    else if (analysis.task === "flood") setView("classes");
     else setView("scene");
   }, [analysis?.id]);
 
   if (busy) {
     return (
-      <main className="stage">
+      <main className="stage stage-map">
         <div className="placeholder scanning">
-          <span>Prithvi recorre la escena en ventanas de 512 × 512</span>
+          <span>Procesando escena · el progreso está en el panel de resumen</span>
         </div>
       </main>
     );
@@ -44,92 +60,104 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
 
   if (!analysis) {
     return (
-      <main className="stage">
+      <main className="stage stage-map">
         <div className="placeholder welcome">
-          {loading ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                width: "60%",
-                padding: "8px 12px",
-                background: "var(--paper)",
-              }}
-            >
-              <Skeleton style={{ height: 12, width: "100%" }} />
-              <Skeleton style={{ height: 12, width: "80%" }} />
-              <Skeleton style={{ height: 12, width: "55%" }} />
-            </div>
-          ) : (
-            <div className="welcome-copy">
-              <p className="welcome-title">Análisis de inundación</p>
-              <p>
-                Sube un GeoTIFF, elige una escena oficial o busca Sentinel-2 por latitud y
-                longitud. Tune detecta agua con Prithvi y calcula inundación como agua nueva
-                frente a una referencia permanente. Si hay producto externo, muestra el acuerdo.
-              </p>
-            </div>
-          )}
+          <div className="welcome-copy">
+            <p className="welcome-title">Sin análisis seleccionado</p>
+            <p>
+              Inicia un análisis desde Inicio o abre una ejecución del historial. El mapa
+              ocupará esta área con las capas de resultado.
+            </p>
+            {onGoHome && (
+              <button type="button" className="primary" onClick={onGoHome}>
+                Ir a Inicio
+              </button>
+            )}
+          </div>
         </div>
       </main>
     );
   }
 
+  const sameMask = changeLooksLikeDetected(analysis);
+
   const classes = tasks.find((t) => t.id === analysis.task)?.classes ?? ["Negativo", "Positivo"];
+  const flood = analysis.task === "flood";
+
+  const layers: { id: View; label: string; available: boolean }[] = [
+    { id: "scene", label: "Imagen satelital", available: true },
+    {
+      id: "classes",
+      label: flood ? "Agua detectada" : "Clases del modelo",
+      available: true,
+    },
+    {
+      id: "change",
+      label: flood ? "Posible inundación" : "Cambio vs referencia",
+      available: Boolean(analysis.artifacts.change_png),
+    },
+    {
+      id: "agree",
+      label: "Comparación externa",
+      available: Boolean(analysis.artifacts.fusion_png),
+    },
+  ];
 
   return (
-    <main className="stage">
+    <main className="stage stage-map">
       <div className="stage-bar">
         <span className="ellipsis" title={analysis.input_filename}>
           {analysis.input_filename}
         </span>
-        <div className="tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "scene"}
-            onClick={() => setView("scene")}
-            title="Satélite con la máscara del modelo encima"
-          >
-            Satélite
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === "classes"}
-            onClick={() => setView("classes")}
-            title="Solo lo que el modelo clasificó (toda el agua o cicatriz)"
-          >
-            {analysis.task === "flood" ? "Agua" : "Clases"}
-          </button>
-          {analysis.artifacts.change_png && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === "change"}
-              onClick={() => setView("change")}
-              title="Agua nueva vs permanente vs retirada (definición de inundación)"
-            >
-              Cambio
-            </button>
-          )}
-          {analysis.artifacts.fusion_png && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === "agree"}
-              onClick={() => setView("agree")}
-              title="Coincidencia con producto operativo (p. ej. GFM)"
-            >
-              Acuerdo
-            </button>
-          )}
-        </div>
+        <span className="muted stage-task">
+          {flood ? "Inundación" : "Cicatriz de incendio"}
+        </span>
       </div>
 
       <div className="stage-body" ref={box}>
-        {error && <p className="muted">{error}</p>}
+        <div className={`float-panel layers-panel${layersOpen ? "" : " collapsed"}`}>
+          <button
+            type="button"
+            className="float-panel-toggle"
+            aria-expanded={layersOpen}
+            onClick={() => setLayersOpen((o) => !o)}
+          >
+            Capas
+          </button>
+          {layersOpen && (
+            <div className="layers-body" role="radiogroup" aria-label="Capas del mapa">
+              {layers.map((layer) =>
+                layer.available ? (
+                  <button
+                    key={layer.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={view === layer.id}
+                    className={`layer-opt${view === layer.id ? " on" : ""}`}
+                    title={LAYER_HELP[layer.id]}
+                    onClick={() => setView(layer.id)}
+                  >
+                    <span className="layer-radio" aria-hidden="true" />
+                    <span>
+                      <span className="layer-name">{layer.label}</span>
+                      <span className="layer-hint">{LAYER_HELP[layer.id]}</span>
+                    </span>
+                  </button>
+                ) : null,
+              )}
+              <label className="check layer-paint">
+                <input
+                  type="checkbox"
+                  checked={paint}
+                  onChange={(e) => setPaint(e.target.checked)}
+                />
+                Pintar máscara
+              </label>
+            </div>
+          )}
+        </div>
+
+        {error && <p className="muted stage-error">{error}</p>}
         {!scene && !error && <Skeleton className="canvas-skel" />}
         {scene && size && (
           <figure className="plate" style={{ width: size.w + 44 }}>
@@ -174,23 +202,27 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
             <>
               <span>
                 <i className="swatch tune-only" />
-                Nueva (= inundación)
+                {flood ? (sameMask ? "Nueva (≈ toda el agua)" : "Nueva = inundación") : "Nueva"}
               </span>
-              <span>
-                <i className="swatch persistent" />
-                Permanente
-              </span>
-              <span>
-                <i className="swatch receded" />
-                Retirada
-              </span>
+              {!sameMask && (
+                <span>
+                  <i className="swatch persistent" />
+                  Permanente
+                </span>
+              )}
+              {!sameMask && (
+                <span>
+                  <i className="swatch receded" />
+                  Retirada
+                </span>
+              )}
             </>
           ) : (
             <>
               <span>
                 <i className="swatch ink" />
                 {classes[1]}
-                {view === "classes" && analysis.task === "flood" ? " (modelo)" : ""}
+                {view === "classes" && flood ? " (modelo)" : ""}
               </span>
               <span>
                 <i className="swatch clear" />
@@ -203,20 +235,13 @@ export function SceneStage({ analysis, tasks, busy, loading }: Props) {
             </>
           )}
         </div>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={paint}
-            onChange={(e) => setPaint(e.target.checked)}
-          />
-          Pintar
-        </label>
         <Readout analysis={analysis} scene={scene} hover={hover} classes={classes} view={view} />
       </div>
-      {view === "change" && analysis.change && analysis.change.persistent_pixels === 0 && (
+      {sameMask && (
         <p className="caption stage-note">
-          No hay píxeles permanentes en la referencia: el rojo es toda el agua nueva. Usa la
-          pestaña Agua para ver la máscara completa del modelo.
+          En esta escena no hay agua permanente en la referencia, así que{" "}
+          <strong>posible inundación</strong> y <strong>agua detectada</strong> cubren la misma
+          zona (misma forma, distinto significado). Cambia de capa para comparar la presentación.
         </p>
       )}
     </main>
@@ -282,7 +307,7 @@ function Painting({
           ctx.globalAlpha = 1;
         }
         if (p < 1) {
-          ctx.fillStyle = "#111111";
+          ctx.fillStyle = "#2563eb";
           ctx.fillRect(0, rows, scene.w, Math.max(1, scene.h / 256));
         }
       }
