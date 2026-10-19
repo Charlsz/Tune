@@ -16,6 +16,37 @@ make app-down    # apaga todo
 - Web: http://localhost:8080
 - API: http://localhost:8000/docs
 
-Documentación: empieza por [docs/GuiaDeUso.md](./docs/GuiaDeUso.md). También [Instalación](./docs/Instalación.md), [Segundo informe](./docs/SegundoInforme.md) y [arquitectura](./docs/architecture/v2.md).
+### Docker Compose
+
+Desde la raíz del repo, con `.env` ya creado:
+
+```bash
+docker compose up -d --build    # construye tune-eo-api y tune-web, y los levanta
+docker compose logs -f eo-api   # logs de la API
+docker compose down             # apaga y borra contenedores
+```
+
+`down` conserva el volumen `hf-cache` (pesos de Hugging Face, ~1,2 GB la primera vez) y la carpeta `artifacts/`.
+
+Esto no ejecuta la comprobación de la imagen base que hace `make app-up` (`pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime`). Compose la baja igual como primera capa del Dockerfile.
+
+## Documentación
+
+| Documento | Qué es |
+|---|---|
+| [docs/GuiaDeUso.md](./docs/GuiaDeUso.md) | Empezar con Guia de uso |
+| [docs/SegundoInforme.md](./docs/SegundoInforme.md) | Segundo informe (avance actual) |
+| [docs/PrimerInforme.md](./docs/PrimerInforme.md) | Planteamiento original (**congelado 2026-08-29**) |
+| [docs/Instalación.md](./docs/Instalación.md) | Cómo instalar y levantar la app |
+| [docs/Desarrollo.md](./docs/Desarrollo.md) | Cómo tocar el código |
+| [docs/decisions/](./docs/decisions/) | ADRs |
+| [lab/README.md](./lab/README.md) | Fine-tuning (secundario) |
+
+## Estudiantes
+
+| Nombre | GitHub |
+|---|---|
+| Carlos Andrés Galvis Pájaro | [@Charlsz](https://github.com/Charlsz) |
+| Zenen Contreras Royero | [@zenencontreras](https://github.com/zenencontreras) |
 
 Repo: https://github.com/Charlsz/Tune
