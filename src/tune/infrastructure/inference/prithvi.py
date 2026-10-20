@@ -472,9 +472,11 @@ def sliding_window_predict(x: np.ndarray, model, datamodule, img_size: int, temp
         # Oficiales: test_transform → aug(dict) → model. Sin unsqueeze intermedio.
         sample = datamodule.test_transform(image=win.squeeze().numpy().transpose(1, 2, 0))
         img = datamodule.aug(sample)["image"].to(device)
-        out = model(
-            img, temporal_coords=temporal_coords, location_coords=location_coords
-        ).output.detach().cpu()
+        out = (
+            model(img, temporal_coords=temporal_coords, location_coords=location_coords)
+            .output.detach()
+            .cpu()
+        )
         y_hat = out.argmax(dim=1)
         y_hat = torch.nn.functional.interpolate(
             y_hat.unsqueeze(1).float(), size=img_size, mode="nearest"

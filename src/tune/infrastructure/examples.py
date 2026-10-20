@@ -204,8 +204,7 @@ def fetch(
     try:
         with urlopen(req, timeout=180) as resp, tmp.open("wb") as fh:
             total = int(
-                resp.headers.get("Content-Length")
-                or (remote.content_length or scene.size_bytes)
+                resp.headers.get("Content-Length") or (remote.content_length or scene.size_bytes)
             )
             etag = (resp.headers.get("ETag") or remote.etag or "").strip() or None
             last_mod = resp.headers.get("Last-Modified") or remote.last_modified
