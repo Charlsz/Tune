@@ -92,15 +92,16 @@ export function DocsScreen() {
             </ul>
             <p>
               En cuanto hay un punto válido, Tune consulta el catálogo y lista escenas cercanas. Cada
-              fila muestra la fecha y el porcentaje de nubes de <strong>toda la escena</strong>{" "}
-              Sentinel-2 (aprox. 100 km). Ese valor no es el de tu recorte local: al analizar se mide
-              la nubosidad real del recorte. Si supera «Nubes máx.», Tune te dirá cuánto subir el
-              filtro o te pedirá otra fecha.
+              fila puede mostrar miniatura, fecha y el porcentaje de nubes de{" "}
+              <strong>toda la escena</strong> Sentinel-2 (aprox. 100 km). Ese valor no es el de tu
+              recorte local: al analizar se mide la nubosidad real del recorte. Si supera «Nubes
+              máx.», Tune te dirá cuánto subir el filtro o te pedirá otra fecha.
             </p>
             <p>
-              Los filtros (fechas, nubes máximas y tamaño del recorte en kilómetros) están junto a la
-              lista. Si cambias un filtro, pulsa <strong>Actualizar lista</strong>. Un recorte más
-              pequeño suele ser más rápido.
+              El catálogo Earth Search es Sentinel-2 L2A y solo alimenta <strong>inundación</strong>.
+              Para cicatriz de incendio usa GeoTIFF HLS o un ejemplo Burn Scars. El recorte máximo lo
+              fija el servidor (por defecto 30 km). Solo corre un análisis a la vez. Los filtros se
+              refrescan solos al cambiarlos; también puedes pulsar <strong>Actualizar lista</strong>.
             </p>
           </section>
 

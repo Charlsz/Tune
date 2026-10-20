@@ -1,6 +1,19 @@
 import { affectedKm2, crsLabel, fmt, TASK_META } from "../lib/insights";
-import type { Analysis, Place, TaskInfo } from "../types";
+import type { Analysis, PipelineLayerStatus, Place, TaskInfo } from "../types";
 import { MetadataCard } from "./MetadataCard";
+
+const PIPELINE_LABEL: Record<string, string> = {
+  reference: "Referencia (JRC / historial)",
+  observation: "Observación externa (GFM)",
+  exposure: "Exposición (WorldCover / GHSL)",
+};
+
+const STATUS_COPY: Record<PipelineLayerStatus, string> = {
+  ok: "disponible",
+  empty: "sin capa para este recorte",
+  error: "falló la descarga o el cálculo",
+  skipped: "desactivado en esta instalación",
+};
 
 interface Props {
   analysis: Analysis;
@@ -45,6 +58,7 @@ export function StatsCard({ analysis: a, tasks, onClose, compact = false }: Prop
 
   const extSources =
     a.fusion?.sources.filter((s) => s !== "prithvi").join(", ") || "producto externo";
+  const pipeline = (a.metadata as { pipeline?: Record<string, PipelineLayerStatus> }).pipeline;
 
   return (
     <div className={`result${compact ? " result-compact" : ""}`}>
@@ -120,9 +134,28 @@ export function StatsCard({ analysis: a, tasks, onClose, compact = false }: Prop
 
       {!hasChange && flood && (
         <p className="callout warn">
-          No hay referencia histórica de agua permanente para esta escena. Se muestra el agua
-          detectada por el modelo, no una estimación de inundación.
+          No hay referencia histórica de agua permanente para esta escena
+          {pipeline?.reference === "error"
+            ? " (la capa JRC/historial no respondió)"
+            : pipeline?.reference === "empty"
+              ? " (no hubo máscara permanente en el recorte)"
+              : ""}
+          . Se muestra el agua detectada por el modelo, no una estimación de inundación.
         </p>
+      )}
+
+      {pipeline && (
+        <ul className="pipeline-status" aria-label="Estado de capas auxiliares">
+          {(["reference", "observation", "exposure"] as const).map((key) => {
+            const st = pipeline[key] ?? "skipped";
+            return (
+              <li key={key} className={`pipeline-pill ${st}`}>
+                <span>{PIPELINE_LABEL[key]}</span>
+                <span className="num">{STATUS_COPY[st]}</span>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       <details className="detail" open={!compact}>

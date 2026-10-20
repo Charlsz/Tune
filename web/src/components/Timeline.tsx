@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { fmt, TASK_META } from "../lib/insights";
-import type { Analysis, Place, TaskId } from "../types";
+import type { Analysis, Place, SeriesPoint, TaskId } from "../types";
 import { Skeleton } from "./Skeleton";
 
 type Filter = "all" | TaskId;
@@ -15,9 +15,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 const SKEL_HEIGHTS = [48, 72, 36, 60];
 
 /**
- * Historial de corridas en el mismo lugar geográfico.
- * Sirve para comparar fechas cuando hay más de un análisis (serie temporal).
- * Con una sola corrida solo explica el concepto; no es un filtro de la máscara actual.
+ * Historial de corridas en el mismo lugar + serie de km² (API /timeline/series).
  */
 export function Timeline({
   analysis,
@@ -29,26 +27,33 @@ export function Timeline({
   onSelect: (a: Analysis) => void;
 }) {
   const [items, setItems] = useState<Analysis[] | null>(null);
+  const [series, setSeries] = useState<SeriesPoint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
     if (!place && !analysis?.bounds) return;
     setItems(null);
+    setSeries(null);
     setError(null);
-    const query = place
+    const base = place
       ? { lat: place.lat, lon: place.lon }
       : { analysisId: analysis!.id };
-    api
-      .timeline(query)
-      .then(setItems)
+    const seriesQuery =
+      filter === "all" ? base : { ...base, task: filter as TaskId };
+    Promise.all([api.timeline(base), api.timelineSeries(seriesQuery)])
+      .then(([list, pts]) => {
+        setItems(list);
+        setSeries(pts);
+      })
       .catch((e: Error) => setError(e.message));
-  }, [place, analysis]);
+  }, [place, analysis, filter]);
 
   const shown = (items ?? []).filter((a) => filter === "all" || a.task === filter);
-  const taskVariety =
-    items != null && new Set(items.map((a) => a.task)).size > 1;
+  const taskVariety = items != null && new Set(items.map((a) => a.task)).size > 1;
   const showFilters = (items?.length ?? 0) > 1 && taskVariety;
+
+  const chart = useMemo(() => buildSparkline(series), [series]);
 
   return (
     <section className="timeline" aria-label="Historial del lugar">
@@ -81,6 +86,41 @@ export function Timeline({
         <p className="caption">Esta escena no tiene coordenadas, así que no se puede agrupar.</p>
       )}
       {error && <p className="caption">{error}</p>}
+
+      {chart && chart.points.length > 1 && (
+        <div className="timeline-series" aria-label="Serie de km²">
+          <p className="caption">
+            Tendencia de{" "}
+            {chart.usesNew ? "posible inundación (agua nueva)" : "área afectada"} en el
+            territorio
+          </p>
+          <svg
+            className="series-chart"
+            viewBox={`0 0 ${chart.w} ${chart.h}`}
+            role="img"
+            aria-label={chart.label}
+          >
+            <polyline
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              points={chart.points.map((p) => `${p.x},${p.y}`).join(" ")}
+            />
+            {chart.points.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y} r="3" fill="currentColor" />
+            ))}
+          </svg>
+          <div className="series-axis caption num">
+            <span>{chart.firstDate}</span>
+            <span>
+              máx. {fmt.km2(chart.maxKm2)} km²
+            </span>
+            <span>{chart.lastDate}</span>
+          </div>
+        </div>
+      )}
 
       {(place || analysis?.bounds) && items === null && !error && (
         <ol className="marks" aria-busy="true" aria-label="Cargando historial">
@@ -157,4 +197,28 @@ export function Timeline({
       )}
     </section>
   );
+}
+
+function buildSparkline(series: SeriesPoint[] | null) {
+  if (!series || series.length < 2) return null;
+  const usesNew = series.some((p) => p.new_km2 != null);
+  const values = series.map((p) => (usesNew ? p.new_km2 : p.affected_km2) ?? 0);
+  const maxKm2 = Math.max(...values, 1e-6);
+  const w = 280;
+  const h = 56;
+  const pad = 6;
+  const points = values.map((v, i) => ({
+    x: pad + (i / (values.length - 1)) * (w - pad * 2),
+    y: h - pad - (v / maxKm2) * (h - pad * 2),
+  }));
+  return {
+    w,
+    h,
+    points,
+    maxKm2,
+    usesNew,
+    firstDate: series[0].date,
+    lastDate: series[series.length - 1].date,
+    label: `Serie de ${values.length} puntos, máximo ${maxKm2.toFixed(2)} km²`,
+  };
 }

@@ -154,10 +154,16 @@ export function HomeScreen({
         </p>
 
         <section className="home-block">
-          <h2>1 · Ubicación y escenas Sentinel-2</h2>
+          <h2>
+            1 ·{" "}
+            {task === "flood"
+              ? "Ubicación y escenas Sentinel-2"
+              : "Ubicación (catálogo solo para inundación)"}
+          </h2>
           <p className="caption">
-            Indica un punto, revisa la lista de escenas y pulsa Analizar. El progreso detallado
-            aparece en la vista Análisis.
+            {task === "flood"
+              ? "Indica un punto, revisa la lista de escenas y pulsa Analizar. El progreso (bandas e inferencia) aparece en la vista Análisis."
+              : "Puedes fijar un punto para el historial del lugar. El análisis de incendio se hace con GeoTIFF HLS o un ejemplo oficial."}
           </p>
           <LocationCatalog
             place={place}

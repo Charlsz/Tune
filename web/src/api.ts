@@ -1,4 +1,14 @@
-import type { Analysis, CatalogScene, ExampleScene, Place, TaskId, TaskInfo } from "./types";
+import type {
+  Analysis,
+  CatalogLimits,
+  CatalogScene,
+  ExampleScene,
+  Place,
+  SeriesPoint,
+  TaskId,
+  TaskInfo,
+} from "./types";
+import { readAnalyzeNdjson } from "./lib/ndjsonAnalyze";
 
 function detailOf(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail ?? fallback;
@@ -42,11 +52,20 @@ export const api = {
     if (q.task) p.set("task", q.task);
     return fetch(`/api/timeline?${p}`).then(json<Analysis[]>);
   },
+  timelineSeries(q: { analysisId?: string; lat?: number; lon?: number; task?: TaskId }) {
+    const p = new URLSearchParams();
+    if (q.analysisId) p.set("analysis_id", q.analysisId);
+    if (q.lat != null) p.set("lat", String(q.lat));
+    if (q.lon != null) p.set("lon", String(q.lon));
+    if (q.task) p.set("task", q.task);
+    return fetch(`/api/timeline/series?${p}`).then(json<SeriesPoint[]>);
+  },
   async remove(id: string) {
     const res = await fetch(`/api/analyses/${id}`, { method: "DELETE" });
     if (res.status === 204) return;
     await json(res);
   },
+  catalogLimits: () => fetch("/api/catalog/limits").then(json<CatalogLimits>),
   catalogSearch(
     q: {
       lat: number;
@@ -90,13 +109,40 @@ export const api = {
     body.append("lon", String(place.lon));
     body.append("side_km", String(sideKm));
     body.append("max_cloud", String(maxCloud));
-    // Una sola petición servidor = descarga de bandas + inferencia (sin % fino).
-    onPhase?.({ phase: "fetch", loaded: 0, total: 1, refreshed: true });
-    const res = await fetch(`/api/catalog/${encodeURIComponent(itemId)}/analyze`, {
-      method: "POST",
-      body,
+    const res = await fetch(
+      `/api/catalog/${encodeURIComponent(itemId)}/analyze?stream=true`,
+      {
+        method: "POST",
+        body,
+        headers: { Accept: "application/x-ndjson" },
+      },
+    );
+    if (!res.ok) {
+      let errBody: unknown = null;
+      try {
+        errBody = await res.json();
+      } catch {
+        /* ignore */
+      }
+      throw new Error(detailOf(errBody, res.statusText));
+    }
+    if (!res.body) throw new Error("La API no envió progreso de descarga");
+
+    return readAnalyzeNdjson(res.body, (event) => {
+      if (event.phase === "download") {
+        onPhase?.({
+          phase: "fetch",
+          loaded: event.loaded ?? 0,
+          total: Math.max(event.total ?? 1, 1),
+          refreshed: true,
+        });
+      } else if (event.phase === "infer") {
+        onPhase?.({
+          phase: "infer",
+          detail: "Bandas listas. Ejecutando el modelo…",
+        });
+      }
     });
-    return json<Analysis>(res);
   },
   examples: () => fetch("/api/examples").then(json<ExampleScene[]>),
 
@@ -117,50 +163,20 @@ export const api = {
     }
     if (!res.body) throw new Error("La API no envió progreso de descarga");
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let analysis: Analysis | null = null;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const event = JSON.parse(trimmed) as {
-          phase: string;
-          loaded?: number;
-          total?: number;
-          refreshed?: boolean;
-          stale?: boolean;
-          analysis?: Analysis;
-          detail?: string;
-        };
-        if (event.phase === "check") {
-          onPhase({ phase: "check", stale: event.stale });
-        } else if (event.phase === "download") {
-          onPhase({
-            phase: "fetch",
-            loaded: event.loaded ?? 0,
-            total: Math.max(event.total ?? 1, 1),
-            refreshed: event.refreshed,
-          });
-        } else if (event.phase === "infer") {
-          onPhase({ phase: "infer" });
-        } else if (event.phase === "done" && event.analysis) {
-          analysis = event.analysis;
-        } else if (event.phase === "error") {
-          throw new Error(event.detail ?? "Error al analizar la escena oficial");
-        }
+    return readAnalyzeNdjson(res.body, (event) => {
+      if (event.phase === "check") {
+        onPhase({ phase: "check", stale: event.stale });
+      } else if (event.phase === "download") {
+        onPhase({
+          phase: "fetch",
+          loaded: event.loaded ?? 0,
+          total: Math.max(event.total ?? 1, 1),
+          refreshed: event.refreshed,
+        });
+      } else if (event.phase === "infer") {
+        onPhase({ phase: "infer" });
       }
-    }
-
-    if (!analysis) throw new Error("La corrida terminó sin resultado");
-    return analysis;
+    });
   },
 
   analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
@@ -189,7 +205,8 @@ export const api = {
         if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Analysis);
         else reject(new Error(detailOf(xhr.response, `HTTP ${xhr.status}`)));
       };
-      xhr.onerror = () => reject(new Error("Sin conexión con el servicio. Comprueba que Tune esté en marcha."));
+      xhr.onerror = () =>
+        reject(new Error("Sin conexión con el servicio. Comprueba que Tune esté en marcha."));
       xhr.send(body);
     });
   },

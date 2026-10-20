@@ -9,6 +9,8 @@ const PRESETS: { label: string; place: Place; hint: string }[] = [
   { label: "Sindh (PK)", place: { lat: 27.7, lon: 68.85 }, hint: "evento 2022" },
 ];
 
+const DEFAULT_MAX_KM = 30;
+
 type GeoHit = { label: string; lat: number; lon: number };
 
 function monthAgoIso(): string {
@@ -28,7 +30,7 @@ function parseCoords(raw: string): Place | null {
   return { lat, lon };
 }
 
-/** Ubicación (nombre o coordenadas) + catálogo Sentinel-2. */
+/** Ubicación (nombre o coordenadas) + catálogo Sentinel-2 (solo inundación). */
 export function LocationCatalog({
   place,
   busy,
@@ -48,6 +50,7 @@ export function LocationCatalog({
     maxCloud: number,
   ) => void;
 }) {
+  const catalogOk = task === "flood";
   const [text, setText] = useState("");
   const [coordError, setCoordError] = useState<string | null>(null);
   const [geoHits, setGeoHits] = useState<GeoHit[]>([]);
@@ -56,12 +59,31 @@ export function LocationCatalog({
   const [end, setEnd] = useState(todayIso);
   const [maxCloud, setMaxCloud] = useState(40);
   const [sideKm, setSideKm] = useState(20);
+  const [maxSideKm, setMaxSideKm] = useState(DEFAULT_MAX_KM);
   const [scenes, setScenes] = useState<CatalogScene[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const geoAbort = useRef<AbortController | null>(null);
   const placeKey = place ? `${place.lat},${place.lon}` : "";
+  const filterKey = `${start}|${end}|${maxCloud}|${sideKm}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .catalogLimits()
+      .then((lim) => {
+        if (cancelled) return;
+        setMaxSideKm(lim.max_side_km);
+        setSideKm((prev) => Math.min(prev, lim.max_side_km));
+      })
+      .catch(() => {
+        /* fallback DEFAULT_MAX_KM */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function applyPlace(next: Place, label?: string) {
     setText(label ?? `${next.lat}, ${next.lon}`);
@@ -118,6 +140,7 @@ export function LocationCatalog({
   }
 
   async function runSearch(at: Place) {
+    if (!catalogOk) return;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -131,7 +154,7 @@ export function LocationCatalog({
           start,
           end,
           maxCloud,
-          sideKm,
+          sideKm: Math.min(sideKm, maxSideKm),
         },
         ac.signal,
       );
@@ -152,17 +175,20 @@ export function LocationCatalog({
   }
 
   useEffect(() => {
-    if (!place) {
+    if (!place || !catalogOk) {
       setScenes(null);
       setSearchError(null);
       setLoading(false);
       abortRef.current?.abort();
       return;
     }
-    void runSearch(place);
-    return () => abortRef.current?.abort();
+    const t = window.setTimeout(() => void runSearch(place), 350);
+    return () => {
+      window.clearTimeout(t);
+      abortRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeKey]);
+  }, [placeKey, filterKey, catalogOk, maxSideKm]);
 
   return (
     <div className="location-catalog">
@@ -230,14 +256,21 @@ export function LocationCatalog({
         )}
       </form>
 
-      {!place && (
+      {!catalogOk && (
+        <p className="callout warn catalog-task-note">
+          El catálogo Earth Search es Sentinel-2 L2A y alimenta <strong>inundación</strong>. Para
+          cicatriz de incendio usa un GeoTIFF HLS o una escena de ejemplo Burn Scars más abajo.
+        </p>
+      )}
+
+      {catalogOk && !place && (
         <p className="caption location-hint">
           Busca por nombre de ciudad o región, por coordenadas, o usa un atajo. Luego elige una
           escena Sentinel-2 de la lista.
         </p>
       )}
 
-      {place && (
+      {catalogOk && place && (
         <>
           <div className="catalog-filters-inline">
             <label className="field">
@@ -274,10 +307,12 @@ export function LocationCatalog({
               <input
                 type="number"
                 min={1}
-                max={50}
+                max={maxSideKm}
                 value={sideKm}
                 disabled={busy || loading}
-                onChange={(e) => setSideKm(Number(e.target.value))}
+                onChange={(e) =>
+                  setSideKm(Math.min(maxSideKm, Math.max(1, Number(e.target.value) || 1)))
+                }
               />
             </label>
             <button
@@ -291,9 +326,8 @@ export function LocationCatalog({
           </div>
 
           <p className="caption cloud-note">
-            El % de nubes de cada fila es de toda la escena Sentinel-2 (~100 km). Al analizar se
-            comprueba la nubosidad real de tu recorte; si supera «Nubes máx.», se te pedirá subirla o
-            cambiar de fecha.
+            Recorte máx. {maxSideKm} km. El % de nubes de cada fila es de toda la escena (~100 km);
+            al analizar se comprueba la nubosidad real de tu recorte.
           </p>
 
           {loading && <p className="caption">Consultando catálogo Sentinel-2…</p>}
@@ -307,6 +341,18 @@ export function LocationCatalog({
               <ul className="catalog-list">
                 {scenes.map((s) => (
                   <li key={s.id}>
+                    {s.thumbnail ? (
+                      <img
+                        className="catalog-thumb"
+                        src={s.thumbnail}
+                        alt=""
+                        loading="lazy"
+                        width={56}
+                        height={56}
+                      />
+                    ) : (
+                      <span className="catalog-thumb catalog-thumb-empty" aria-hidden />
+                    )}
                     <div className="catalog-meta">
                       <span className="num">{s.datetime.slice(0, 10)}</span>
                       <span className="caption">
@@ -317,7 +363,9 @@ export function LocationCatalog({
                       type="button"
                       className="primary"
                       disabled={busy}
-                      onClick={() => onAnalyze(s.id, task, place, sideKm, maxCloud)}
+                      onClick={() =>
+                        onAnalyze(s.id, task, place, Math.min(sideKm, maxSideKm), maxCloud)
+                      }
                     >
                       Analizar
                     </button>

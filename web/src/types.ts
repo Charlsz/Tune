@@ -15,6 +15,30 @@ export interface CatalogScene {
   thumbnail: string | null;
 }
 
+export interface CatalogLimits {
+  max_side_km: number;
+  tasks: TaskId[];
+  collection: string;
+  note: string;
+}
+
+export interface SeriesPoint {
+  date: string;
+  analysis_id: string;
+  affected_km2: number | null;
+  new_km2: number | null;
+  persistent_km2: number | null;
+  receded_km2: number | null;
+}
+
+export type PipelineLayerStatus = "ok" | "empty" | "error" | "skipped";
+
+export interface PipelineStatus {
+  reference: PipelineLayerStatus;
+  observation: PipelineLayerStatus;
+  exposure: PipelineLayerStatus;
+}
+
 export interface TaskInfo {
   id: TaskId;
   label: string;
@@ -57,7 +81,7 @@ export interface Analysis {
   latency_s: number;
   artifacts: Record<string, string>;
   acquired_at: string | null;
-  metadata: RasterMetadata | Record<string, never>;
+  metadata: (RasterMetadata & { pipeline?: PipelineStatus }) | Record<string, never>;
   change: ChangeSummary | null;
   fusion: FusionSummary | null;
   exposure: ExposureSummary | null;
