@@ -63,11 +63,19 @@ class AnalyzeUseCase:
         )
         layers = None
         change = None
+        # ok | empty | error | skipped — la UI explica por qué falta change/fusion/exposure.
+        pipeline: dict[str, str] = {
+            "reference": "skipped",
+            "observation": "skipped",
+            "exposure": "skipped",
+        }
         if self.reference is not None:
             try:
                 change, layers = self._against_reference(task, output)
+                pipeline["reference"] = "ok" if change is not None else "empty"
             except Exception as exc:
                 log.warning("Referencia no disponible: %s", exc)
+                pipeline["reference"] = "error"
         if change is not None:
             analysis = replace(analysis, change=change)
 
@@ -76,8 +84,10 @@ class AnalyzeUseCase:
         if self.observation is not None:
             try:
                 fusion, fused = self._against_observation(task, output)
+                pipeline["observation"] = "ok" if fusion is not None else "empty"
             except Exception as exc:
                 log.warning("Observación externa no disponible: %s", exc)
+                pipeline["observation"] = "error"
         if fusion is not None:
             analysis = replace(analysis, fusion=fusion)
 
@@ -87,9 +97,17 @@ class AnalyzeUseCase:
                 exposure = self._exposure(output, new_mask)
                 if exposure is not None:
                     analysis = replace(analysis, exposure=exposure)
+                    pipeline["exposure"] = "ok"
+                else:
+                    pipeline["exposure"] = "empty"
             except Exception as exc:
                 log.warning("Exposición no disponible: %s", exc)
+                pipeline["exposure"] = "error"
 
+        analysis = replace(
+            analysis,
+            metadata={**dict(analysis.metadata or {}), "pipeline": pipeline},
+        )
         return self.analyses.save(
             analysis, output, geotiff, change_layers=layers, fusion_layers=fused
         )

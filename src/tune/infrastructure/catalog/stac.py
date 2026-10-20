@@ -89,11 +89,14 @@ class StacCatalog:
         dest: Path,
         *,
         max_cloud: float = 40.0,
+        on_progress=None,
     ) -> Path:
         """Escribe un GeoTIFF de 6 bandas a 20 m con nodata en nubes.
 
         ``eo:cloud_cover`` del catálogo es de toda la escena (~100 km). Aquí se mide
         la nubosidad SCL solo en el recorte pedido; por eso puede diferir del % de la lista.
+
+        ``on_progress(loaded, total)`` se llama al terminar cada banda + SCL (total=7).
         """
         client = self._client()
         results = list(client.search(collections=[COLLECTION], ids=[item_id], max_items=1).items())
@@ -107,10 +110,11 @@ class StacCatalog:
         apply_offset = acquired >= OFFSET_CUTOFF
         tile_cloud = float(props.get("eo:cloud_cover", -1))
 
+        total_steps = len(BAND_KEYS) + 1  # 6 bandas + SCL
         arrays = []
         transform = None
         crs = None
-        for key in BAND_KEYS:
+        for i, key in enumerate(BAND_KEYS):
             asset = item.assets.get(key)
             if asset is None:
                 raise CatalogError(f"La escena no trae la banda {key}")
@@ -121,11 +125,15 @@ class StacCatalog:
             arrays.append(data)
             transform = tf
             crs = band_crs
+            if on_progress is not None:
+                on_progress(i + 1, total_steps)
 
         scl_asset = item.assets.get("scl")
         if scl_asset is None:
             raise CatalogError("La escena no trae SCL")
         scl, _, _ = self._read_window(scl_asset.href, bbox, TARGET_RES_M)
+        if on_progress is not None:
+            on_progress(total_steps, total_steps)
         h = min(a.shape[0] for a in arrays + [scl])
         w = min(a.shape[1] for a in arrays + [scl])
         stack = np.stack([a[:h, :w] for a in arrays], axis=0)

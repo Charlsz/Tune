@@ -6,6 +6,8 @@ import asyncio
 import json
 import logging
 import tempfile
+import threading
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -52,6 +54,31 @@ log = logging.getLogger(__name__)
 _MAX_UPLOAD_MB = 200
 _MAX_UPLOAD_BYTES = _MAX_UPLOAD_MB * 1024 * 1024
 _CHUNK = 1024 * 1024
+
+# Un análisis a la vez (informe 2): evita OOM al cargar dos ventanas Prithvi en paralelo.
+# No es cola de trabajos; solo un candado de exclusión mutua.
+_infer_sem = threading.Semaphore(1)
+
+
+@contextmanager
+def _inference_slot():
+    if not _infer_sem.acquire(blocking=False):
+        raise HTTPException(
+            503,
+            "Hay un análisis en curso. Espera a que termine e inténtalo de nuevo.",
+        )
+    try:
+        yield
+    finally:
+        _infer_sem.release()
+
+
+def inference_busy() -> bool:
+    """True si otro request ya ocupa el slot de inferencia."""
+    busy = not _infer_sem.acquire(blocking=False)
+    if not busy:
+        _infer_sem.release()
+    return busy
 
 
 @lru_cache
@@ -139,10 +166,11 @@ async def analyze_example(
 
     if not stream:
         try:
-            path, _refreshed = await run_in_threadpool(fetch, scene, dest_dir)
-            analysis = await run_in_threadpool(
-                use_case.execute, path, HazardTask(scene.task), filename=scene.filename
-            )
+            with _inference_slot():
+                path, _refreshed = await run_in_threadpool(fetch, scene, dest_dir)
+                analysis = await run_in_threadpool(
+                    use_case.execute, path, HazardTask(scene.task), filename=scene.filename
+                )
         except HTTPException:
             raise
         except Exception as exc:
@@ -166,7 +194,14 @@ def _example_stream(scene, dest_dir: Path, use_case: AnalyzeUseCase) -> Streamin
             )
 
         def work() -> None:
+            claimed = False
             try:
+                if not _infer_sem.acquire(blocking=False):
+                    raise HTTPException(
+                        503,
+                        "Hay un análisis en curso. Espera a que termine e inténtalo de nuevo.",
+                    )
+                claimed = True
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
                     {
@@ -192,12 +227,16 @@ def _example_stream(scene, dest_dir: Path, use_case: AnalyzeUseCase) -> Streamin
                     {"phase": "done", "analysis": payload, "refreshed": refreshed},
                 )
             except Exception as exc:  # noqa: BLE001 — se serializa al cliente
-                http = _http_for(exc)
+                http = _http_for(exc) if not isinstance(exc, HTTPException) else exc
+                detail = http.detail if isinstance(http, HTTPException) else str(exc)
+                status = http.status_code if isinstance(http, HTTPException) else 500
                 loop.call_soon_threadsafe(
                     queue.put_nowait,
-                    {"phase": "error", "detail": http.detail, "status": http.status_code},
+                    {"phase": "error", "detail": detail, "status": status},
                 )
             finally:
+                if claimed:
+                    _infer_sem.release()
                 loop.call_soon_threadsafe(queue.put_nowait, None)
 
         task = asyncio.create_task(asyncio.to_thread(work))
@@ -252,8 +291,13 @@ async def analyze(
                     raise HTTPException(413, f"Archivo mayor a {_MAX_UPLOAD_MB} MB")
                 fh.write(chunk)
         try:
-            await run_in_threadpool(_validate_geotiff_bands, dest, task)
-            analysis = await run_in_threadpool(use_case.execute, dest, task, filename=file.filename)
+            with _inference_slot():
+                await run_in_threadpool(_validate_geotiff_bands, dest, task)
+                analysis = await run_in_threadpool(
+                    use_case.execute, dest, task, filename=file.filename
+                )
+        except HTTPException:
+            raise
         except Exception as exc:
             raise _http_for(exc) from exc
     return AnalysisResponse.from_domain(analysis)
@@ -280,13 +324,10 @@ def _validate_geotiff_bands(path: Path, task: HazardTask) -> None:
         return
     if card.wide_input_indices and n > max(card.wide_input_indices):
         return
-    need = (
-        f"{PRITHVI_BANDS} bandas Prithvi"
-        + (
-            f" o un Sentinel-2 L1C con más de {max(card.wide_input_indices)} bandas"
-            if card.wide_input_indices
-            else ""
-        )
+    need = f"{PRITHVI_BANDS} bandas Prithvi" + (
+        f" o un Sentinel-2 L1C con más de {max(card.wide_input_indices)} bandas"
+        if card.wide_input_indices
+        else ""
     )
     raise ValueError(f"El raster tiene {n} bandas; se esperan {need}.")
 
@@ -702,7 +743,12 @@ def catalog_search(
     start: str = Query(description="YYYY-MM-DD"),
     end: str = Query(description="YYYY-MM-DD"),
     max_cloud: float = Query(40.0, ge=0, le=100),
-    side_km: float = Query(20.0, ge=1, le=50),
+    side_km: float = Query(
+        20.0,
+        ge=1,
+        le=50,
+        description="Lado del recorte en km; tope efectivo en GET /api/catalog/limits",
+    ),
     catalog=Depends(get_catalog),
 ) -> list[CatalogSceneSchema]:
     """Lista escenas L2A de Earth Search alrededor del punto, sin descargar bandas."""
@@ -724,40 +770,147 @@ def catalog_search(
     ]
 
 
+@router.get(
+    "/catalog/limits",
+    summary="Límites del catálogo Sentinel-2",
+)
+def catalog_limits() -> dict:
+    """Máximo de km de recorte y tareas admitidas en el catálogo Earth Search."""
+    return {
+        "max_side_km": get_settings().tune_catalog_max_km,
+        "tasks": ["flood"],
+        "collection": "sentinel-2-l2a",
+        "note": "El catálogo STAC alimenta inundación (S2 L2A). Incendios: GeoTIFF HLS o ejemplo.",
+    }
+
+
 @router.post(
     "/catalog/{item_id}/analyze",
-    response_model=AnalysisResponse,
+    response_model=None,
     status_code=201,
     summary="Analizar una escena del catálogo",
     responses={
-        422: {"description": "Escena inválida o demasiado nublada"},
-        503: {"description": "No se pudo descargar o cargar el modelo"},
+        422: {"description": "Escena inválida, tarea no soportada o demasiado nublada"},
+        503: {"description": "Análisis en curso, o no se pudo descargar / cargar el modelo"},
     },
 )
 async def catalog_analyze(
     item_id: str = PathParam(description="Id STAC de la escena"),
-    task: HazardTask = Form(description="flood o burn_scar"),
+    task: HazardTask = Form(description="Solo flood (Sentinel-2 L2A)"),
     lat: float = Form(ge=-90, le=90),
     lon: float = Form(ge=-180, le=180),
-    side_km: float = Form(20.0, ge=1, le=50),
+    side_km: float = Form(
+        20.0, ge=1, le=50, description="Lado del recorte en km (tope en /api/catalog/limits)"
+    ),
     max_cloud: float = Form(40.0, ge=0, le=100),
+    stream: bool = Query(
+        False,
+        description="Si true, responde NDJSON: download (bandas), infer, done (HTTP 200)",
+    ),
     use_case: AnalyzeUseCase = Depends(get_use_case),
     catalog=Depends(get_catalog),
-) -> AnalysisResponse:
-    """Descarga el recorte de 6 bandas y corre el análisis."""
+):
+    """Descarga el recorte de 6 bandas y corre el análisis.
+
+    Solo ``flood``: el catálogo es Sentinel-2 L2A; Burn Scars espera HLS.
+    El tope real de ``side_km`` es ``TUNE_CATALOG_MAX_KM`` (ver ``GET /api/catalog/limits``).
+    """
+    if task is not HazardTask.FLOOD:
+        raise HTTPException(
+            422,
+            "El catálogo Sentinel-2 solo admite inundación. "
+            "Para cicatriz de incendio sube un GeoTIFF HLS o usa una escena de ejemplo.",
+        )
+    max_km = get_settings().tune_catalog_max_km
+    if side_km > max_km:
+        raise HTTPException(422, f"side_km máximo es {max_km}")
+
     bbox = bbox_from_point(lat, lon, side_km)
     dest = get_settings().tune_artifacts_dir / "catalog"
+
+    if stream:
+        return _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task)
+
     try:
-        path = await run_in_threadpool(
-            catalog.fetch_six_bands,
-            item_id,
-            bbox,
-            dest,
-            max_cloud=max_cloud,
-        )
-        analysis = await run_in_threadpool(use_case.execute, path, task, filename=path.name)
+        with _inference_slot():
+            path = await run_in_threadpool(
+                catalog.fetch_six_bands,
+                item_id,
+                bbox,
+                dest,
+                max_cloud=max_cloud,
+            )
+            analysis = await run_in_threadpool(use_case.execute, path, task, filename=path.name)
     except CatalogError as exc:
         raise HTTPException(422, str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         raise _http_for(exc) from exc
     return AnalysisResponse.from_domain(analysis)
+
+
+def _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task) -> StreamingResponse:
+    """NDJSON: download (bandas 1..7) → infer → done."""
+
+    async def events():
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[dict | None] = asyncio.Queue()
+
+        def on_progress(loaded: int, total: int) -> None:
+            loop.call_soon_threadsafe(
+                queue.put_nowait,
+                {"phase": "download", "loaded": loaded, "total": total},
+            )
+
+        def work() -> None:
+            claimed = False
+            try:
+                if not _infer_sem.acquire(blocking=False):
+                    raise HTTPException(
+                        503,
+                        "Hay un análisis en curso. Espera a que termine e inténtalo de nuevo.",
+                    )
+                claimed = True
+                path = catalog.fetch_six_bands(
+                    item_id, bbox, dest, max_cloud=max_cloud, on_progress=on_progress
+                )
+                loop.call_soon_threadsafe(queue.put_nowait, {"phase": "infer"})
+                analysis = use_case.execute(path, task, filename=path.name)
+                payload = AnalysisResponse.from_domain(analysis).model_dump(mode="json")
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"phase": "done", "analysis": payload},
+                )
+            except Exception as exc:  # noqa: BLE001
+                if isinstance(exc, CatalogError):
+                    http = HTTPException(422, str(exc))
+                elif isinstance(exc, HTTPException):
+                    http = exc
+                else:
+                    http = _http_for(exc)
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"phase": "error", "detail": http.detail, "status": http.status_code},
+                )
+            finally:
+                if claimed:
+                    _infer_sem.release()
+                loop.call_soon_threadsafe(queue.put_nowait, None)
+
+        task_bg = asyncio.create_task(asyncio.to_thread(work))
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield json.dumps(item, ensure_ascii=False) + "\n"
+        finally:
+            await task_bg
+
+    return StreamingResponse(
+        events(),
+        media_type="application/x-ndjson",
+        status_code=200,
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

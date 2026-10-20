@@ -6,6 +6,7 @@ Se usan ``Protocol`` para no obligar a herencia. Cada adaptador en
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -161,6 +162,7 @@ class SceneCatalog(Protocol):
         dest: Path,
         *,
         max_cloud: float = 40.0,
+        on_progress: Callable[[int, int], None] | None = None,
     ) -> Path: ...
 
 

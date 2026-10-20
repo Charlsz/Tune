@@ -68,6 +68,11 @@ def test_use_case_persists_analysis_and_artifacts(tmp_path: Path) -> None:
     assert seg.calls == [(src, HazardTask.FLOOD)]
     assert a.task is HazardTask.FLOOD
     assert a.input_filename == "scene.tif"
+    assert a.metadata["pipeline"] == {
+        "reference": "skipped",
+        "observation": "skipped",
+        "exposure": "skipped",
+    }
     assert set(a.artifacts) >= {"input", "mask_png", "preview_png"}
     folder = tmp_path / "analyses" / a.id
     assert (folder / "analysis.json").is_file()
@@ -100,7 +105,9 @@ def test_use_case_keeps_acquisition_date_and_metadata(tmp_path: Path) -> None:
     repo = FileAnalysisRepository(tmp_path / "analyses")
     a = AnalyzeUseCase(FakeSegmenter(out), repo).execute(src, HazardTask.BURN_SCAR)
     assert repo.get(a.id).acquired_at == "2018-07-09"
-    assert repo.get(a.id).metadata == {"band_count": 6}
+    meta = repo.get(a.id).metadata
+    assert meta["band_count"] == 6
+    assert meta["pipeline"]["reference"] == "skipped"
 
 
 def test_old_analysis_json_without_metadata_still_loads(tmp_path: Path) -> None:

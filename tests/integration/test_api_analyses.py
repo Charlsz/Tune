@@ -17,11 +17,13 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture
-def client(tmp_path: Path):
+def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     repo = FileAnalysisRepository(tmp_path / "analyses")
     use_case = AnalyzeUseCase(FakeSegmenter(fake_output()), repo)
     app.dependency_overrides[analyses_api.get_use_case] = lambda: use_case
     app.dependency_overrides[analyses_api.get_repository] = lambda: repo
+    # Los bytes de prueba no son GeoTIFF reales; la validación de bandas se prueba aparte.
+    monkeypatch.setattr(analyses_api, "_validate_geotiff_bands", lambda *_a, **_k: None)
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -99,10 +101,13 @@ class _RaisingSegmenter:
         (TypeError("Does not validate"), 503),
     ],
 )
-def test_analyze_maps_segmenter_errors(tmp_path: Path, exc, status):
+def test_analyze_maps_segmenter_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exc, status
+):
     repo = FileAnalysisRepository(tmp_path / "analyses")
     use_case = AnalyzeUseCase(_RaisingSegmenter(exc), repo)
     app.dependency_overrides[analyses_api.get_use_case] = lambda: use_case
+    monkeypatch.setattr(analyses_api, "_validate_geotiff_bands", lambda *_a, **_k: None)
     try:
         r = TestClient(app).post(
             "/api/analyze",
@@ -257,9 +262,12 @@ def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
                 )
             ]
 
-        def fetch_six_bands(self, item_id, bbox, dest, *, max_cloud=40.0):
+        def fetch_six_bands(self, item_id, bbox, dest, *, max_cloud=40.0, on_progress=None):
             dest = Path(dest)
             dest.mkdir(parents=True, exist_ok=True)
+            if on_progress:
+                on_progress(3, 7)
+                on_progress(7, 7)
             out = dest / "S2_20240601T150000_fake.tif"
             out.write_bytes(b"fake-geotiff")
             return out
@@ -278,10 +286,46 @@ def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
     assert listed.status_code == 200
     assert listed.json()[0]["id"] == "S2A_fake"
 
+    limits = client.get("/api/catalog/limits")
+    assert limits.status_code == 200
+    assert limits.json()["max_side_km"] == 30.0
+    assert "flood" in limits.json()["tasks"]
+
+    burn = client.post(
+        "/api/catalog/S2A_fake/analyze",
+        data={"task": "burn_scar", "lat": "4.6", "lon": "-74.1", "side_km": "20"},
+    )
+    assert burn.status_code == 422
+    assert "inundación" in burn.json()["detail"].lower() or "Sentinel" in burn.json()["detail"]
+
+    too_wide = client.post(
+        "/api/catalog/S2A_fake/analyze",
+        data={"task": "flood", "lat": "4.6", "lon": "-74.1", "side_km": "50"},
+    )
+    assert too_wide.status_code == 422
+
     analyzed = client.post(
         "/api/catalog/S2A_fake/analyze",
         data={"task": "flood", "lat": "4.6", "lon": "-74.1", "side_km": "20"},
     )
     assert analyzed.status_code == 201, analyzed.text
     assert analyzed.json()["task"] == "flood"
+    assert analyzed.json()["metadata"]["pipeline"]["reference"] in {
+        "ok",
+        "empty",
+        "error",
+        "skipped",
+    }
+
+    streamed = client.post(
+        "/api/catalog/S2A_fake/analyze?stream=true",
+        data={"task": "flood", "lat": "4.6", "lon": "-74.1", "side_km": "20"},
+    )
+    assert streamed.status_code == 200, streamed.text
+    assert "application/x-ndjson" in streamed.headers.get("content-type", "")
+    lines = [ln for ln in streamed.text.strip().split("\n") if ln.strip()]
+    phases = [__import__("json").loads(ln)["phase"] for ln in lines]
+    assert "download" in phases
+    assert "infer" in phases
+    assert "done" in phases
     app.dependency_overrides.pop(analyses_api.get_catalog, None)
