@@ -2,8 +2,10 @@
   "schema_version": 1,
   "diagram_type": "sequence",
   "meta": {
-    "title": "Tune: rechazo de entrada y fallo de modelo",
-    "viewBox": [980, 560],
+    "title": "Tune: rechazo, modelo caído y proveedor vacío",
+    "viewBox": [1400, 1100],
+    "box_w": 150,
+    "gap": 22,
     "column_fit": "spread",
     "quality_profile": "showcase"
   },
@@ -11,27 +13,63 @@
     { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador" },
     { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React" },
     { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI" },
-    { "id": "caso", "type": "backend", "label": "AnalyzeUseCase", "sublabel": "aplicacion" }
+    { "id": "caso", "type": "backend", "label": "Caso de uso", "sublabel": "AnalyzeUseCase" },
+    { "id": "seg", "type": "backend", "label": "Prithvi", "sublabel": "TerraTorch" },
+    { "id": "gfm", "type": "external", "label": "GFM", "sublabel": "EODC" },
+    { "id": "disco", "type": "database", "label": "artifacts", "sublabel": "carpeta" }
   ],
   "segments": [
-    { "from": 150, "to": 270, "label": "Entrada invalida" },
-    { "from": 300, "to": 450, "label": "Modelo no disponible" }
+    { "id": "extension", "label": "Extensión" },
+    { "id": "bandas", "label": "Bandas" },
+    { "id": "modelo", "label": "Modelo" },
+    { "id": "proveedor", "label": "Proveedor vacío" }
   ],
   "messages": [
-    { "id": "malo", "from": "usuario", "to": "web", "y": 175, "label": "sube un PNG", "variant": "default" },
-    { "id": "post-malo", "from": "web", "to": "api", "y": 205, "label": "POST /api/analyze", "variant": "emphasis" },
-    { "id": "cuatrocientos", "from": "api", "to": "web", "y": 235, "label": "400 no es GeoTIFF", "variant": "return" },
-    { "id": "tif", "from": "usuario", "to": "web", "y": 325, "label": "sube un GeoTIFF", "variant": "default" },
-    { "id": "post-ok", "from": "web", "to": "api", "y": 355, "label": "POST /api/analyze", "variant": "emphasis" },
-    { "id": "ejecuta", "from": "api", "to": "caso", "y": 385, "label": "execute()", "variant": "default" },
-    { "id": "import", "from": "caso", "to": "api", "y": 415, "label": "ImportError o ValueError", "variant": "return" }
+    { "id": "png", "segment": "extension", "from": "usuario", "to": "web", "label": "sube un PNG", "variant": "default" },
+    { "id": "post-png", "segment": "extension", "from": "web", "to": "api", "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "cuatrocientos", "segment": "extension", "from": "api", "to": "web", "label": "400 no es GeoTIFF", "variant": "return" },
+    { "id": "rgb", "segment": "bandas", "from": "usuario", "to": "web", "label": "GeoTIFF de 3 bandas", "variant": "default" },
+    { "id": "post-rgb", "segment": "bandas", "from": "web", "to": "api", "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "unprocessable", "segment": "bandas", "from": "api", "to": "web", "label": "422 bandas incorrectas", "variant": "return" },
+    { "id": "valido", "segment": "modelo", "from": "usuario", "to": "web", "label": "GeoTIFF válido", "variant": "default" },
+    { "id": "post-valido", "segment": "modelo", "from": "web", "to": "api", "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "exec-malo", "segment": "modelo", "from": "api", "to": "caso", "label": "execute()", "variant": "default" },
+    { "id": "segment-malo", "segment": "modelo", "from": "caso", "to": "seg", "label": "segment()", "variant": "emphasis" },
+    { "id": "import", "segment": "modelo", "from": "seg", "to": "caso", "label": "ImportError o fallo de carga", "variant": "dashed" },
+    { "id": "excepcion", "segment": "modelo", "from": "caso", "to": "api", "label": "excepción", "variant": "dashed" },
+    { "id": "quinientos", "segment": "modelo", "from": "api", "to": "web", "label": "503; no se guarda", "variant": "return" },
+    { "id": "seis", "segment": "proveedor", "from": "usuario", "to": "web", "label": "GeoTIFF de 6 bandas", "variant": "default" },
+    { "id": "post-seis", "segment": "proveedor", "from": "web", "to": "api", "label": "POST /api/analyze", "variant": "emphasis" },
+    { "id": "exec-ok", "segment": "proveedor", "from": "api", "to": "caso", "label": "execute()", "variant": "default" },
+    { "id": "segment-ok", "segment": "proveedor", "from": "caso", "to": "seg", "label": "segment()", "variant": "emphasis" },
+    { "id": "mascara", "segment": "proveedor", "from": "seg", "to": "caso", "label": "máscara", "variant": "return" },
+    { "id": "observe", "segment": "proveedor", "from": "caso", "to": "gfm", "label": "observe()", "variant": "default" },
+    { "id": "vacio", "segment": "proveedor", "from": "gfm", "to": "caso", "label": "vacío o error", "variant": "return" },
+    { "id": "save", "segment": "proveedor", "from": "caso", "to": "disco", "label": "guarda sin fusión", "variant": "default" },
+    { "id": "ok", "segment": "proveedor", "from": "disco", "to": "caso", "label": "guardado", "variant": "return" },
+    { "id": "vuelve", "segment": "proveedor", "from": "caso", "to": "api", "label": "Analysis", "variant": "return" },
+    { "id": "creado", "segment": "proveedor", "from": "api", "to": "web", "label": "201 sin fusion", "variant": "return" }
   ],
-  "activations": [
-    { "participant": "web", "from": 170, "to": 430, "type": "frontend" },
-    { "participant": "api", "from": 200, "to": 430, "type": "backend" },
-    { "participant": "caso", "from": 380, "to": 425, "type": "backend" }
+  "notes": [
+    "El 400 y el 422 salen de la API antes de execute: Prithvi no se carga. El historial que ya existía no se toca.",
+    "GFM, JRC o WorldCover vacíos no son un error HTTP. El mismo semáforo responde 503 si ya hay otro análisis en curso."
   ],
   "cards": [
-    { "dot": "rose", "title": "Fallo parcial", "items": ["Un 400 no llega al modelo", "Un 422 o 503 no borra el historial"] }
+    {
+      "dot": "rose",
+      "title": "Qué no llega al modelo",
+      "items": [
+        "PNG u otra extensión: 400. Bandas distintas de 6, o de un L1C ancho: 422",
+        "Esas comprobaciones viven en el router, no en AnalyzeUseCase"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Qué sí deja un análisis",
+      "items": [
+        "Un fallo de segmentar responde 503 y no escribe una carpeta nueva",
+        "Un proveedor caído deja pipeline en empty o error y el resto del análisis queda en disco"
+      ]
+    }
   ]
 }

@@ -2,44 +2,95 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "Tune: arquitectura de la aplicacion",
+    "title": "Tune: arquitectura de la aplicación",
+    "viewBox": [1480, 740],
     "quality_profile": "showcase",
     "views": [
       {
-        "id": "camino-analisis",
-        "label": "Camino del analisis",
-        "focus": ["usuario", "web", "api", "segmentador", "huggingface"],
-        "note": "De la carga del GeoTIFF a los pesos publicados de Prithvi."
+        "id": "entrada",
+        "label": "Entrada",
+        "focus": ["usuario", "web", "api"],
+        "note": "La web solo habla HTTP con FastAPI. No llama a TerraTorch ni a Earth Search."
       },
       {
-        "id": "persistencia",
-        "label": "Persistencia",
-        "focus": ["api", "disco"],
-        "note": "El analisis queda en disco, no en una base espacial."
+        "id": "catalogo",
+        "label": "Catálogo",
+        "focus": ["api", "stac", "earth"],
+        "note": "Buscar y recortar seis bandas ocurre en el API, antes del caso de uso."
+      },
+      {
+        "id": "inferencia",
+        "label": "Inferencia",
+        "focus": ["caso", "prithvi", "hf"],
+        "note": "hf_hub_download transfiere pesos solo si no están en el volumen de caché."
+      },
+      {
+        "id": "cambio",
+        "label": "Cambio",
+        "focus": ["caso", "jrc", "gfm", "exp", "disco"],
+        "note": "Referencia, GFM y exposición pueden venir vacíos. El análisis se guarda igual."
       }
     ]
   },
   "components": [
-    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador", "pos": [40, 220], "size": [130, 64] },
-    { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React + Leaflet :8080", "pos": [240, 220], "size": [160, 64] },
-    { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI + caso de uso", "pos": [470, 220], "size": [170, 64] },
-    { "id": "segmentador", "type": "backend", "label": "PrithviSegmenter", "sublabel": "TerraTorch", "pos": [710, 220], "size": [160, 64] },
-    { "id": "huggingface", "type": "external", "label": "Hugging Face", "sublabel": "checkpoints Prithvi", "pos": [940, 220], "size": [170, 64] },
-    { "id": "disco", "type": "database", "label": "artifacts/", "sublabel": "analyses/<id>", "pos": [470, 400], "size": [170, 64] }
+    { "id": "usuario", "type": "external", "label": "Usuario", "sublabel": "navegador", "pos": [24, 48], "size": [140, 64] },
+    { "id": "web", "type": "frontend", "label": "Web", "sublabel": "React + canvas · nginx :8080", "pos": [190, 48], "size": [210, 64] },
+    { "id": "api", "type": "backend", "label": "eo-api", "sublabel": "FastAPI · :8000", "pos": [450, 48], "size": [190, 64] },
+    { "id": "caso", "type": "backend", "label": "Caso de uso", "sublabel": "AnalyzeUseCase", "pos": [720, 48], "size": [200, 64] },
+    { "id": "prithvi", "type": "backend", "label": "Prithvi", "sublabel": "TerraTorch · ventanas 512", "pos": [1000, 48], "size": [190, 64] },
+    { "id": "stac", "type": "backend", "label": "Catálogo", "sublabel": "StacCatalog · L2A", "pos": [450, 190], "size": [190, 64] },
+    { "id": "disco", "type": "database", "label": "artifacts/", "sublabel": "carpeta analyses/<id>", "pos": [450, 340], "size": [190, 64] },
+    { "id": "hf", "type": "external", "label": "Hugging Face", "sublabel": "pesos, si no hay caché", "pos": [1280, 48], "size": [180, 64] },
+    { "id": "earth", "type": "external", "label": "Earth Search", "sublabel": "sentinel-2-l2a", "pos": [1280, 190], "size": [180, 64] },
+    { "id": "jrc", "type": "external", "label": "Referencia", "sublabel": "JRC; si falla, historial", "pos": [450, 540], "size": [210, 64] },
+    { "id": "gfm", "type": "external", "label": "GFM", "sublabel": "EODC · OPERA opcional", "pos": [720, 540], "size": [200, 64] },
+    { "id": "exp", "type": "external", "label": "Exposición", "sublabel": "WorldCover y GHSL", "pos": [1000, 540], "size": [190, 64] }
   ],
   "boundaries": [
-    { "kind": "region", "label": "Contenedor eo-api", "wraps": ["api", "segmentador", "disco"] }
+    {
+      "kind": "region",
+      "label": "Contenedor eo-api",
+      "rect": [430, 16, 780, 460],
+      "wraps": ["api", "caso", "prithvi", "stac", "disco"]
+    }
   ],
   "connections": [
-    { "id": "usuario-web", "from": "usuario", "to": "web", "label": "abre la app", "variant": "emphasis" },
-    { "id": "web-api", "from": "web", "to": "api", "label": "HTTP /api" },
-    { "id": "api-seg", "from": "api", "to": "segmentador", "label": "segmentar" },
-    { "id": "seg-hf", "from": "segmentador", "to": "huggingface", "label": "config + pesos", "labelDy": 56 },
-    { "id": "api-disco", "from": "api", "to": "disco", "label": "guarda analisis", "fromSide": "bottom", "toSide": "top", "labelDy": 24 }
+    { "id": "usuario-web", "from": "usuario", "to": "web", "label": "abre la app", "variant": "emphasis", "points": [[164, 80], [190, 80]] },
+    { "id": "web-api", "from": "web", "to": "api", "label": "HTTP /api", "points": [[400, 80], [450, 80]] },
+    { "id": "api-caso", "from": "api", "to": "caso", "label": "execute", "variant": "emphasis", "points": [[640, 80], [720, 80]] },
+    { "id": "caso-prithvi", "from": "caso", "to": "prithvi", "label": "segment", "variant": "emphasis", "points": [[920, 80], [1000, 80]] },
+    { "id": "prithvi-hf", "from": "prithvi", "to": "hf", "label": "pesos", "variant": "dashed", "points": [[1190, 80], [1280, 80]] },
+    { "id": "api-stac", "from": "api", "to": "stac", "label": "buscar y recortar", "points": [[545, 112], [545, 190]] },
+    { "id": "stac-earth", "from": "stac", "to": "earth", "label": "L2A · 6 bandas", "points": [[640, 222], [1280, 222]] },
+    { "id": "caso-disco", "from": "caso", "to": "disco", "label": "save", "points": [[820, 200], [820, 372], [640, 372]] },
+    { "id": "caso-jrc", "from": "caso", "to": "jrc", "label": "reference", "points": [[820, 112], [820, 510], [555, 510], [555, 540]] },
+    { "id": "caso-gfm", "from": "caso", "to": "gfm", "label": "observe", "points": [[820, 112], [820, 540]] },
+    { "id": "caso-exp", "from": "caso", "to": "exp", "label": "expose", "points": [[820, 112], [820, 510], [1095, 510], [1095, 540]] }
   ],
   "cards": [
-    { "dot": "cyan", "title": "Cliente", "items": ["La web no llama a TerraTorch", "Leaflet pinta la mascara con los bounds"] },
-    { "dot": "emerald", "title": "Servidor", "items": ["Un analisis a la vez, sin cola", "El dominio no importa torch"] },
-    { "dot": "amber", "title": "Fuera del proceso", "items": ["Hugging Face solo en la primera descarga", "Los analisis ya guardados siguen en disco"] }
+    {
+      "dot": "cyan",
+      "title": "Cliente",
+      "items": [
+        "La web no llama a TerraTorch ni a Earth Search",
+        "El visor pinta la máscara en un canvas. OpenStreetMap es solo un enlace"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Servidor",
+      "items": [
+        "Dos contenedores: nginx en el 8080 y FastAPI en el 8000",
+        "Un análisis a la vez. Si JRC, GFM o WorldCover fallan, se guarda sin esa capa"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Fuera del proceso",
+      "items": [
+        "Hugging Face solo transfiere pesos si no están en el volumen hf-cache",
+        "JRC, GFM, WorldCover y GHSL se leen por ventana, no el tile completo"
+      ]
+    }
   ]
 }

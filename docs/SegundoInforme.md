@@ -204,13 +204,14 @@ Figura 1. Arquitectura de Tune.
 flowchart LR
   Usuario --> Web
   Web -->|"HTTP /api"| API["eo-api"]
-  API --> Seg[Prithvi]
+  API --> STAC["Earth Search"]
+  API --> Caso["AnalyzeUseCase"]
+  Caso --> Seg[Prithvi]
   Seg --> HF[Hugging Face]
-  API --> Ref[JRC / historial]
-  API --> Obs[GFM]
-  API --> Exp[WorldCover / GHSL]
-  API --> Disco[artifacts]
-  Web --> STAC[Earth Search]
+  Caso --> Ref["JRC o historial"]
+  Caso --> Obs[GFM]
+  Caso --> Exp["WorldCover / GHSL"]
+  Caso --> Disco["artifacts/"]
 ```
 
 ### 10.3 Interacción entre módulos
@@ -227,19 +228,26 @@ Figura 2. Interacción entre módulos.
 sequenceDiagram
   participant Web
   participant API
+  participant Earth as Earth Search
   participant Caso
-  participant Seg
-  participant Ext as JRC/GFM/WC
-  participant Disco
-  Web->>API: analizar
+  participant Seg as Prithvi
+  participant Ext as JRC / GFM / WorldCover
+  participant Disco as artifacts
+  Web->>API: GET /api/catalog/search
+  API->>Earth: sentinel-2-l2a
+  Earth-->>API: escenas
+  Web->>API: POST /api/catalog/{id}/analyze
+  API->>Earth: fetch_six_bands
+  Earth-->>API: GeoTIFF de 6 bandas
   API->>Caso: execute
   Caso->>Seg: segment
-  Seg-->>Caso: agua
-  Caso->>Ext: reference / observe / expose
-  Ext-->>Caso: capas o vacio
-  Caso->>Disco: json + png
-  Disco-->>API: Analysis
-  API-->>Web: 201
+  Seg-->>Caso: mascara
+  Caso->>Ext: reference, observe, expose
+  Ext-->>Caso: capa o vacio
+  Caso->>Disco: json, png, tif
+  Disco-->>Caso: guardado
+  Caso-->>API: Analysis
+  API-->>Web: NDJSON done
 ```
 
 ### 10.4 Comportamiento
@@ -257,10 +265,13 @@ sequenceDiagram
   actor Usuario
   participant Web
   participant API
+  participant Caso
   Usuario->>Web: coordenada o escena
-  Web->>API: analyze
-  API-->>Web: 201
-  Web-->>Usuario: overlay y cifras
+  Web->>API: catalog/analyze o POST /api/analyze
+  API->>Caso: execute
+  Caso-->>API: Analysis
+  API-->>Web: NDJSON done o 201
+  Web-->>Usuario: canvas, agua nueva y acuerdo si hay
 ```
 
 Figura 4. Rechazo y fallo parcial.
@@ -269,10 +280,19 @@ Figura 4. Rechazo y fallo parcial.
 sequenceDiagram
   actor Usuario
   participant API
+  participant Caso
   Usuario->>API: PNG
   API-->>Usuario: 400
-  Usuario->>API: GeoTIFF valido, GFM caido
-  API-->>Usuario: 201 sin fusion
+  Usuario->>API: GeoTIFF de 3 bandas
+  API-->>Usuario: 422
+  Usuario->>API: GeoTIFF valido, modelo caido
+  API->>Caso: execute
+  Caso-->>API: excepcion
+  API-->>Usuario: 503
+  Usuario->>API: GeoTIFF valido, GFM vacio
+  API->>Caso: execute
+  Caso-->>API: Analysis sin fusion
+  API-->>Usuario: 201
 ```
 
 ## 11. Implementación y avance actual
