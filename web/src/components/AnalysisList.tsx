@@ -62,9 +62,12 @@ export function AnalysisList({
         </ul>
       ) : items.length === 0 ? (
         <div className="empty-state">
-          <p className="caption">
-            {empty ?? "Aún no hay análisis. Inicia uno desde Inicio con una escena oficial o tu GeoTIFF."}
-          </p>
+          <div className="empty-copy">
+            <p className="welcome-title">Sin análisis</p>
+            <p className="caption">
+              {empty ?? "Aún no hay análisis. Inicia uno desde Inicio con una escena oficial o tu GeoTIFF."}
+            </p>
+          </div>
         </div>
       ) : (
         <ul className="list">

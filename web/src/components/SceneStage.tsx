@@ -51,8 +51,10 @@ export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
   if (busy) {
     return (
       <main className="stage stage-map">
-        <div className="placeholder scanning">
-          <span>Procesando escena · el progreso está en el panel de resumen</span>
+        <div className="stage-empty">
+          <div className="placeholder scanning">
+            <span>Procesando escena · el progreso está en el panel de resumen</span>
+          </div>
         </div>
       </main>
     );
@@ -61,18 +63,20 @@ export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
   if (!analysis) {
     return (
       <main className="stage stage-map">
-        <div className="placeholder welcome">
-          <div className="welcome-copy">
-            <p className="welcome-title">Sin análisis seleccionado</p>
-            <p>
-              Inicia un análisis desde Inicio o abre una ejecución del historial. El mapa
-              ocupará esta área con las capas de resultado.
-            </p>
-            {onGoHome && (
-              <button type="button" className="primary" onClick={onGoHome}>
-                Ir a Inicio
-              </button>
-            )}
+        <div className="stage-empty">
+          <div className="placeholder welcome">
+            <div className="welcome-copy">
+              <p className="welcome-title">Sin análisis seleccionado</p>
+              <p>
+                Inicia un análisis desde Inicio o abre una ejecución del historial. El mapa
+                ocupará esta área con las capas de resultado.
+              </p>
+              {onGoHome && (
+                <button type="button" className="primary" onClick={onGoHome}>
+                  Ir a Inicio
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </main>

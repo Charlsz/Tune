@@ -230,7 +230,7 @@ export function App() {
         )}
 
         {nav === "history" && (
-          <main className="page">
+          <main className="page page-canvas">
             {place && (
               <p className="caption place-filter">
                 Filtrado por coordenada{" "}
