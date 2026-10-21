@@ -62,6 +62,7 @@ export function Sidebar({ active, onNavigate, historyCount }: Props) {
   return (
     <aside className="sidebar" aria-label="Navegación principal">
       <div className="sidebar-brand">
+        <img className="sidebar-mark" src="/favicon.svg" alt="" width="28" height="28" />
         <span className="sidebar-title">Tune</span>
         <span className="sidebar-tagline">Análisis satelital</span>
       </div>
@@ -75,11 +76,13 @@ export function Sidebar({ active, onNavigate, historyCount }: Props) {
             aria-current={active === item.id ? "page" : undefined}
             onClick={() => onNavigate(item.id)}
           >
-            <span className="sidebar-icon">{item.icon}</span>
+            <span className="sidebar-icon">
+              {item.icon}
+              {item.id === "history" && historyCount != null && historyCount > 0 && (
+                <span className="sidebar-badge num">{historyCount}</span>
+              )}
+            </span>
             <span className="sidebar-label">{item.label}</span>
-            {item.id === "history" && historyCount != null && historyCount > 0 && (
-              <span className="sidebar-badge num">{historyCount}</span>
-            )}
           </button>
         ))}
       </nav>

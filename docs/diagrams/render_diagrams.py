@@ -31,13 +31,17 @@ def svg_header(width: int, height: int, title: str) -> list[str]:
         'aria-labelledby="archify-diagram-title archify-diagram-description" '
         'data-preset="classic" data-quality-profile="showcase">',
         f'<title id="archify-diagram-title">{esc(title)}</title>',
-        '<desc id="archify-diagram-description">Diagrama de Tune alineado con el código actual.</desc>',
+        '<desc id="archify-diagram-description">'
+        "Diagrama de Tune alineado con el código actual.</desc>",
         "<defs>",
-        '<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">',
+        '<marker id="arrowhead" markerWidth="10" markerHeight="7" '
+        'refX="9" refY="3.5" orient="auto">',
         '<polygon points="0 0, 10 3.5, 0 7" class="m-default"/></marker>',
-        '<marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">',
+        '<marker id="arrowhead-emphasis" markerWidth="10" markerHeight="7" '
+        'refX="9" refY="3.5" orient="auto">',
         '<polygon points="0 0, 10 3.5, 0 7" class="m-emphasis"/></marker>',
-        '<marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">',
+        '<marker id="arrowhead-dashed" markerWidth="10" markerHeight="7" '
+        'refX="9" refY="3.5" orient="auto">',
         '<polygon points="0 0, 10 3.5, 0 7" class="m-dashed"/></marker>',
         '<pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">',
         '<path d="M 40 0 L 0 0 0 40" class="c-grid" stroke-width="0.5"/></pattern>',
@@ -78,26 +82,35 @@ def node(spec: dict, context: str) -> str:
     label = spec["label"]
     sub = spec.get("sublabel", "")
     cx = x + w / 2
-    return f'''<g id="node-{spec["id"]}" data-node-id="{spec["id"]}" data-node-label="{esc(label)}" tabindex="0" role="button" data-node-kind="{kind}" data-node-sublabel="{esc(sub)}" data-node-context="{esc(context)}">
-  <title>{esc(label)} · {esc(sub)}</title>
-  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" class="c-mask"/>
-  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" class="c-{kind}" stroke-width="1.5"/>
-  {sigil(kind, x + 6, y + 6)}
-  <text data-node-label="" data-detail-anchor="" x="{cx}" y="{y + 30}" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">{esc(label)}</text>
-  <text data-detail="context" x="{cx}" y="{y + 46}" class="t-muted" font-size="8" text-anchor="middle">{esc(sub)}</text>
-</g>'''
+    return (
+        f'<g id="node-{spec["id"]}" data-node-id="{spec["id"]}" '
+        f'data-node-label="{esc(label)}" tabindex="0" role="button" '
+        f'data-node-kind="{kind}" data-node-sublabel="{esc(sub)}" '
+        f'data-node-context="{esc(context)}">\n'
+        f"  <title>{esc(label)} · {esc(sub)}</title>\n"
+        f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" class="c-mask"/>\n'
+        f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" '
+        f'class="c-{kind}" stroke-width="1.5"/>\n'
+        f"  {sigil(kind, x + 6, y + 6)}\n"
+        f'  <text data-node-label="" data-detail-anchor="" x="{cx}" '
+        f'y="{y + 30}" class="t-primary" font-size="11" font-weight="600" '
+        f'text-anchor="middle">{esc(label)}</text>\n'
+        f'  <text data-detail="context" x="{cx}" y="{y + 46}" '
+        f'class="t-muted" font-size="8" text-anchor="middle">{esc(sub)}</text>\n'
+        "</g>"
+    )
 
 
 def edge_path(points: list[list[float]], variant: str, edge_id: str) -> str:
     d = "M " + " L ".join(f"{p[0]} {p[1]}" for p in points)
     if variant == "emphasis":
-        cls, marker, text_cls, width = "a-emphasis", "url(#arrowhead-emphasis)", "t-backend", "1.8"
+        cls, marker, width = "a-emphasis", "url(#arrowhead-emphasis)", "1.8"
     elif variant == "dashed":
-        cls, marker, text_cls, width = "a-dashed", "url(#arrowhead-dashed)", "t-messagebus", "1.4"
+        cls, marker, width = "a-dashed", "url(#arrowhead-dashed)", "1.4"
     elif variant == "return":
-        cls, marker, text_cls, width = "a-default", "url(#arrowhead)", "t-muted", "1.4"
+        cls, marker, width = "a-default", "url(#arrowhead)", "1.4"
     else:
-        cls, marker, text_cls, width = "a-default", "url(#arrowhead)", "t-muted", "1.5"
+        cls, marker, width = "a-default", "url(#arrowhead)", "1.5"
     dash = ' stroke-dasharray="3,5"' if variant == "return" else ""
     return (
         f'<path data-edge-id="{edge_id}" d="{d}" class="{cls}" stroke-width="{width}"{dash} '
@@ -119,27 +132,37 @@ def edge_label(points: list[list[float]], label: str, variant: str, edge_id: str
         dy = abs(points[i + 1][1] - points[i][1])
         spans.append((dx, dy, i))
     horizontals = [span for span in spans if span[0] >= span[1] and span[0] > 36]
-    best = (max(horizontals, key=lambda span: span[0]) if horizontals else max(spans, key=lambda span: span[0] + span[1]))[2]
+    best = (
+        max(horizontals, key=lambda span: span[0])
+        if horizontals
+        else max(spans, key=lambda span: span[0] + span[1])
+    )[2]
     x = (points[best][0] + points[best + 1][0]) / 2
     y = (points[best][1] + points[best + 1][1]) / 2
     tw = max(28, len(label) * 5.15)
     return (
         f'<g data-edge-id="{edge_id}" data-edge-label="{esc(label)}">'
         f'<rect x="{x - tw / 2}" y="{y - 16}" width="{tw}" height="14" rx="3" class="c-mask"/>'
-        f'<text x="{x}" y="{y - 6}" class="{text_cls}" font-size="8" text-anchor="middle">{esc(label)}</text>'
+        f'<text x="{x}" y="{y - 6}" class="{text_cls}" font-size="8" '
+        f'text-anchor="middle">{esc(label)}</text>'
         f"</g>"
     )
 
 
 def legend(x: float, y: float, kinds: list[str]) -> str:
-    parts = [f'<g data-legend=""><text x="{x}" y="{y}" class="t-primary" font-size="12" font-weight="650">Leyenda</text>']
+    parts = [
+        f'<g data-legend=""><text x="{x}" y="{y}" class="t-primary" '
+        f'font-size="12" font-weight="650">Leyenda</text>'
+    ]
     cursor = x
     for kind in kinds:
         label = LEGEND[kind]
         parts.append(
             f'<g data-legend-kind="{kind}">'
-            f'<rect x="{cursor}" y="{y + 10}" width="16" height="10" rx="2.5" class="c-{kind}" stroke-width="1"/>'
-            f'<text x="{cursor + 22}" y="{y + 19}" class="t-muted" font-size="10">{esc(label)}</text></g>'
+            f'<rect x="{cursor}" y="{y + 10}" width="16" height="10" rx="2.5" '
+            f'class="c-{kind}" stroke-width="1"/>'
+            f'<text x="{cursor + 22}" y="{y + 19}" class="t-muted" '
+            f'font-size="10">{esc(label)}</text></g>'
         )
         cursor += 22 + len(label) * 6.2 + 18
     parts.append("</g>")
@@ -153,7 +176,8 @@ def render_architecture(spec: dict) -> str:
     for boundary in spec.get("boundaries", []):
         x, y, w, h = boundary["rect"]
         parts.append(
-            f'<rect data-graph-role="structural-frame" data-composition-frame-label="{esc(boundary["label"])}" '
+            f'<rect data-graph-role="structural-frame" '
+            f'data-composition-frame-label="{esc(boundary["label"])}" '
             f'x="{x}" y="{y}" width="{w}" height="{h}" rx="12" class="c-region" stroke-width="1"/>'
         )
     for conn in spec["connections"]:
@@ -166,11 +190,16 @@ def render_architecture(spec: dict) -> str:
         x, y, _, _ = boundary["rect"]
         label = boundary["label"]
         parts.append(
-            f'<g data-graph-role="structural-frame-label"><rect x="{x + 8}" y="{y + 8}" width="{len(label) * 6.2 + 16}" height="16" rx="3" class="c-mask"/>'
-            f'<text x="{x + 14}" y="{y + 20}" class="t-cloud" font-size="9" font-weight="600">{esc(label)}</text></g>'
+            f'<g data-graph-role="structural-frame-label">'
+            f'<rect x="{x + 8}" y="{y + 8}" width="{len(label) * 6.2 + 16}" '
+            f'height="16" rx="3" class="c-mask"/>'
+            f'<text x="{x + 14}" y="{y + 20}" class="t-cloud" font-size="9" '
+            f'font-weight="600">{esc(label)}</text></g>'
         )
     for conn in spec["connections"]:
-        parts.append(edge_label(conn["points"], conn["label"], conn.get("variant", "default"), conn["id"]))
+        parts.append(
+            edge_label(conn["points"], conn["label"], conn.get("variant", "default"), conn["id"])
+        )
     kinds = []
     for comp in spec["components"]:
         if comp["type"] not in kinds:
@@ -214,19 +243,24 @@ def render_sequence(spec: dict) -> str:
     for seg in segments:
         parts.append(
             f'<rect data-graph-role="structural-frame" x="{margin - 8}" y="{seg["top"]}" '
-            f'width="{width - 2 * margin + 16}" height="{seg["bottom"] - seg["top"]}" rx="10" class="c-lane" stroke-width="1"/>'
+            f'width="{width - 2 * margin + 16}" height="{seg["bottom"] - seg["top"]}" '
+            f'rx="10" class="c-lane" stroke-width="1"/>'
         )
         label_x = margin + box_w / 2 + 18
         parts.append(
-            f'<g><rect x="{label_x}" y="{seg["top"] + 6}" width="{len(seg["label"]) * 6.1 + 12}" height="16" rx="3" class="c-mask"/>'
-            f'<text x="{label_x + 6}" y="{seg["top"] + 17}" class="t-dim" font-size="9" font-weight="600">{esc(seg["label"])}</text></g>'
+            f'<g><rect x="{label_x}" y="{seg["top"] + 6}" '
+            f'width="{len(seg["label"]) * 6.1 + 12}" height="16" rx="3" '
+            f'class="c-mask"/>'
+            f'<text x="{label_x + 6}" y="{seg["top"] + 17}" class="t-dim" '
+            f'font-size="9" font-weight="600">{esc(seg["label"])}</text></g>'
         )
 
     life_top = 108
     life_bottom = segments[-1]["bottom"] + 8
-    for pid, cx in centers.items():
+    for cx in centers.values():
         parts.append(
-            f'<path d="M {cx} {life_top} L {cx} {life_bottom}" class="a-default" stroke-width="0.8" stroke-dasharray="3,7"/>'
+            f'<path d="M {cx} {life_top} L {cx} {life_bottom}" class="a-default" '
+            f'stroke-width="0.8" stroke-dasharray="3,7"/>'
         )
 
     def span(pid: str) -> tuple[float, float] | None:
@@ -244,7 +278,8 @@ def render_sequence(spec: dict) -> str:
         kind = p["type"]
         parts.append(
             f'<rect x="{cx - 5}" y="{y0}" width="10" height="{y1 - y0}" rx="3" class="c-mask"/>'
-            f'<rect x="{cx - 5}" y="{y0}" width="10" height="{y1 - y0}" rx="3" class="c-{kind}" stroke-width="1"/>'
+            f'<rect x="{cx - 5}" y="{y0}" width="10" height="{y1 - y0}" rx="3" '
+            f'class="c-{kind}" stroke-width="1"/>'
         )
 
     for msg in laid:
@@ -255,25 +290,36 @@ def render_sequence(spec: dict) -> str:
         end = x1 - direction * 8
         variant = msg.get("variant", "default")
         parts.append(edge_path([[start, msg["y"]], [end, msg["y"]]], variant, msg["id"]))
-        parts.append(edge_label([[start, msg["y"]], [end, msg["y"]]], msg["label"], variant, msg["id"]))
+        parts.append(
+            edge_label([[start, msg["y"]], [end, msg["y"]]], msg["label"], variant, msg["id"])
+        )
 
     head_y = 28
     for p in participants:
         px = boxes[p["id"]]
         kind = p["type"]
         parts.append(
-            f'''<g id="node-{p["id"]}" data-node-id="{p["id"]}" data-node-label="{esc(p["label"])}" data-node-kind="{kind}" data-node-sublabel="{esc(p.get("sublabel", ""))}" data-node-context="Participante">
-  <rect x="{px}" y="{head_y}" width="{box_w}" height="58" rx="6" class="c-mask"/>
-  <rect x="{px}" y="{head_y}" width="{box_w}" height="58" rx="6" class="c-{kind}" stroke-width="1.5"/>
-  {sigil(kind, px + 6, head_y + 6)}
-  <text x="{px + box_w / 2}" y="{head_y + 28}" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">{esc(p["label"])}</text>
-  <text x="{px + box_w / 2}" y="{head_y + 44}" class="t-muted" font-size="7.5" text-anchor="middle">{esc(p.get("sublabel", ""))}</text>
-</g>'''
+            f'<g id="node-{p["id"]}" data-node-id="{p["id"]}" '
+            f'data-node-label="{esc(p["label"])}" data-node-kind="{kind}" '
+            f'data-node-sublabel="{esc(p.get("sublabel", ""))}" '
+            f'data-node-context="Participante">\n'
+            f'  <rect x="{px}" y="{head_y}" width="{box_w}" height="58" rx="6" '
+            f'class="c-mask"/>\n'
+            f'  <rect x="{px}" y="{head_y}" width="{box_w}" height="58" rx="6" '
+            f'class="c-{kind}" stroke-width="1.5"/>\n'
+            f"  {sigil(kind, px + 6, head_y + 6)}\n"
+            f'  <text x="{px + box_w / 2}" y="{head_y + 28}" class="t-primary" '
+            f'font-size="11" font-weight="600" text-anchor="middle">'
+            f"{esc(p['label'])}</text>\n"
+            f'  <text x="{px + box_w / 2}" y="{head_y + 44}" class="t-muted" '
+            f'font-size="7.5" text-anchor="middle">{esc(p.get("sublabel", ""))}</text>\n'
+            "</g>"
         )
 
     for i, note in enumerate(notes):
         parts.append(
-            f'<text x="{margin}" y="{note_y + i * 16}" class="t-muted" font-size="10">{esc(note)}</text>'
+            f'<text x="{margin}" y="{note_y + i * 16}" class="t-muted" '
+            f'font-size="10">{esc(note)}</text>'
         )
     kinds = []
     for p in participants:
@@ -290,7 +336,7 @@ def cards_html(cards: list[dict]) -> str:
         chunks.append('      <div class="card">')
         chunks.append('        <div class="card-header">')
         chunks.append(f'          <div class="card-dot {card["dot"]}"></div>')
-        chunks.append(f'          <h3>{esc(card["title"])}</h3>')
+        chunks.append(f"          <h3>{esc(card['title'])}</h3>")
         chunks.append("        </div>")
         chunks.append("        <ul>")
         for item in card["items"]:
@@ -303,7 +349,13 @@ def cards_html(cards: list[dict]) -> str:
 
 def patch_html(path: Path, title: str, svg: str, cards: str, guided: list | None) -> None:
     text = path.read_text(encoding="utf-8")
-    text = re.sub(r"<title>.*?</title>", f"<title>{esc(title)} Diagram</title>", text, count=1, flags=re.S)
+    text = re.sub(
+        r"<title>.*?</title>",
+        f"<title>{esc(title)} Diagram</title>",
+        text,
+        count=1,
+        flags=re.S,
+    )
     text = re.sub(r"<h1>.*?</h1>", f"<h1>{esc(title)}</h1>", text, count=1, flags=re.S)
     text, n = re.subn(r"<svg\b.*?</svg>", svg, text, count=1, flags=re.S)
     if n != 1:

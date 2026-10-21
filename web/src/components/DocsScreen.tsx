@@ -1,38 +1,183 @@
-const TOC = [
-  { id: "que-es", label: "Qué es Tune" },
-  { id: "empezar", label: "Cómo empezar" },
-  { id: "ubicacion", label: "Ubicación y Sentinel-2" },
-  { id: "geotiff", label: "Tu propio GeoTIFF" },
-  { id: "ejemplos", label: "Escenas de ejemplo" },
-  { id: "progreso", label: "Qué ocurre al analizar" },
-  { id: "mapa", label: "Cómo leer el mapa" },
-  { id: "agua-vs-inundacion", label: "Agua e inundación" },
-  { id: "resultados", label: "Resultados" },
-  { id: "historial", label: "Historial" },
-  { id: "errores", label: "Si algo falla" },
+import { useEffect, useRef, useState } from "react";
+
+const GROUPS = [
+  {
+    title: "Empezar",
+    items: [
+      { id: "que-es", label: "Qué es Tune" },
+      { id: "empezar", label: "Cómo empezar" },
+    ],
+  },
+  {
+    title: "Preparar una escena",
+    items: [
+      { id: "ubicacion", label: "Ubicación y Sentinel-2" },
+      { id: "geotiff", label: "Tu propio GeoTIFF" },
+      { id: "ejemplos", label: "Escenas de ejemplo" },
+      { id: "progreso", label: "Qué ocurre al analizar" },
+    ],
+  },
+  {
+    title: "Leer el resultado",
+    items: [
+      { id: "mapa", label: "Cómo leer el mapa" },
+      { id: "agua-vs-inundacion", label: "Agua e inundación" },
+      { id: "resultados", label: "Resultados" },
+      { id: "historial", label: "Historial" },
+    ],
+  },
+  {
+    title: "Problemas",
+    items: [{ id: "errores", label: "Si algo falla" }],
+  },
 ] as const;
 
+const SECTION_IDS = GROUPS.flatMap((group) => group.items.map((item) => item.id));
+
 export function DocsScreen() {
+  const [active, setActive] = useState(SECTION_IDS[0]);
+  const headRef = useRef<HTMLElement>(null);
+  const scrollingTo = useRef<(typeof SECTION_IDS)[number] | null>(null);
+  const pinnedLast = useRef(false);
+
+  useEffect(() => {
+    const head = headRef.current;
+    const docs = head?.closest(".docs-page");
+    const root = head?.closest(".page");
+    if (!(docs instanceof HTMLElement) || !(root instanceof HTMLElement) || !head) return;
+
+    const sectionAt = (line: number) => {
+      let current: (typeof SECTION_IDS)[number] = SECTION_IDS[0];
+      for (const id of SECTION_IDS) {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= line) current = id;
+      }
+      return current;
+    };
+
+    const sync = () => {
+      const headPx = head.offsetHeight;
+      if (docs.style.getPropertyValue("--docs-head") !== `${headPx}px`) {
+        docs.style.setProperty("--docs-head", `${headPx}px`);
+      }
+      const probe = document.getElementById(SECTION_IDS[0]);
+      const scrollMargin = probe
+        ? Number.parseFloat(getComputedStyle(probe).scrollMarginTop) || headPx + 8
+        : headPx + 8;
+      const rootTop = root.getBoundingClientRect().top;
+      const line = rootTop + scrollMargin + 24;
+      const lastId = SECTION_IDS[SECTION_IDS.length - 1];
+      const maxScroll = Math.max(0, root.scrollHeight - root.clientHeight);
+      const atEnd = maxScroll > 0 && root.scrollTop >= maxScroll - 2;
+
+      const locked = scrollingTo.current;
+      if (locked) {
+        const target = document.getElementById(locked);
+        const top = target?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+        const arrived = top <= line || (atEnd && locked === lastId);
+        if (!arrived) {
+          setActive(locked);
+          return;
+        }
+        scrollingTo.current = null;
+        pinnedLast.current = atEnd && locked === lastId && top > line;
+      }
+
+      if (pinnedLast.current) {
+        if (!atEnd) pinnedLast.current = false;
+        else {
+          setActive(lastId);
+          return;
+        }
+      }
+
+      let current = sectionAt(line);
+      const lastTop = document.getElementById(lastId)?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY;
+      const prevTop =
+        document.getElementById(SECTION_IDS[SECTION_IDS.length - 2])?.getBoundingClientRect().top ?? 0;
+      if (
+        atEnd &&
+        lastTop < root.getBoundingClientRect().bottom - 24 &&
+        prevTop < head.getBoundingClientRect().top
+      ) {
+        current = lastId;
+      }
+      setActive(current);
+    };
+
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(head);
+    const article = docs.querySelector(".docs-article");
+    if (article) observer.observe(article);
+    let idle = 0;
+    const onScroll = () => {
+      sync();
+      if (!scrollingTo.current) return;
+      window.clearTimeout(idle);
+      idle = window.setTimeout(() => {
+        scrollingTo.current = null;
+        sync();
+      }, 160);
+    };
+    root.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", sync);
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(idle);
+      root.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", sync);
+    };
+  }, []);
+
+  function openSection(id: (typeof SECTION_IDS)[number]) {
+    pinnedLast.current = false;
+    scrollingTo.current = id;
+    setActive(id);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById(id)?.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <div className="docs-page">
-      <header className="page-head">
-        <h1>Documentación</h1>
-        <p className="page-lead">
-          Guía para usar Tune de punta a punta: iniciar un análisis, entender el mapa y leer los
-          resultados con claridad.
-        </p>
+      <header className="docs-sticky-head" ref={headRef}>
+        <div className="docs-frame">
+          <h1>Documentación</h1>
+          <p className="page-lead">
+            Guía para usar Tune de punta a punta: iniciar un análisis, entender el mapa y leer los
+            resultados con claridad.
+          </p>
+        </div>
       </header>
 
+      <div className="docs-frame">
       <div className="docs-layout">
         <nav className="docs-toc" aria-label="Contenido">
-          <p className="docs-toc-title">Contenido</p>
-          <ul>
-            {TOC.map((item) => (
-              <li key={item.id}>
-                <a href={`#${item.id}`}>{item.label}</a>
-              </li>
-            ))}
-          </ul>
+          {GROUPS.map((group) => (
+            <div key={group.title} className="docs-nav-group">
+              <p className="docs-nav-label">{group.title}</p>
+              <ul>
+                {group.items.map((item) => (
+                  <li key={item.id}>
+                    <a
+                      href={`#${item.id}`}
+                      aria-current={active === item.id ? "location" : undefined}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openSection(item.id);
+                        history.replaceState(null, "", `#${item.id}`);
+                      }}
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <article className="docs-article">
@@ -273,6 +418,7 @@ export function DocsScreen() {
             </ul>
           </section>
         </article>
+      </div>
       </div>
     </div>
   );
