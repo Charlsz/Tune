@@ -3,21 +3,25 @@
   outline-offset: -16px;
 }
 
-.miss {
-  position: relative;
-  max-width: 640px;
-  min-height: 180px;
-  padding-top: var(--space-7);
+.page.page-miss {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
 }
 
-.miss-scan {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: min(280px, 100%);
-  height: 1px;
-  background: var(--line-strong);
-  pointer-events: none;
+.miss {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
 }
 
 .miss-copy {
@@ -25,15 +29,48 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  text-align: left;
   gap: var(--space-3);
-  max-width: 36ch;
+  width: min(42ch, 100%);
+  will-change: transform;
 }
 
-.miss-code {
+.miss-mark {
+  width: 88px;
+  height: 88px;
+  display: block;
+  border-radius: 18px;
+}
+
+.miss-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
   margin: 0;
-  color: var(--muted);
+  padding: 0;
+  border: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+  color: var(--ink);
+}
+
+.miss-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+.miss-lead {
+  margin: 0;
+  font-size: 14px;
   font-weight: 460;
-  letter-spacing: 0.08em;
+  line-height: 22px;
+  letter-spacing: -0.006em;
+  color: color-mix(in srgb, var(--ink) 58%, transparent);
 }
 
 .miss-line {
@@ -42,6 +79,19 @@
 
 .miss a.primary {
   color: var(--ink);
+}
+
+.page.page-analysis {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.page.page-analysis .analysis-layout {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 ::selection {
@@ -66,7 +116,6 @@ html {
 .example-title,
 .topbar-link,
 .topbar-brand,
-.docs-toc a,
 .primary,
 .secondary,
 .presets button,

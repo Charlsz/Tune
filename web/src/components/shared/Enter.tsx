@@ -1,42 +1,35 @@
 import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
-
-const SEEN = "tune-entered";
+import { useLocation } from "react-router";
 
 export function Enter({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
+  const { pathname } = useLocation();
 
   useLayoutEffect(() => {
     const root = ref.current;
-    if (!root) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      sessionStorage.setItem(SEEN, "1");
-      return;
-    }
-    if (sessionStorage.getItem(SEEN) === "1") return;
-
-    const nodes = root.querySelectorAll(
-      ".home > *, .history-section > *, .docs-page > *, .analysis-layout",
-    );
-    if (nodes.length === 0) {
-      sessionStorage.setItem(SEEN, "1");
-      return;
-    }
-
+    const page = root?.querySelector<HTMLElement>(".page");
+    if (!root || !page) return;
     const ctx = gsap.context(() => {
-      gsap.from(nodes, {
-        y: 8,
-        opacity: 0,
-        duration: 0.5,
-        stagger: 0.05,
-        ease: "power2.out",
-        onComplete: () => sessionStorage.setItem(SEEN, "1"),
-      });
+      const nodes = page.children;
+      if (!nodes.length) return;
+      const keepLayout = page.classList.contains("page-docs") || page.classList.contains("page-miss");
+      gsap.fromTo(
+        nodes,
+        keepLayout ? { autoAlpha: 0 } : { autoAlpha: 0, y: 12 },
+        {
+          autoAlpha: 1,
+          ...(keepLayout ? {} : { y: 0 }),
+          duration: 0.5,
+          stagger: 0.05,
+          ease: "power2.out",
+          overwrite: true,
+        },
+      );
     }, root);
 
     return () => ctx.revert();
-  }, []);
+  }, [pathname]);
 
   return (
     <div className="enter" ref={ref}>

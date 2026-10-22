@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const GROUPS = [
   {
@@ -36,15 +40,16 @@ const SECTION_IDS = GROUPS.flatMap((group) => group.items.map((item) => item.id)
 
 export function DocsScreen() {
   const [active, setActive] = useState(SECTION_IDS[0]);
-  const headRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const tocRef = useRef<HTMLElement>(null);
   const scrollingTo = useRef<(typeof SECTION_IDS)[number] | null>(null);
   const pinnedLast = useRef(false);
 
   useEffect(() => {
-    const head = headRef.current;
-    const docs = head?.closest(".docs-page");
-    const root = head?.closest(".page");
-    if (!(docs instanceof HTMLElement) || !(root instanceof HTMLElement) || !head) return;
+    const docs = pageRef.current;
+    const root = docs?.closest(".page");
+    if (!(docs instanceof HTMLElement) || !(root instanceof HTMLElement)) return;
+    const head = docs;
 
     const sectionAt = (line: number) => {
       let current: (typeof SECTION_IDS)[number] = SECTION_IDS[0];
@@ -56,7 +61,7 @@ export function DocsScreen() {
     };
 
     const sync = () => {
-      const headPx = head.offsetHeight;
+      const headPx = 16;
       if (docs.style.getPropertyValue("--docs-head") !== `${headPx}px`) {
         docs.style.setProperty("--docs-head", `${headPx}px`);
       }
@@ -130,32 +135,73 @@ export function DocsScreen() {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    const host = pageRef.current;
+    const scroller = host?.closest(".page");
+    if (!(host instanceof HTMLElement) || !(scroller instanceof HTMLElement)) return;
+    const ctx = gsap.context(() => {
+      const groups = host.querySelectorAll(".docs-nav-group");
+      const sections = host.querySelectorAll(".docs-sec");
+
+      gsap.fromTo(
+        groups,
+        { autoAlpha: 0, y: 10 },
+        { autoAlpha: 1, y: 0, duration: 0.45, stagger: 0.05, ease: "power2.out" },
+      );
+
+      gsap.set(sections, { autoAlpha: 0, y: 20 });
+      sections.forEach((section) => {
+        gsap.to(section, {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.65,
+          ease: "power2.out",
+          overwrite: "auto",
+          scrollTrigger: {
+            trigger: section,
+            scroller,
+            start: "top 90%",
+            once: true,
+          },
+        });
+      });
+
+    }, host);
+
+    const refresh = requestAnimationFrame(() => ScrollTrigger.refresh());
+    return () => {
+      cancelAnimationFrame(refresh);
+      ctx.revert();
+    };
+  }, []);
+
+  function pressLink(node: HTMLElement, next: number) {
+    gsap.to(node, {
+      scale: next,
+      duration: next > 1 ? 0.18 : 0.32,
+      ease: "power2.out",
+      overwrite: "auto",
+      transformOrigin: "left center",
+    });
+  }
+
   function openSection(id: (typeof SECTION_IDS)[number]) {
     pinnedLast.current = false;
     scrollingTo.current = id;
     setActive(id);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll(".docs-sec.is-flash").forEach((node) => node.classList.remove("is-flash"));
+    document.getElementById(id)?.classList.add("is-flash");
     document.getElementById(id)?.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
+      behavior: "smooth",
       block: "start",
     });
   }
 
   return (
-    <div className="docs-page">
-      <header className="docs-sticky-head" ref={headRef}>
-        <div className="docs-frame">
-          <h1>Documentación</h1>
-          <p className="page-lead">
-            Guía para usar Tune de punta a punta: iniciar un análisis, entender el mapa y leer los
-            resultados con claridad.
-          </p>
-        </div>
-      </header>
-
+    <div className="docs-page" ref={pageRef}>
       <div className="docs-frame">
       <div className="docs-layout">
-        <nav className="docs-toc" aria-label="Contenido">
+        <nav className="docs-toc" aria-label="Contenido" ref={tocRef}>
           {GROUPS.map((group) => (
             <div key={group.title} className="docs-nav-group">
               <p className="docs-nav-label">{group.title}</p>
@@ -165,6 +211,13 @@ export function DocsScreen() {
                     <a
                       href={`#${item.id}`}
                       aria-current={active === item.id ? "location" : undefined}
+                      onPointerDown={(event) => {
+                        if (event.button !== 0) return;
+                        pressLink(event.currentTarget, 1.05);
+                      }}
+                      onPointerUp={(event) => pressLink(event.currentTarget, 1)}
+                      onPointerLeave={(event) => pressLink(event.currentTarget, 1)}
+                      onPointerCancel={(event) => pressLink(event.currentTarget, 1)}
                       onClick={(event) => {
                         event.preventDefault();
                         openSection(item.id);

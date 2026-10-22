@@ -65,6 +65,8 @@
 }
 
 .docs-toc a {
+  display: inline-flex;
+  align-items: center;
   min-height: 28px;
   padding: 2px 0;
   border-radius: 0;
@@ -75,18 +77,33 @@
   color: color-mix(in srgb, var(--ink) 42%, transparent);
   background: none;
   box-shadow: none;
+  transform-origin: left center;
+  transition:
+    color 0.45s var(--ease),
+    font-weight 0.45s var(--ease);
 }
 
-.docs-toc a:hover,
+.docs-toc a:hover {
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .docs-toc a[aria-current="location"],
 .docs-toc a[aria-current="location"]:hover {
   background: none;
   box-shadow: none;
-  color: var(--ink);
-  text-decoration: none;
 }
 
-.docs-toc a[aria-current="location"] {
+.docs-page .docs-toc a[aria-current="location"] {
+  color: color-mix(in srgb, var(--ink) 42%, transparent);
+  font-weight: 460;
+}
+
+.docs-toc a[aria-current="location"]:hover {
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -150,17 +167,6 @@
   margin: 0 0 var(--space-3);
   padding: 0;
   border-bottom: 0;
-}
-
-.docs-sec.docs-await {
-  opacity: 0;
-  transform: translateY(16px);
-}
-
-.docs-sec.docs-await.docs-in {
-  opacity: 1;
-  transform: none;
-  transition: opacity 0.8s ease, transform 0.8s ease;
 }
 
 .docs-sec.is-flash > h2 {
