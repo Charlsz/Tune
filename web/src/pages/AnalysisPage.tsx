@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { AnalyzeProgress } from "../components/analysis/AnalyzeProgress";
 import { SceneStage } from "../components/analysis/SceneStage";
 import { StatsCard } from "../components/analysis/StatsCard";
 import { Timeline } from "../components/analysis/Timeline";
+import { fmt } from "../lib/insights";
 import { useWorkspace } from "../router/workspace";
 
 export function AnalysisPage() {
@@ -19,6 +21,18 @@ export function AnalysisPage() {
     closeSelected,
     goHome,
   } = useWorkspace();
+
+  useEffect(() => {
+    if (!selected) return;
+    if (!window.matchMedia("(max-width: 720px)").matches) return;
+    setSummaryOpen(false);
+  }, [selected?.id, setSummaryOpen]);
+
+  const summaryLabel = selected
+    ? selected.change?.new_area_km2 != null
+      ? `Resumen · ${fmt.km2(selected.change.new_area_km2)} km²`
+      : "Mostrar resumen"
+    : "Mostrar resumen";
 
   return (
     <main className="page page-analysis">
@@ -38,7 +52,7 @@ export function AnalysisPage() {
                 aria-expanded={summaryOpen}
                 onClick={() => setSummaryOpen((open) => !open)}
               >
-                {summaryOpen ? "Ocultar resumen" : "Mostrar resumen"}
+                {summaryOpen ? "Ocultar resumen" : summaryLabel}
               </button>
             )}
             {busy && (

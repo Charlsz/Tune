@@ -40,6 +40,16 @@ export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
   }, [analysis, view]);
 
   useEffect(() => {
+    const query = window.matchMedia("(max-width: 720px)");
+    const sync = () => {
+      if (query.matches) setLayersOpen(true);
+    };
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
     if (!analysis) return;
     // Si no hay agua permanente, inundación ≈ agua detectada: empezamos en «agua»
     // para que el usuario compare después con la capa de inundación.

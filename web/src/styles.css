@@ -1671,13 +1671,6 @@ a.primary:hover { color: var(--ink); text-decoration: none; }
   .summary-dock { max-height: min(32vh, 240px); }
   .summary-busy { padding: 12px; }
 
-  .history-row {
-    flex-wrap: wrap;
-  }
-  .history-row .list-metric {
-    width: 100%;
-    padding-left: 52px;
-  }
 
   .example-pick button {
     flex-wrap: wrap;
