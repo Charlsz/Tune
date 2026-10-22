@@ -116,7 +116,22 @@ export function HomeScreen({
   const canStart = Boolean(file || pickedExample);
 
   return (
-    <div className="home">
+    <div
+      className={`home${drag ? " is-file-drag" : ""}`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        if (!busy) setDrag(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+        setDrag(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDrag(false);
+        if (!busy) pick(e.dataTransfer.files[0]);
+      }}
+    >
       <header className="page-head">
         <h1>Analiza zonas afectadas por inundaciones o incendios</h1>
         <p className="page-lead">

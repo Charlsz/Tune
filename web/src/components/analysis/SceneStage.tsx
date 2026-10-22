@@ -48,6 +48,28 @@ export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
     else setView("scene");
   }, [analysis?.id]);
 
+  useEffect(() => {
+    if (!analysis || busy) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable='true']")
+      ) {
+        return;
+      }
+      const order = ["scene", "classes", "change", "agree"] as const;
+      const index = Number(event.key) - 1;
+      if (index < 0 || index > 3 || event.metaKey || event.ctrlKey || event.altKey) return;
+      const next = order[index];
+      if (next === "change" && !analysis.artifacts.change_png) return;
+      if (next === "agree" && !analysis.artifacts.fusion_png) return;
+      setView(next);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [analysis, busy]);
+
   if (busy) {
     return (
       <main className="stage stage-map">
@@ -260,13 +282,20 @@ function useFit(ref: React.RefObject<HTMLDivElement | null>, ratio: number, moun
     const fit = () => {
       const availW = el.clientWidth - 88;
       const availH = el.clientHeight - 88;
-      const w = Math.max(120, Math.min(availW, availH * ratio));
-      setSize({ w: Math.floor(w), h: Math.floor(w / ratio) });
+      if (availW < 80 || availH < 80) return;
+      const w = Math.min(availW, availH * ratio);
+      const next = { w: Math.floor(w), h: Math.floor(w / ratio) };
+      setSize((prev) => (prev && prev.w === next.w && prev.h === next.h ? prev : next));
     };
     fit();
+    const frame = requestAnimationFrame(fit);
     const ro = new ResizeObserver(fit);
     ro.observe(el);
-    return () => ro.disconnect();
+    if (el.parentElement) ro.observe(el.parentElement);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
   }, [ref, ratio, mountKey]);
   return size;
 }
