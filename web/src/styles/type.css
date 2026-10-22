@@ -1,0 +1,120 @@
+/* Inter Variable como en /docs: 14 / 460 / -0.006em en toda la app.
+   La raya solo en títulos de lectura, no en cromo ni datos. */
+
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea,
+summary {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 460;
+  letter-spacing: -0.006em;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+}
+
+.type-title,
+.page-head h1,
+.home-block h2,
+.welcome-title,
+.miss-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+  color: var(--ink);
+}
+
+.type-title::after,
+.page-head h1::after,
+.home-block h2::after,
+.welcome-title::after,
+.miss-title::after {
+  content: "";
+  flex: 1;
+  min-width: 24px;
+  height: 1px;
+  background: var(--line-strong);
+}
+
+.type-prose,
+.page-lead,
+.welcome-copy > p,
+.miss-lead,
+.docs-article .docs-sec p,
+.docs-article .docs-sec li {
+  font-size: 14px;
+  font-weight: 460;
+  line-height: 22px;
+  letter-spacing: -0.006em;
+  color: color-mix(in srgb, var(--ink) 58%, transparent);
+}
+
+.page-head {
+  max-width: var(--measure);
+}
+
+.welcome-copy {
+  width: min(42ch, 100%);
+  align-items: stretch;
+  text-align: left;
+}
+
+.seg button.on,
+.input-tile-title,
+.example-title,
+.nav-sheet-link {
+  font-weight: 700;
+  letter-spacing: -0.006em;
+}
+
+.input-tile-title {
+  font-size: 14px;
+}
+
+.nav-sheet-link {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.caption,
+.legend,
+.legend-inline,
+.layer-hint,
+.layer-name,
+.layer-paint,
+.example-blurb,
+.example-eta,
+.input-tile-desc,
+.pill,
+.field,
+.stage-task,
+.summary-toggle {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 460;
+  letter-spacing: -0.006em;
+}
+
+.topbar-count {
+  font-family: var(--font);
+  font-weight: 500;
+}

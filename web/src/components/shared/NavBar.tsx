@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { NavLink, useLocation } from "react-router";
 import { paths } from "../../router/paths";
+
+gsap.registerPlugin(useGSAP);
 
 const NAV: { to: string; label: string; end?: boolean }[] = [
   { to: paths.home, label: "Inicio", end: true },
@@ -11,6 +14,8 @@ const NAV: { to: string; label: string; end?: boolean }[] = [
 ];
 
 const MOBILE = "(max-width: 720px)";
+const SHEET_CLOSED = "polygon(100% 0%, 100% 0%, 100% 0%, 100% 0%)";
+const SHEET_OPEN = "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)";
 
 interface Props {
   historyCount: number | null;
@@ -75,40 +80,52 @@ export function NavBar({ historyCount }: Props) {
     };
   }, [shown]);
 
-  useLayoutEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet || !shown) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const ctx = gsap.context(() => {
+  useGSAP(
+    (_context, contextSafe) => {
+      const sheet = sheetRef.current;
+      if (!sheet || !shown) return;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const duration = reduce ? 0.01 : 0.55;
+
       if (open) {
         gsap.fromTo(
           sheet,
-          { clipPath: "inset(0 0 100% 0)" },
-          { clipPath: "inset(0 0 0% 0)", duration: reduce ? 0 : 0.5, ease: "power3.out" },
+          { clipPath: SHEET_CLOSED },
+          { clipPath: SHEET_OPEN, duration, ease: "power3.out", overwrite: true },
         );
         gsap.fromTo(
           ".nav-sheet-link",
-          { opacity: 0, y: 18 },
+          { autoAlpha: 0, y: 14 },
           {
-            opacity: 1,
+            autoAlpha: 1,
             y: 0,
-            duration: reduce ? 0 : 0.45,
-            stagger: 0.07,
-            delay: reduce ? 0 : 0.12,
+            duration: reduce ? 0.01 : 0.4,
+            stagger: 0.06,
+            delay: reduce ? 0 : 0.14,
             ease: "power2.out",
+            overwrite: true,
           },
         );
         return;
       }
-      gsap.to(sheet, {
-        clipPath: "inset(0 0 100% 0)",
-        duration: reduce ? 0 : 0.32,
-        ease: "power2.in",
-        onComplete: () => setShown(false),
+
+      const hide = () => setShown(false);
+      const safeHide = contextSafe ? contextSafe(hide) : hide;
+      gsap.to(".nav-sheet-link", {
+        autoAlpha: 0,
+        duration: reduce ? 0.01 : 0.16,
+        overwrite: true,
       });
-    }, sheet);
-    return () => ctx.revert();
-  }, [open, shown]);
+      gsap.to(sheet, {
+        clipPath: SHEET_CLOSED,
+        duration: reduce ? 0.01 : 0.32,
+        ease: "power2.in",
+        overwrite: true,
+        onComplete: safeHide,
+      });
+    },
+    { dependencies: [open, shown], scope: sheetRef, revertOnUpdate: false },
+  );
 
   useEffect(() => {
     if (!open) return;

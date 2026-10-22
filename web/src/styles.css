@@ -346,11 +346,7 @@ a.primary:hover { color: var(--ink); text-decoration: none; }
   border-top: 1px solid var(--line);
 }
 .home-block h2 {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.006em;
-  text-transform: none;
-  color: var(--ink);
+  margin: 0;
 }
 
 .home-inputs {

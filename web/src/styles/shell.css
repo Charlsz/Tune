@@ -29,7 +29,8 @@
   align-items: center;
   gap: 8px;
   color: var(--ink);
-  font-weight: 500;
+  font-weight: 700;
+  letter-spacing: -0.006em;
   text-decoration: none;
 }
 
@@ -112,8 +113,8 @@
   z-index: 2;
   display: none;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   color: var(--ink);
 }
 
@@ -134,7 +135,7 @@
   flex-direction: column;
   background: var(--paper);
   padding: var(--bar-h) 20px 0;
-  clip-path: inset(0 0 100% 0);
+  clip-path: polygon(100% 0%, 100% 0%, 100% 0%, 100% 0%);
 }
 
 .nav-sheet-list {

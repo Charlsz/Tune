@@ -280,8 +280,9 @@ function useFit(ref: React.RefObject<HTMLDivElement | null>, ratio: number, moun
     const el = ref.current;
     if (!el) return;
     const fit = () => {
-      const availW = el.clientWidth - 88;
-      const availH = el.clientHeight - 88;
+      const gutter = el.clientWidth < 720 ? 40 : 88;
+      const availW = el.clientWidth - gutter;
+      const availH = el.clientHeight - gutter;
       if (availW < 80 || availH < 80) return;
       const w = Math.min(availW, availH * ratio);
       const next = { w: Math.floor(w), h: Math.floor(w / ratio) };

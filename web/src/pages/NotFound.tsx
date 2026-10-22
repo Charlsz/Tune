@@ -48,7 +48,12 @@ export function NotFound() {
     <main className="page page-miss">
       <section className="miss" ref={stage} aria-labelledby="miss-title">
         <div className="miss-copy">
-          <img className="miss-mark miss-line" src="/favicon.svg" alt="" width={88} height={88} />
+          <div className="miss-hero miss-line">
+            <img className="miss-mark" src="/favicon.svg" alt="" width={160} height={160} />
+            <p className="miss-code" aria-hidden="true">
+              404
+            </p>
+          </div>
           <h2 className="miss-title miss-line" id="miss-title">
             Esta coordenada no tiene escena
           </h2>

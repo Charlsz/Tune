@@ -31,15 +31,34 @@
   align-items: flex-start;
   text-align: left;
   gap: var(--space-3);
-  width: min(42ch, 100%);
+  width: min(56ch, 100%);
   will-change: transform;
 }
 
+.miss-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
 .miss-mark {
-  width: 88px;
-  height: 88px;
+  width: 160px;
+  height: 160px;
+  max-width: none;
   display: block;
-  border-radius: 18px;
+  border-radius: 32px;
+  flex: none;
+}
+
+.miss-code {
+  margin: 0;
+  font-family: var(--font);
+  font-size: clamp(72px, 16vw, 128px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.85;
+  color: var(--ink);
 }
 
 .miss-title {
