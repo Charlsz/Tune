@@ -203,6 +203,7 @@ h3 { font-size: 0.9375rem; }
 }
 
 .sidebar-link:hover { background: none; color: var(--sidebar-text); }
+a.sidebar-link:hover { text-decoration: none; }
 .sidebar-link.on,
 .sidebar-link.on:hover {
   background: none;
@@ -263,6 +264,8 @@ h3 { font-size: 0.9375rem; }
 .primary:active:not(:disabled) { transform: scale(0.985); }
 .primary:disabled { opacity: 0.35; }
 .primary.wide { width: 100%; }
+a.primary { color: #fff; text-decoration: none; }
+a.primary:hover { text-decoration: none; }
 
 .secondary {
   display: inline-flex;

@@ -1,5 +1,5 @@
-import { fmt } from "../lib/insights";
-import type { Analysis, RasterMetadata } from "../types";
+import { fmt } from "../../lib/insights";
+import type { Analysis, RasterMetadata } from "../../types";
 
 export function MetadataCard({ analysis: a }: { analysis: Analysis }) {
   const m = "driver" in a.metadata ? (a.metadata as RasterMetadata) : null;

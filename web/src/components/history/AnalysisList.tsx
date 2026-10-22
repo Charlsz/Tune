@@ -1,6 +1,6 @@
-import { affectedKm2, fmt, TASK_META } from "../lib/insights";
-import type { Analysis } from "../types";
-import { Skeleton } from "./Skeleton";
+import { affectedKm2, fmt, TASK_META } from "../../lib/insights";
+import type { Analysis } from "../../types";
+import { Skeleton } from "../shared/Skeleton";
 
 interface Props {
   items: Analysis[] | null;

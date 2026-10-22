@@ -1,5 +1,5 @@
-import { affectedKm2, crsLabel, fmt, TASK_META } from "../lib/insights";
-import type { Analysis, PipelineLayerStatus, Place, TaskInfo } from "../types";
+import { affectedKm2, crsLabel, fmt, TASK_META } from "../../lib/insights";
+import type { Analysis, PipelineLayerStatus, Place, TaskInfo } from "../../types";
 import { MetadataCard } from "./MetadataCard";
 
 const PIPELINE_LABEL: Record<string, string> = {

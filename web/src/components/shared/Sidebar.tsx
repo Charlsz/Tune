@@ -1,9 +1,12 @@
-export type NavId = "home" | "analysis" | "history" | "docs";
+import type { ReactNode } from "react";
+import { NavLink } from "react-router";
+import { paths } from "../../router/paths";
 
-const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
+const NAV: { to: string; label: string; end?: boolean; icon: ReactNode }[] = [
   {
-    id: "home",
+    to: paths.home,
     label: "Inicio",
+    end: true,
     icon: (
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
         <path
@@ -16,7 +19,7 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "analysis",
+    to: paths.analysis,
     label: "Análisis",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -26,7 +29,7 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "history",
+    to: paths.history,
     label: "Historial",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -36,7 +39,7 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: "docs",
+    to: paths.docs,
     label: "Documentación",
     icon: (
       <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -53,12 +56,10 @@ const NAV: { id: NavId; label: string; icon: React.ReactNode }[] = [
 ];
 
 interface Props {
-  active: NavId;
-  onNavigate: (id: NavId) => void;
   historyCount: number | null;
 }
 
-export function Sidebar({ active, onNavigate, historyCount }: Props) {
+export function Sidebar({ historyCount }: Props) {
   return (
     <aside className="sidebar" aria-label="Navegación principal">
       <div className="sidebar-brand">
@@ -69,21 +70,20 @@ export function Sidebar({ active, onNavigate, historyCount }: Props) {
 
       <nav className="sidebar-nav">
         {NAV.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={`sidebar-link${active === item.id ? " on" : ""}`}
-            aria-current={active === item.id ? "page" : undefined}
-            onClick={() => onNavigate(item.id)}
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.end}
+            className={({ isActive }) => `sidebar-link${isActive ? " on" : ""}`}
           >
             <span className="sidebar-icon">
               {item.icon}
-              {item.id === "history" && historyCount != null && historyCount > 0 && (
+              {item.to === paths.history && historyCount != null && historyCount > 0 && (
                 <span className="sidebar-badge num">{historyCount}</span>
               )}
             </span>
             <span className="sidebar-label">{item.label}</span>
-          </button>
+          </NavLink>
         ))}
       </nav>
     </aside>

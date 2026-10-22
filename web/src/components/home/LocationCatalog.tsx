@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
-import type { CatalogScene, Place, TaskId } from "../types";
+import { api } from "../../api";
+import type { CatalogScene, Place, TaskId } from "../../types";
 
 const PRESETS: { label: string; place: Place; hint: string }[] = [
   { label: "Bogotá", place: { lat: 4.71, lon: -74.07 }, hint: "Andes" },

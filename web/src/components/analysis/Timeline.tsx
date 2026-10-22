@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
-import { fmt, TASK_META } from "../lib/insights";
-import type { Analysis, Place, SeriesPoint, TaskId } from "../types";
-import { Skeleton } from "./Skeleton";
+import { api } from "../../api";
+import { fmt, TASK_META } from "../../lib/insights";
+import type { Analysis, Place, SeriesPoint, TaskId } from "../../types";
+import { Skeleton } from "../shared/Skeleton";
 
 type Filter = "all" | TaskId;
 

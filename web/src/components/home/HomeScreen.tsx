@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
-import { geotiffHints, validateGeotiffFile } from "../lib/geotiffFile";
-import { fmt, TASK_META } from "../lib/insights";
-import type { ExampleScene, Place, TaskId, TaskInfo } from "../types";
+import { api } from "../../api";
+import { geotiffHints, validateGeotiffFile } from "../../lib/geotiffFile";
+import { fmt, TASK_META } from "../../lib/insights";
+import type { ExampleScene, Place, TaskId, TaskInfo } from "../../types";
 import { LocationCatalog } from "./LocationCatalog";
 
 interface Props {

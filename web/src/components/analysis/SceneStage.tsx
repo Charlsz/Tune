@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { fmt } from "../lib/insights";
-import { type Scene, useScene } from "../lib/scene";
-import type { Analysis, TaskInfo } from "../types";
-import { Skeleton } from "./Skeleton";
+import { fmt } from "../../lib/insights";
+import { type Scene, useScene } from "../../lib/scene";
+import type { Analysis, TaskInfo } from "../../types";
+import { Skeleton } from "../shared/Skeleton";
 
 type View = "scene" | "classes" | "change" | "agree";
 

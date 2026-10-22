@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { type AnalyzePhase } from "../api";
-import { formatRemain, remainingSeconds } from "../lib/eta";
-import { fmt } from "../lib/insights";
+import { type AnalyzePhase } from "../../api";
+import { formatRemain, remainingSeconds } from "../../lib/eta";
+import { fmt } from "../../lib/insights";
 
 type StepId = "prepare" | "upload" | "fetch" | "infer";
 

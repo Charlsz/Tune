@@ -1,22 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { type AnalyzePhase, api } from "./api";
-import { AnalysisList } from "./components/AnalysisList";
-import { AnalyzeProgress } from "./components/AnalyzeProgress";
-import { DocsScreen } from "./components/DocsScreen";
-import { HomeScreen } from "./components/HomeScreen";
-import { SceneStage } from "./components/SceneStage";
-import { type NavId, Sidebar } from "./components/Sidebar";
-import { StatsCard } from "./components/StatsCard";
-import { Timeline } from "./components/Timeline";
+import { Outlet, useNavigate } from "react-router";
+import type { AnalyzePhase } from "./api";
+import { api } from "./api";
+import { Sidebar } from "./components/shared/Sidebar";
+import { paths } from "./router/paths";
+import type { Workspace } from "./router/workspace";
 import type { Analysis, Place, TaskId, TaskInfo } from "./types";
-
-function navFromPath(): NavId {
-  return window.location.pathname.startsWith("/docs") ? "docs" : "home";
-}
-
-function pathForNav(id: NavId): string {
-  return id === "docs" ? "/docs" : "/";
-}
 
 function errorHint(message: string, context: string | null): string {
   const m = message.toLowerCase();
@@ -36,6 +25,7 @@ function errorHint(message: string, context: string | null): string {
 }
 
 export function App() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [history, setHistory] = useState<Analysis[] | null>(null);
   const [selected, setSelected] = useState<Analysis | null>(null);
@@ -46,7 +36,6 @@ export function App() {
   const [lastRunContext, setLastRunContext] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [place, setPlace] = useState<Place | null>(null);
-  const [nav, setNav] = useState<NavId>(navFromPath);
   const [summaryOpen, setSummaryOpen] = useState(true);
 
   const refresh = useCallback(() => {
@@ -68,18 +57,8 @@ export function App() {
     refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    const onPop = () => setNav(navFromPath());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  function navigate(id: NavId) {
-    setNav(id);
-    const next = pathForNav(id);
-    if (window.location.pathname !== next) {
-      window.history.pushState(null, "", next);
-    }
+  function go(path: string) {
+    if (window.location.pathname !== path) navigate(path);
   }
 
   async function run(
@@ -93,7 +72,7 @@ export function App() {
     setRunTask(task);
     setRunContext(context);
     setLastRunContext(context);
-    navigate("analysis");
+    go(paths.analysis);
     setSummaryOpen(true);
     try {
       const a = await work(setPhase);
@@ -145,12 +124,38 @@ export function App() {
   function openAnalysis(a: Analysis) {
     setSelected(a);
     setSummaryOpen(true);
-    navigate("analysis");
+    go(paths.analysis);
   }
+
+  function closeSelected() {
+    setSelected(null);
+    setSummaryOpen(false);
+  }
+
+  const workspace: Workspace = {
+    tasks,
+    history,
+    selected,
+    busy,
+    phase,
+    runContext,
+    place,
+    setPlace,
+    summaryOpen,
+    setSummaryOpen,
+    firstRun,
+    onAnalyze,
+    onExample,
+    onCatalogAnalyze,
+    onRemove,
+    openAnalysis,
+    closeSelected,
+    goHome: () => go(paths.home),
+  };
 
   return (
     <div className="app">
-      <Sidebar active={nav} onNavigate={navigate} historyCount={history?.length ?? null} />
+      <Sidebar historyCount={history?.length ?? null} />
 
       <div className="workspace">
         {error && (
@@ -166,103 +171,7 @@ export function App() {
           </div>
         )}
 
-        {nav === "home" && (
-          <main className="page">
-            <HomeScreen
-              tasks={tasks}
-              busy={busy}
-              firstRun={firstRun}
-              place={place}
-              onPlace={setPlace}
-              onSubmit={onAnalyze}
-              onExample={onExample}
-              onCatalogAnalyze={onCatalogAnalyze}
-            />
-          </main>
-        )}
-
-        {nav === "analysis" && (
-          <div className="analysis-layout">
-            <div className="view">
-              <SceneStage
-                analysis={selected}
-                tasks={tasks}
-                busy={busy}
-                onGoHome={() => navigate("home")}
-              />
-              {(place || (selected && !busy)) && (
-                <Timeline analysis={selected} place={place} onSelect={openAnalysis} />
-              )}
-            </div>
-            {(busy || (selected && !busy)) && (
-              <aside className={`summary-dock${summaryOpen || busy ? "" : " collapsed"}`}>
-                {!busy && (
-                  <button
-                    type="button"
-                    className="summary-toggle"
-                    aria-expanded={summaryOpen}
-                    onClick={() => setSummaryOpen((o) => !o)}
-                  >
-                    {summaryOpen ? "Ocultar resumen" : "Mostrar resumen"}
-                  </button>
-                )}
-                {busy && (
-                  <div className="summary-busy">
-                    <p className="result-kicker">Progreso del análisis</p>
-                    <AnalyzeProgress phase={phase} firstRun={firstRun} context={runContext} />
-                  </div>
-                )}
-                {!busy && summaryOpen && selected && (
-                  <StatsCard
-                    key={selected.id}
-                    analysis={selected}
-                    tasks={tasks}
-                    compact
-                    onClose={() => {
-                      setSelected(null);
-                      setSummaryOpen(false);
-                    }}
-                  />
-                )}
-              </aside>
-            )}
-          </div>
-        )}
-
-        {nav === "history" && (
-          <main className="page page-canvas">
-            {place && (
-              <p className="caption place-filter">
-                Filtrado por coordenada{" "}
-                <span className="num">
-                  {place.lat}, {place.lon}
-                </span>
-                .{" "}
-                <button type="button" className="close" onClick={() => setPlace(null)}>
-                  Quitar filtro
-                </button>
-              </p>
-            )}
-            <AnalysisList
-              items={history}
-              selectedId={selected?.id}
-              onSelect={openAnalysis}
-              onRemove={onRemove}
-              page
-              empty={
-                place
-                  ? "Ningún análisis cubre ese punto. Quita el filtro de ubicación o inicia un nuevo análisis."
-                  : undefined
-              }
-            />
-          </main>
-        )}
-
-        {nav === "docs" && (
-          <main className="page page-docs">
-            <DocsScreen />
-          </main>
-        )}
+        <Outlet context={workspace} />
       </div>
     </div>
   );
