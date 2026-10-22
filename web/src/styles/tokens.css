@@ -1,0 +1,77 @@
+:root {
+  color-scheme: light;
+  --font: "Inter Variable", "Inter", sans-serif;
+  --font-code: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+
+  --paper: #ffffff;
+  --ink: #111111;
+  --muted: color-mix(in srgb, var(--ink) 40%, transparent);
+  --ink-soft: color-mix(in srgb, var(--ink) 72%, transparent);
+  --line: color-mix(in srgb, var(--ink) 15%, transparent);
+  --line-strong: color-mix(in srgb, var(--ink) 40%, transparent);
+  --flash: #ffffaa;
+  --danger: #c4382d;
+  --focus: var(--ink);
+  --surface: var(--paper);
+  --wash: var(--paper);
+
+  /* El cromo usa la tinta. El azul de los botones viejos ya no pinta la interfaz. */
+  --accent: var(--ink);
+  --accent-hover: var(--ink);
+  --accent-soft: color-mix(in srgb, var(--ink) 6%, transparent);
+  --accent-border: var(--line-strong);
+  --ok: var(--ink);
+  --warn-bg: color-mix(in srgb, var(--ink) 4%, var(--paper));
+  --warn-border: var(--line-strong);
+
+  --data-agree: #15803d;
+  --data-flood: #e63946;
+  --data-water: #2563eb;
+  --data-persistent: #1d4e89;
+  --data-receded: #94a3b8;
+
+  --radius: 0px;
+  --radius-sm: 0px;
+  --shadow: none;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 0.2s;
+  --dur-hover: 0.65s;
+  --dur: 0.5s;
+  --rise: 8px;
+  --stagger: 50ms;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 80px;
+
+  --bar-h: 48px;
+  --measure: 68ch;
+  --toc-w: 168px;
+  --summary-w: 340px;
+  --page-pad-x: var(--space-6);
+  --page-pad-y: var(--space-8);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 460;
+  line-height: 20px;
+  letter-spacing: -0.006em;
+  color: var(--ink);
+  background: var(--paper);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #111111;
+  --ink: #f2f2f2;
+  --flash: #3d3d18;
+}

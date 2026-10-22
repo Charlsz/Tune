@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import type { AnalyzePhase } from "./api";
 import { api } from "./api";
-import { Sidebar } from "./components/shared/Sidebar";
+import { Enter } from "./components/shared/Enter";
+import { NavBar } from "./components/shared/NavBar";
 import { paths } from "./router/paths";
 import type { Workspace } from "./router/workspace";
 import type { Analysis, Place, TaskId, TaskInfo } from "./types";
@@ -155,7 +156,7 @@ export function App() {
 
   return (
     <div className="app">
-      <Sidebar historyCount={history?.length ?? null} />
+      <NavBar historyCount={history?.length ?? null} />
 
       <div className="workspace">
         {error && (
@@ -171,7 +172,9 @@ export function App() {
           </div>
         )}
 
-        <Outlet context={workspace} />
+        <Enter>
+          <Outlet context={workspace} />
+        </Enter>
       </div>
     </div>
   );
