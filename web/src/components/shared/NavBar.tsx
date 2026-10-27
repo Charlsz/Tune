@@ -144,7 +144,7 @@ export function NavBar({ historyCount }: Props) {
   return (
     <header className={`topbar${open ? " is-open" : ""}`}>
       <NavLink to={paths.home} end className="topbar-brand">
-        <img className="topbar-icon" src="/favicon.svg" alt="" width={22} height={22} />
+        <img className="topbar-icon" src="/icons/tune-icon.svg" alt="" width={22} height={22} />
         <span>Tune</span>
       </NavLink>
       <nav className="topbar-nav" ref={navRef} aria-label="Navegación principal">

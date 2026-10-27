@@ -1,0 +1,28 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Tune">
+  <defs>
+    <clipPath id="scene2">
+      <rect width="32" height="32" rx="7"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#scene2)">
+    <rect width="32" height="32" fill="#101828"/>
+    <path fill="#4a5d45" d="M0 0H32V9C25 14 22 9 16 14S6 18 0 21Z"/>
+
+    <path fill="#155e9c"
+      d="M-40 17C-30 12-24 18-15 14S-4 14 5 17S16 18 25 14S36 14 45 9V32H-40Z">
+      <animateTransform attributeName="transform" type="translate"
+        values="0 0;2 0;0 0;-2 0;0 0"
+        dur="6s" repeatCount="indefinite"/>
+    </path>
+
+    <path fill="#38bdf8"
+      d="M-40 23C-30 17-24 24-15 20S-4 20 5 23S16 24 25 20S36 18 45 14V32H-40Z">
+      <animateTransform attributeName="transform" type="translate"
+        values="0 0;-1.5 0;0 0;1.5 0;0 0"
+        dur="5s" repeatCount="indefinite"/>
+    </path>
+
+    <path fill="#fb7185" d="M23 14c2-1 4 0 4 2s-2 3-4 2-2-3 0-4Z"/>
+  </g>
+</svg>

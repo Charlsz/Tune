@@ -1,0 +1,15 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Tune">
+  <defs>
+    <clipPath id="scene1">
+      <rect width="32" height="32" rx="7"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#scene1)">
+    <rect width="32" height="32" fill="#101828"/>
+    <path fill="#4a5d45" d="M0 0H32V9C25 14 22 9 16 14S6 18 0 21Z"/>
+    <path fill="#155e9c" d="M0 17C6 12 12 18 17 14S26 14 32 9V32H0Z"/>
+    <path fill="#38bdf8" d="M0 23C6 17 12 24 18 20S27 18 32 14V32H0Z"/>
+    <path fill="#fb7185" d="M23 14c2-1 4 0 4 2s-2 3-4 2-2-3 0-4Z"/>
+  </g>
+</svg>

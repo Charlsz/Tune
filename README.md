@@ -1,7 +1,7 @@
 <Div align="Center">   
   <Picture>
-    <source media="(prefers-color-scheme: dark)" srcset="" />
-    <img src="/web/public/favicon.svg" alt="Tune Logo" width="20%">
+    <source media="(prefers-color-scheme: dark)" srcset="/web/public/icons/tune-darkmode.svg" />
+    <img src="/web/public/icons/tune-lightmode.svg" alt="Tune Logo" width="20%">
   </Picture>
 </Div>
 

@@ -49,7 +49,7 @@ export function NotFound() {
       <section className="miss" ref={stage} aria-labelledby="miss-title">
         <div className="miss-copy">
           <div className="miss-hero miss-line">
-            <img className="miss-mark" src="/favicon.svg" alt="" width={160} height={160} />
+            <img className="miss-mark" src="/icons/tune-icon-animated.svg" alt="Tune Icon Animated" width={160} height={160} />
             <p className="miss-code" aria-hidden="true">
               404
             </p>
