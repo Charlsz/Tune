@@ -1,4 +1,12 @@
+<Div align="Center">   
+  <Picture>
+    <source media="(prefers-color-scheme: dark)" srcset="" />
+    <img src="/web/public/favicon.svg" alt="Tune Logo" width="20%">
+  </Picture>
+</Div>
+
 # Tune
+
 
 Aplicación de análisis satelital de inundación con los modelos Prithvi-EO 2.0 publicados por IBM-NASA. Se sube un GeoTIFF o se busca una escena Sentinel-2 por coordenada. El modelo detecta agua, y Tune calcula inundación como agua nueva frente a una referencia permanente (JRC o historial). Cuando hay dato, compara con Copernicus GFM y resume cobertura y población sobre el agua nueva.
 
@@ -48,5 +56,3 @@ Esto no ejecuta la comprobación de la imagen base que hace `make app-up` (`pyto
 |---|---|
 | Carlos Andrés Galvis Pájaro | [@Charlsz](https://github.com/Charlsz) |
 | Zenen Contreras Royero | [@zenencontreras](https://github.com/zenencontreras) |
-
-Repo: https://github.com/Charlsz/Tune
