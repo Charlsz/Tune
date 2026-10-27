@@ -1,12 +1,11 @@
 <Div align="Center">   
   <Picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/web/public/icons/tune-darkmode.svg" />
-    <img src="/web/public/icons/tune-lightmode.svg" alt="Tune Logo" width="20%">
+    <source media="(prefers-color-scheme: dark)" srcset="/web/public/icons/tune-lightmode.svg" />
+    <img src="/web/public/icons/tune-darkmode.svg" alt="Tune Logo" width="40%">
   </Picture>
 </Div>
 
-# Tune
-
+##
 
 Aplicación de análisis satelital de inundación con los modelos Prithvi-EO 2.0 publicados por IBM-NASA. Se sube un GeoTIFF o se busca una escena Sentinel-2 por coordenada. El modelo detecta agua, y Tune calcula inundación como agua nueva frente a una referencia permanente (JRC o historial). Cuando hay dato, compara con Copernicus GFM y resume cobertura y población sobre el agua nueva.
 
