@@ -1,9 +1,7 @@
-<Div align="Center">   
-  <Picture>
-    <source media="(prefers-color-scheme: dark)" srcset="web/public/icons/tune-darkmode.svg" />
-    <img src="web/public/icons/tune-lightmode.svg" alt="Tune Logo" width="40%">
-  </Picture>
-</Div>
+<div align="center">
+  <img src="web/public/icons/tune-lightmode.svg#gh-light-mode-only" alt="Tune Logo" width="40%">
+  <img src="web/public/icons/tune-darkmode.svg#gh-dark-mode-only" alt="Tune Logo" width="40%">
+</div>
 
 ##
 
