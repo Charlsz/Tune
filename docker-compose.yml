@@ -14,10 +14,13 @@ services:
     environment:
       TUNE_TRACKER: json
       TUNE_ARTIFACTS_DIR: /app/artifacts
-      TUNE_CORS_ORIGINS: http://localhost:5173,http://localhost:${WEB_PORT:-8080}
+      # .env gana si define TUNE_CORS_ORIGINS. Si no, Vite y la web local.
+      # La clave `environment` pisa env_file: un valor fijo aquí ignoraba el .env.
+      TUNE_CORS_ORIGINS: ${TUNE_CORS_ORIGINS:-http://localhost:5173,http://localhost:${WEB_PORT:-8080}}
       HF_HOME: /app/.hf_cache
     ports:
-      - "${API_PORT:-8000}:8000"
+      # En una VM pública: API_BIND=127.0.0.1 y entra solo por nginx (:WEB_PORT).
+      - "${API_BIND:-0.0.0.0}:${API_PORT:-8000}:8000"
     volumes:
       - ./src:/app/src
       - ./artifacts:/app/artifacts
