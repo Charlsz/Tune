@@ -110,9 +110,7 @@ class HistoryReferenceProvider:
             occurrence = np.where(n_valid > 0, water.sum(axis=0) / np.maximum(n_valid, 1), 0.0)
 
         if len(stack) >= self.min_scenes_permanent:
-            permanent = (occurrence >= self.min_fraction) & (
-                n_valid >= self.min_scenes_permanent
-            )
+            permanent = (occurrence >= self.min_fraction) & (n_valid >= self.min_scenes_permanent)
             layer_valid = n_valid >= self.min_scenes_permanent
             source = "history"
             reference_id = None

@@ -27,9 +27,7 @@ class CompositeReferenceProvider:
     ) -> ReferenceLayer | None:
         for provider in self.providers:
             try:
-                layer = provider.reference(
-                    task, grid, exclude_id=exclude_id, as_of=as_of
-                )
+                layer = provider.reference(task, grid, exclude_id=exclude_id, as_of=as_of)
             except ReferenceUnavailable as exc:
                 log.warning("Proveedor %s: %s", type(provider).__name__, exc)
                 continue
