@@ -90,8 +90,14 @@ class JrcReferenceProvider:
         self.timeout_s = timeout_s
 
     def reference(
-        self, task: HazardTask, grid: RasterGrid, *, exclude_id: str | None = None
+        self,
+        task: HazardTask,
+        grid: RasterGrid,
+        *,
+        exclude_id: str | None = None,
+        as_of: str | None = None,
     ) -> ReferenceLayer | None:
+        del exclude_id, as_of  # JRC no depende de historial ni fecha de escena
         if task is not HazardTask.FLOOD:
             return None
         try:

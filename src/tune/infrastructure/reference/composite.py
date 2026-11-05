@@ -18,11 +18,18 @@ class CompositeReferenceProvider:
         self.providers = list(providers)
 
     def reference(
-        self, task: HazardTask, grid: RasterGrid, *, exclude_id: str | None = None
+        self,
+        task: HazardTask,
+        grid: RasterGrid,
+        *,
+        exclude_id: str | None = None,
+        as_of: str | None = None,
     ) -> ReferenceLayer | None:
         for provider in self.providers:
             try:
-                layer = provider.reference(task, grid, exclude_id=exclude_id)
+                layer = provider.reference(
+                    task, grid, exclude_id=exclude_id, as_of=as_of
+                )
             except ReferenceUnavailable as exc:
                 log.warning("Proveedor %s: %s", type(provider).__name__, exc)
                 continue
