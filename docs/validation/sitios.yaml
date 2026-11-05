@@ -44,6 +44,19 @@ sites:
       peak: S2B_42RVR_20220905_0_L2A
     note: Inundación 2022. Par pre→peak; el pico debe mostrar nueva ≫ permanente.
 
+  - id: mississippi
+    kind: catalog
+    label: Mississippi (EE. UU.)
+    center: { lat: 37.00, lon: -89.18 }
+    side_km: 12
+    dates:
+      pre: ["2018-09-18"]
+      peak: ["2019-06-10"]
+    items:
+      pre: S2B_16SBF_20180918_0_L2A
+      peak: S2A_16SBF_20190610_0_L2A
+    note: Crecida 2019 vs base 2018; mucha permanente estable + nueva medible.
+
 controls:
   river_ratio_max: 0.15
   spain_persistent_required: true

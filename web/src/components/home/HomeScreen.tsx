@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { api } from "../../api";
 import { geotiffHints, validateGeotiffFile } from "../../lib/geotiffFile";
 import { fmt, TASK_META } from "../../lib/insights";
+import { paths } from "../../router/paths";
 import type { ExampleScene, Place, TaskId, TaskInfo } from "../../types";
 import { LocationCatalog } from "./LocationCatalog";
 
@@ -140,6 +142,14 @@ export function HomeScreen({
         </p>
       </header>
 
+      {task === "flood" && (
+        <p className="home-tip callout">
+          Para ver <strong>inundación de verdad</strong> (rojo ≠ azul), analiza primero una fecha
+          base y después el pico en el mismo punto. Atajos listos abajo · guía paso a paso en{" "}
+          <Link to={paths.howToUse}>How to use</Link>.
+        </p>
+      )}
+
       <div className="home-card">
         <div className="seg" role="radiogroup" aria-label="Tipo de análisis">
           {ORDER.map((id) => (
@@ -230,6 +240,10 @@ export function HomeScreen({
 
             <div className={`input-tile example-tile${pickedExample && !file ? " selected" : ""}`}>
               <span className="input-tile-title">Escena de ejemplo</span>
+              <span className="input-tile-desc">
+                Útiles para probar la UI y la máscara de agua. No demuestran inundación solas: hace
+                falta un “antes” del mismo sitio (ver How to use).
+              </span>
               {shown.length === 0 ? (
                 <span className="input-tile-desc">
                   No hay escenas oficiales para esta tarea.

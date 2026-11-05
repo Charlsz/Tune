@@ -4,6 +4,7 @@ import { AnalysisPage } from "../pages/AnalysisPage";
 import { DocsPage } from "../pages/DocsPage";
 import { HistoryPage } from "../pages/HistoryPage";
 import { HomePage } from "../pages/HomePage";
+import { HowToUsePage } from "../pages/HowToUsePage";
 import { NotFound } from "../pages/NotFound";
 import { paths } from "./paths";
 
@@ -15,6 +16,7 @@ export function AppRouter() {
           <Route path={paths.home} element={<HomePage />} />
           <Route path={paths.analysis} element={<AnalysisPage />} />
           <Route path={paths.history} element={<HistoryPage />} />
+          <Route path={paths.howToUse} element={<HowToUsePage />} />
           <Route path={paths.docs} element={<DocsPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
