@@ -19,6 +19,7 @@ htmlcov/
 .env
 .env.*
 !.env.example
+.hf_cache/
 
 # --- Datos, pesos y artefactos (nunca en Git) ---
 data/*

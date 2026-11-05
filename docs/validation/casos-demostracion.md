@@ -40,6 +40,18 @@ Centro: `lat=8.85`, `lon=-74.65`.
 Orden obligatorio: analizar primero la fecha **anterior**, luego la posterior.
 El historial solo acepta escenas con `acquired_at` estrictamente menor.
 
+### 3. Mississippi (EE. UU.) — 2018 → crecida 2019
+
+| Rol | Fecha | Escena STAC | Agua (km²) | Nueva | Permanente | Referencia |
+|---|---|---|---|---|---|---|
+| Base | 2018-09-18 | `S2B_16SBF_20180918_0_L2A` | ~72,1 | (JRC) | ~20,8 vs JRC | `jrc_gsw_v1_4` |
+| Pico | 2019-06-10 | `S2A_16SBF_20190610_0_L2A` | ~76,2 | **~10,3** | **~65,9** | `history_baseline` |
+
+Centro: `lat=37.00`, `lon=-89.18`. Aquí hay mucha agua permanente; el pico añade una
+lámina nueva medible sin “pintar de rojo” todo el río.
+
+Capturas en [`docs/assets/proof/`](../assets/proof/).
+
 ## Cómo reproducir
 
 ```bash

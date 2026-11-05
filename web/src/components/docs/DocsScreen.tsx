@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Link } from "react-router";
+import { paths } from "../../router/paths";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -400,6 +402,11 @@ export function DocsScreen() {
               cauces estables, o referencia incompleta), las dos capas pueden cubrir la misma zona.
               Tune lo avisa en el resumen y muestra ambas cifras juntas para que compares. En ese
               caso el contorno se parece; cambia el significado, no necesariamente la forma.
+            </p>
+            <p>
+              Para demostrar inundación de verdad (rojo ≠ azul), analiza <strong>dos fechas</strong>{" "}
+              del mismo punto en orden cronológico. Recetas verificadas (Pakistán, Magdalena,
+              Mississippi) en <Link to={paths.howToUse}>How to use</Link>.
             </p>
           </section>
 
