@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { Link } from "react-router";
+import { paths } from "../../router/paths";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -237,9 +239,10 @@ export function DocsScreen() {
           <section id="que-es" className="docs-sec">
             <h2>Qué es Tune</h2>
             <p>
-              Tune es una aplicación de análisis satelital. Recibe una imagen de la Tierra, detecta
-              dónde hay agua (o cicatriz de incendio) y, en el caso de inundación, estima qué parte
-              de esa agua es <strong>nueva</strong> respecto a una referencia de agua permanente.
+              Tune es una aplicación de análisis satelital de <strong>inundación</strong>. Recibe
+              una imagen Sentinel-2, detecta dónde hay agua y estima qué parte es{" "}
+              <strong>nueva</strong> respecto a una fecha anterior del mismo lugar (o a JRC si aún
+              no hay historial).
             </p>
             <p>
               Esa distinción importa: <strong>agua detectada</strong> es todo lo que el modelo ve
@@ -247,30 +250,26 @@ export function DocsScreen() {
               estaba en la referencia permanente. Si además hay un producto externo comparable
               (por ejemplo Copernicus GFM), Tune puede mostrar el acuerdo entre ambas fuentes.
             </p>
-            <p>
-              La tarea principal es inundación. La cicatriz de incendio está disponible como tarea
-              alternativa con el mismo flujo de trabajo.
-            </p>
           </section>
 
           <section id="empezar" className="docs-sec">
             <h2>Cómo empezar</h2>
             <ol>
               <li>
-                En <strong>Inicio</strong>, elige <strong>Inundaciones</strong> o{" "}
-                <strong>Incendios</strong>.
+                En <strong>Inicio</strong>, elige el lugar y verás dos columnas:{" "}
+                <strong>Antes</strong> y <strong>Después</strong>, cada una con sus fechas.
               </li>
               <li>
-                Escoge una forma de entrada: punto en el mapa + escena Sentinel-2, archivo GeoTIFF
-                propio, o escena de ejemplo.
+                Analiza primero <strong>Antes</strong>, vuelve a Inicio y analiza{" "}
+                <strong>Después</strong>. También puedes subir un GeoTIFF (opción avanzada).
               </li>
               <li>
-                Confirma el análisis. La aplicación pasa a <strong>Análisis</strong>, donde verás
-                el progreso paso a paso (subida o descarga, validación y modelo).
+                En <strong>Análisis</strong> verás el progreso y, al terminar, el mapa. Abre la capa{" "}
+                <strong>Posible inundación</strong> para ver nueva (rojo) vs permanente (azul).
               </li>
               <li>
-                Cuando termine, revisa el resumen a la derecha y las capas del mapa. Guarda la
-                corrida en <strong>Historial</strong> para volver más tarde.
+                Las corridas quedan en <strong>Historial</strong>. Guía corta:{" "}
+                <Link to={paths.howToUse}>How to use</Link>.
               </li>
             </ol>
           </section>
@@ -278,7 +277,7 @@ export function DocsScreen() {
           <section id="ubicacion" className="docs-sec">
             <h2>Ubicación y escenas Sentinel-2</h2>
             <p>
-              En el bloque <strong>Ubicación y escenas Sentinel-2</strong> indicas un punto. Puedes:
+              En el bloque de comparación indicas un punto. Puedes:
             </p>
             <ul>
               <li>Escribir un nombre de lugar (ciudad, región) y pulsar Buscar.</li>
@@ -286,20 +285,16 @@ export function DocsScreen() {
                 Escribir latitud y longitud separadas por coma, por ejemplo{" "}
                 <code>4.71, -74.07</code>.
               </li>
-              <li>Usar un atajo (Bogotá, Magdalena, Valencia, Sindh).</li>
+              <li>Usar un atajo (Bogotá, Magdalena, Valencia, Sindh) o un par verificado.</li>
             </ul>
             <p>
-              En cuanto hay un punto válido, Tune consulta el catálogo y lista escenas cercanas. Cada
-              fila puede mostrar miniatura, fecha y el porcentaje de nubes de{" "}
-              <strong>toda la escena</strong> Sentinel-2 (aprox. 100 km). Ese valor no es el de tu
-              recorte local: al analizar se mide la nubosidad real del recorte. Si supera «Nubes
-              máx.», Tune te dirá cuánto subir el filtro o te pedirá otra fecha.
+              Cada columna (Antes / Después) tiene su propio rango de fechas y lista de escenas.
+              Cada fila muestra miniatura, fecha y el % de nubes de <strong>toda la escena</strong>{" "}
+              (~100 km). Al analizar se comprueba la nubosidad real del recorte.
             </p>
             <p>
-              El catálogo Earth Search es Sentinel-2 L2A y solo alimenta <strong>inundación</strong>.
-              Para cicatriz de incendio usa GeoTIFF HLS o un ejemplo Burn Scars. El recorte máximo lo
-              fija el servidor (por defecto 30 km). Solo corre un análisis a la vez. Los filtros se
-              refrescan solos al cambiarlos; también puedes pulsar <strong>Actualizar lista</strong>.
+              El catálogo Earth Search es Sentinel-2 L2A. El recorte máximo lo fija el servidor (por
+              defecto 30 km). Solo corre un análisis a la vez.
             </p>
           </section>
 
@@ -370,8 +365,7 @@ export function DocsScreen() {
                 <strong>Imagen satelital</strong>: la escena con la máscara encima.
               </li>
               <li>
-                <strong>Agua detectada</strong> (o clases en incendio): solo lo que clasificó el
-                modelo.
+                <strong>Agua detectada</strong>: solo lo que clasificó el modelo como agua.
               </li>
               <li>
                 <strong>Posible inundación</strong>: agua nueva, permanente y retirada frente a la
@@ -400,6 +394,11 @@ export function DocsScreen() {
               cauces estables, o referencia incompleta), las dos capas pueden cubrir la misma zona.
               Tune lo avisa en el resumen y muestra ambas cifras juntas para que compares. En ese
               caso el contorno se parece; cambia el significado, no necesariamente la forma.
+            </p>
+            <p>
+              Para demostrar inundación de verdad (rojo ≠ azul), analiza <strong>dos fechas</strong>{" "}
+              del mismo punto en orden cronológico. Recetas verificadas (Pakistán, Magdalena,
+              Mississippi) en <Link to={paths.howToUse}>How to use</Link>.
             </p>
           </section>
 
