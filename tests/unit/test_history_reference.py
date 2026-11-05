@@ -138,7 +138,6 @@ def test_history_permanent_where_water_in_all_scenes(tmp_path: Path) -> None:
     assert not p[1, 7]  # bloque B solo 1/3
 
 
-
 def test_history_as_of_ignores_future_scenes(tmp_path: Path) -> None:
     repo = FileAnalysisRepository(tmp_path / "analyses")
     early = np.zeros((10, 10), dtype=np.uint8)
