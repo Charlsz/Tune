@@ -116,9 +116,7 @@ class AnalyzeUseCase:
         grid = grid_from_meta(output.raster_meta)
         if grid is None or self.reference is None:
             return None, None
-        layer = self.reference.reference(
-            task, grid, exclude_id=None, as_of=output.acquired_at
-        )
+        layer = self.reference.reference(task, grid, exclude_id=None, as_of=output.acquired_at)
         if layer is None:
             return None, None
         summary = compare(
