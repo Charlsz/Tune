@@ -15,6 +15,7 @@ Empieza por la **[Guía de uso](./GuiaDeUso.md)** si quieres saber qué hace la 
 
 | Documento | Contenido |
 |---|---|
+| [validation/casos-demostracion.md](./validation/casos-demostracion.md) | Pares STAC donde inundación ≠ solo agua |
 | [validation/sitios.md](./validation/sitios.md) | Protocolo multi-sitio |
 | [validation/jrc.md](./validation/jrc.md) | Referencia JRC / agua permanente |
 
