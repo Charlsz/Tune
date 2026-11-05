@@ -114,6 +114,11 @@ class Container:
         root = self.settings.tune_artifacts_dir / "analyses"
         history = HistoryReferenceProvider(self.analyses, root)
         providers: list = []
+        # Historial primero: si ya hay una corrida del mismo territorio (p. ej. seca),
+        # esa máscara es la línea base. JRC solo gana en el arranque en frío; si va
+        # primero y marca poco permanente (humedales), tapa el historial y todo
+        # el agua sale como "nueva".
+        providers.append(history)
         if self.settings.tune_reference_jrc:
             from tune.infrastructure.reference.jrc import JrcReferenceProvider  # noqa: PLC0415
 
@@ -123,7 +128,6 @@ class Container:
                     permanent_pct=self.settings.tune_jrc_permanent_pct,
                 )
             )
-        providers.append(history)
         return CompositeReferenceProvider(providers)
 
     @cached_property

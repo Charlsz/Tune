@@ -90,38 +90,49 @@ def main() -> int:
                 entry["runs"].append({"group": "example", "error": str(exc)})
         else:
             center = site["center"]
-            side = cfg.get("side_km", 20)
+            side = site.get("side_km", cfg.get("side_km", 20))
+            pinned = site.get("items") or {}
             for group, dates in (site.get("dates") or {}).items():
                 for center_date in dates:
-                    start, end = _window(center_date)
-                    try:
-                        scenes = _get(
-                            args.api,
-                            "/api/catalog/search",
-                            {
-                                "lat": center["lat"],
-                                "lon": center["lon"],
-                                "start": start,
-                                "end": end,
-                                "max_cloud": cfg.get("max_cloud", 30),
-                                "side_km": side,
-                            },
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        entry["runs"].append(
-                            {"group": group, "target_date": center_date, "error": str(exc)}
-                        )
-                        continue
-                    if not scenes:
-                        entry["runs"].append(
-                            {"group": group, "target_date": center_date, "error": "sin escenas"}
-                        )
-                        continue
-                    scene = scenes[0]
+                    scene_id = pinned.get(group)
+                    if not scene_id:
+                        start, end = _window(center_date)
+                        try:
+                            scenes = _get(
+                                args.api,
+                                "/api/catalog/search",
+                                {
+                                    "lat": center["lat"],
+                                    "lon": center["lon"],
+                                    "start": start,
+                                    "end": end,
+                                    "max_cloud": cfg.get("max_cloud", 30),
+                                    "side_km": side,
+                                },
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            entry["runs"].append(
+                                {
+                                    "group": group,
+                                    "target_date": center_date,
+                                    "error": str(exc),
+                                }
+                            )
+                            continue
+                        if not scenes:
+                            entry["runs"].append(
+                                {
+                                    "group": group,
+                                    "target_date": center_date,
+                                    "error": "sin escenas",
+                                }
+                            )
+                            continue
+                        scene_id = scenes[0]["id"]
                     try:
                         analysis = _post(
                             args.api,
-                            f"/api/catalog/{scene['id']}/analyze",
+                            f"/api/catalog/{scene_id}/analyze",
                             {
                                 "task": "flood",
                                 "lat": str(center["lat"]),
@@ -134,7 +145,7 @@ def main() -> int:
                             {
                                 "group": group,
                                 "target_date": center_date,
-                                "scene_id": scene["id"],
+                                "scene_id": scene_id,
                                 "error": str(exc),
                             }
                         )
@@ -143,7 +154,7 @@ def main() -> int:
                         {
                             "group": group,
                             "target_date": center_date,
-                            "scene_id": scene["id"],
+                            "scene_id": scene_id,
                             **_summarize(analysis),
                         }
                     )
@@ -166,6 +177,7 @@ def main() -> int:
     mag = next((s for s in results["sites"] if s["id"] == "magdalena"), None)
     if mag:
         dry = [r for r in mag["runs"] if r.get("group") == "dry" and "new_km2" in r]
+        peak = [r for r in mag["runs"] if r.get("group") == "peak" and "new_km2" in r]
         if dry:
             ratios = []
             for r in dry:
@@ -177,6 +189,44 @@ def main() -> int:
                 "max_allowed": ctrls.get("river_ratio_max", 0.15),
                 "passed": all(
                     x is not None and x < ctrls.get("river_ratio_max", 0.15) for x in ratios
+                ),
+                "note": "En humedales JRC suele fallar este control; el pico con baseline sí vale.",
+            }
+        if peak:
+            results["controls"]["magdalena_peak_change"] = {
+                "runs": [
+                    {
+                        "new_km2": r.get("new_km2"),
+                        "persistent_km2": r.get("persistent_km2"),
+                        "reference_source": r.get("reference_source"),
+                    }
+                    for r in peak
+                ],
+                "passed": all(
+                    (r.get("new_km2") or 0) > 5
+                    and (r.get("persistent_km2") or 0) > 1
+                    and str(r.get("reference_source") or "").startswith("history")
+                    for r in peak
+                ),
+            }
+    pak = next((s for s in results["sites"] if s["id"] == "pakistan"), None)
+    if pak:
+        peak = [r for r in pak["runs"] if r.get("group") == "peak" and "new_km2" in r]
+        if peak:
+            results["controls"]["pakistan_peak_change"] = {
+                "runs": [
+                    {
+                        "new_km2": r.get("new_km2"),
+                        "persistent_km2": r.get("persistent_km2"),
+                        "reference_source": r.get("reference_source"),
+                    }
+                    for r in peak
+                ],
+                "passed": all(
+                    (r.get("new_km2") or 0) > 20
+                    and (r.get("persistent_km2") or 0) > 1
+                    and str(r.get("reference_source") or "").startswith("history")
+                    for r in peak
                 ),
             }
 

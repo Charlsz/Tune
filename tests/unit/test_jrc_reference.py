@@ -82,11 +82,11 @@ def test_jrc_ignores_burn_scar(tmp_path: Path) -> None:
 
 def test_composite_falls_through() -> None:
     class A:
-        def reference(self, task, grid, *, exclude_id=None):
+        def reference(self, task, grid, *, exclude_id=None, as_of=None):
             return None
 
     class B:
-        def reference(self, task, grid, *, exclude_id=None):
+        def reference(self, task, grid, *, exclude_id=None, as_of=None):
             return ReferenceLayer(
                 mask=np.zeros((2, 2), dtype=bool),
                 valid=np.ones((2, 2), dtype=bool),
@@ -101,11 +101,11 @@ def test_composite_falls_through() -> None:
 
 def test_composite_skips_unavailable() -> None:
     class Boom:
-        def reference(self, task, grid, *, exclude_id=None):
+        def reference(self, task, grid, *, exclude_id=None, as_of=None):
             raise ReferenceUnavailable("caído")
 
     class Ok:
-        def reference(self, task, grid, *, exclude_id=None):
+        def reference(self, task, grid, *, exclude_id=None, as_of=None):
             return ReferenceLayer(
                 mask=np.ones((1, 1), dtype=bool),
                 valid=np.ones((1, 1), dtype=bool),

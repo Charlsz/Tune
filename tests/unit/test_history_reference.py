@@ -77,19 +77,37 @@ def _save_analysis(
     return repo.save(analysis, out, src)
 
 
-def test_history_needs_at_least_two_scenes(tmp_path: Path) -> None:
+def test_history_needs_at_least_one_scene_by_default(tmp_path: Path) -> None:
     repo = FileAnalysisRepository(tmp_path / "analyses")
-    mask = np.zeros((10, 10), dtype=np.uint8)
-    mask[0:4, 0:4] = 1
-    _save_analysis(repo, tmp_path, mask, date="2020-01-01")
-    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=2)
     grid = RasterGrid(
         crs="EPSG:32618",
         transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),
         width=10,
         height=10,
     )
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
     assert provider.reference(HazardTask.FLOOD, grid) is None
+
+
+def test_history_single_prior_is_baseline(tmp_path: Path) -> None:
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    mask = np.zeros((10, 10), dtype=np.uint8)
+    mask[0:4, 0:4] = 1
+    prior = _save_analysis(repo, tmp_path, mask, date="2020-01-01")
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
+    grid = RasterGrid(
+        crs="EPSG:32618",
+        transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),
+        width=10,
+        height=10,
+    )
+    layer = provider.reference(HazardTask.FLOOD, grid)
+    assert layer is not None
+    assert layer.source == "history_baseline"
+    assert layer.reference_id == prior.id
+    p = np.asarray(layer.mask)
+    assert p[1, 1]
+    assert not p[8, 8]
 
 
 def test_history_permanent_where_water_in_all_scenes(tmp_path: Path) -> None:
@@ -118,6 +136,31 @@ def test_history_permanent_where_water_in_all_scenes(tmp_path: Path) -> None:
     p = np.asarray(layer.mask)
     assert p[1, 1]  # bloque A
     assert not p[1, 7]  # bloque B solo 1/3
+
+
+
+def test_history_as_of_ignores_future_scenes(tmp_path: Path) -> None:
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    early = np.zeros((10, 10), dtype=np.uint8)
+    early[0:4, 0:4] = 1
+    late = np.zeros((10, 10), dtype=np.uint8)
+    late[6:9, 6:9] = 1
+    _save_analysis(repo, tmp_path, early, date="2020-01-01")
+    _save_analysis(repo, tmp_path, late, date="2020-06-01")
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
+    grid = RasterGrid(
+        crs="EPSG:32618",
+        transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),
+        width=10,
+        height=10,
+    )
+    # Escena en marzo: solo debe ver enero como base (no junio).
+    layer = provider.reference(HazardTask.FLOOD, grid, as_of="2020-03-15")
+    assert layer is not None
+    assert layer.source == "history_baseline"
+    pmask = np.asarray(layer.mask)
+    assert pmask[1, 1]
+    assert not pmask[7, 7]
 
 
 def test_history_exclude_id(tmp_path: Path) -> None:
