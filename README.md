@@ -5,9 +5,7 @@
 
 ##
 
-Aplicación de análisis satelital de inundación con los modelos Prithvi-EO 2.0 publicados por IBM-NASA. Se sube un GeoTIFF o se busca una escena Sentinel-2 por coordenada. El modelo detecta agua, y Tune calcula **inundación como agua nueva** frente a una referencia (JRC o historial del mismo territorio). Cuando hay dato, compara con Copernicus GFM y resume cobertura y población sobre el agua nueva.
-
-La misma infraestructura admite, de forma secundaria, cicatriz de incendio con el checkpoint Burn Scars. El núcleo del proyecto y de la demostración es inundación.
+Aplicación de análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA). En la web eliges el mismo punto dos veces: **Antes** (línea base) y **Después** (pico). El modelo detecta agua; Tune calcula inundación como agua nueva frente a esa referencia (historial del territorio o JRC). Cuando hay dato, compara con Copernicus GFM.
 
 ## Resultados verificados (inundación ≠ solo agua)
 

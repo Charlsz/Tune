@@ -53,7 +53,7 @@ export function App() {
   useEffect(() => {
     api
       .tasks()
-      .then(setTasks)
+      .then((list) => setTasks(list.filter((t) => t.id === "flood")))
       .catch((e: Error) => setError(e.message));
     refresh();
   }, [refresh]);

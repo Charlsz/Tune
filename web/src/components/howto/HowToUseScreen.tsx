@@ -104,22 +104,24 @@ export function HowToUseScreen() {
         <h2>Receta en la interfaz (5 minutos)</h2>
         <ol>
           <li>
-            En <Link to={paths.home}>Inicio</Link>, deja la tarea en <strong>Inundaciones</strong>.
+            En <Link to={paths.home}>Inicio</Link> verás dos columnas: <strong>Antes</strong> y{" "}
+            <strong>Después</strong>, cada una con sus fechas del catálogo Sentinel-2.
           </li>
           <li>
-            Usa un atajo de demo (Sindh 2022, Magdalena 2022, Mississippi) o pega las coordenadas de
-            la tabla. Pon <strong>lado del recorte = 12 km</strong>.
+            Pulsa un par verificado (Sindh / Magdalena / Mississippi) o busca un lugar. El recorte
+            recomendado es <strong>12 km</strong>.
           </li>
           <li>
-            Ajusta las fechas al rango de la <strong>línea base</strong>, elige la escena STAC
-            exacta (o la más cercana) y pulsa Analizar. Espera a que termine.
+            En <strong>Antes</strong>, confirma la escena (fecha visible) y pulsa{" "}
+            <strong>1 · Analizar Antes</strong>. Espera a que termine.
           </li>
           <li>
-            Cambia las fechas al <strong>pico</strong>, analiza esa escena. En Capas abre{" "}
-            <strong>Posible inundación</strong>: rojo = nueva, azul = permanente.
+            Vuelve a Inicio (la selección se conserva). En <strong>Después</strong> pulsa{" "}
+            <strong>2 · Analizar Después</strong>. La barra inferior muestra las dos fechas.
           </li>
           <li>
-            La cifra grande del resumen es agua nueva. “Agua detectada” es todo el agua del modelo.
+            En Capas abre <strong>Posible inundación</strong>: rojo = nueva, azul = permanente. La
+            cifra grande del resumen es agua nueva.
           </li>
         </ol>
         <p>

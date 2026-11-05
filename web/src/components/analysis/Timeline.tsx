@@ -4,12 +4,11 @@ import { fmt, TASK_META } from "../../lib/insights";
 import type { Analysis, Place, SeriesPoint, TaskId } from "../../types";
 import { Skeleton } from "../shared/Skeleton";
 
-type Filter = "all" | TaskId;
+type Filter = "all" | "flood";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "Todas" },
   { id: "flood", label: "Inundación" },
-  { id: "burn_scar", label: "Incendio" },
 ];
 
 const SKEL_HEIGHTS = [48, 72, 36, 60];
