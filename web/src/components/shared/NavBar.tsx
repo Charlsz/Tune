@@ -10,6 +10,7 @@ const NAV: { to: string; label: string; end?: boolean }[] = [
   { to: paths.home, label: "Inicio", end: true },
   { to: paths.analysis, label: "Análisis" },
   { to: paths.history, label: "Historial" },
+  { to: paths.howToUse, label: "How to use" },
   { to: paths.docs, label: "Documentación" },
 ];
 

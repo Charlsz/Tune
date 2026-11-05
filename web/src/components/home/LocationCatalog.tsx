@@ -9,6 +9,59 @@ const PRESETS: { label: string; place: Place; hint: string }[] = [
   { label: "Sindh (PK)", place: { lat: 27.7, lon: 68.85 }, hint: "evento 2022" },
 ];
 
+/** Pares verificados: al elegir un paso se fijan punto, fechas y recorte 12 km. */
+const DEMO_STEPS: {
+  id: string;
+  label: string;
+  place: Place;
+  placeLabel: string;
+  start: string;
+  end: string;
+  sideKm: number;
+  hint: string;
+}[] = [
+  {
+    id: "sindh-base",
+    label: "Sindh · base mayo 2022",
+    place: { lat: 27.7, lon: 68.85 },
+    placeLabel: "Sindh (PK)",
+    start: "2022-05-10",
+    end: "2022-05-25",
+    sideKm: 12,
+    hint: "Paso 1: analiza S2B_42RVR_20220518_0_L2A",
+  },
+  {
+    id: "sindh-peak",
+    label: "Sindh · pico sep 2022",
+    place: { lat: 27.7, lon: 68.85 },
+    placeLabel: "Sindh (PK)",
+    start: "2022-08-28",
+    end: "2022-09-12",
+    sideKm: 12,
+    hint: "Paso 2: tras la base, S2B_42RVR_20220905_0_L2A",
+  },
+  {
+    id: "mag-dry",
+    label: "Magdalena · seca feb 2022",
+    place: { lat: 8.85, lon: -74.65 },
+    placeLabel: "Magdalena",
+    start: "2022-02-15",
+    end: "2022-03-01",
+    sideKm: 12,
+    hint: "Paso 1: S2B_18PWQ_20220222_0_L2A",
+  },
+  {
+    id: "mag-wet",
+    label: "Magdalena · húmeda may 2022",
+    place: { lat: 8.85, lon: -74.65 },
+    placeLabel: "Magdalena",
+    start: "2022-05-01",
+    end: "2022-05-15",
+    sideKm: 12,
+    hint: "Paso 2: S2A_18PWQ_20220508_0_L2A",
+  },
+];
+
 const DEFAULT_MAX_KM = 30;
 
 type GeoHit = { label: string; lat: number; lon: number };
@@ -63,6 +116,7 @@ export function LocationCatalog({
   const [scenes, setScenes] = useState<CatalogScene[] | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [demoHint, setDemoHint] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const geoAbort = useRef<AbortController | null>(null);
   const placeKey = place ? `${place.lat},${place.lon}` : "";
@@ -234,13 +288,45 @@ export function LocationCatalog({
               className={
                 place && place.lat === p.place.lat && place.lon === p.place.lon ? "on" : undefined
               }
-              onClick={() => applyPlace(p.place, p.label)}
+              onClick={() => {
+                setDemoHint(null);
+                applyPlace(p.place, p.label);
+              }}
               title={p.hint}
             >
               {p.label}
             </button>
           ))}
         </div>
+
+        {catalogOk && (
+          <div className="demo-steps" role="group" aria-label="Demos verificadas de inundación">
+            <p className="caption demo-steps-label">
+              Demos verificadas (base → pico). Elige el paso 1, analiza, luego el paso 2.
+            </p>
+            <div className="presets demo-presets">
+              {DEMO_STEPS.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  disabled={busy}
+                  title={d.hint}
+                  onClick={() => {
+                    setStart(d.start);
+                    setEnd(d.end);
+                    setSideKm(Math.min(d.sideKm, maxSideKm));
+                    setMaxCloud(40);
+                    setDemoHint(d.hint);
+                    applyPlace(d.place, d.placeLabel);
+                  }}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            {demoHint && <p className="caption demo-hint">{demoHint}</p>}
+          </div>
+        )}
 
         {coordError && <p className="caption catalog-error">{coordError}</p>}
         {place && (

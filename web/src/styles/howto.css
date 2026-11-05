@@ -1,0 +1,107 @@
+.page.page-howto {
+  padding: var(--space-8) var(--space-6) var(--space-8);
+}
+
+.howto-page {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.howto-sec h2 {
+  margin-bottom: var(--space-3);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.howto-sec h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.howto-sec p,
+.howto-sec li {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.howto-sec ol,
+.howto-sec ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.howto-callout {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line-strong);
+  font-size: 14px;
+}
+
+.howto-demo {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.howto-steps {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.howto-fig {
+  margin: var(--space-4) 0 0;
+  padding: 0;
+}
+
+.howto-fig img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--wash);
+}
+
+.howto-fig figcaption {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.howto-footer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.home-tip {
+  width: min(640px, 100%);
+  margin: 0 auto var(--space-4);
+  padding-top: var(--space-3);
+}
+
+.demo-steps {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.demo-steps-label {
+  margin: 0 0 var(--space-2);
+}
+
+.demo-hint {
+  margin: var(--space-2) 0 0;
+  color: var(--ink);
+}
+
+.demo-presets button {
+  font-size: 13px;
+}
