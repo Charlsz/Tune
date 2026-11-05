@@ -12,10 +12,12 @@ la app acepta lat/lon en cualquier continente.
 
 | Control | Criterio | Sitio |
 |---|---|---|
-| Río (seca) | `new_km2 / affected_km2 < 0.15` | magdalena (fecha seca) |
-| Cauce visible | `persistent_km2 > 0` y `new_km2 < affected_km2` | spain |
-| Evento | `new_km2` claramente > 0 | pakistan 2022 o magdalena pico |
+| Río (seca) | `new_km2 / affected_km2 < 0.15` | magdalena (fecha seca) *con JRC o tras baseline* |
+| Cauce en el pico | `persistent_km2 > 0` y `new_km2` claramente > 0 | magdalena peak / pakistan peak tras su línea base |
+| Evento | `new_km2` claramente > 0 y mayor que en la pre | pakistan 2022 o magdalena 2022 |
 | Acuerdo externo | IoU Tune vs GFM cuando GFM responde | el primero que tenga fusión |
+
+Pares STAC concretos y números esperados: [casos-demostracion.md](./casos-demostracion.md).
 
 ## Reproducción
 

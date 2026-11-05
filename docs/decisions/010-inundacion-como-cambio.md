@@ -12,9 +12,15 @@ Definición operativa: inundación \(F_t = W_t \land \lnot P\), donde \(W_t\) es
 
 Cada análisis puede llevar un `ChangeSummary` (píxeles y km² nuevos, persistentes y retirados) y artefactos `change.png` / `reference.tif`. La fuente de \(P\) se elige en este orden:
 
-1. JRC Global Surface Water (occurrence ≥ 75 %), cuando esté cableado.
-2. Historial del mismo territorio (ocurrencia ≥ 75 % en al menos 2 fechas previas).
+1. Historial del mismo territorio con fecha **estrictamente anterior** a la escena:
+   - ≥ 2 fechas previas → ocurrencia ≥ 75 % (`source=history`).
+   - 1 fecha previa → esa máscara es la línea base (`source=history_baseline`).
+2. JRC Global Surface Water (occurrence ≥ 75 %), si no hay historial usable.
 3. Sin referencia: el análisis se guarda igual, sin `change`.
+
+El historial va **antes** que JRC: en humedales JRC marca poco permanente y, si ganara
+primero, todo el agua saldría como “nueva”. Pares de demostración:
+[casos-demostracion.md](../validation/casos-demostracion.md).
 
 ## Alternativas descartadas
 

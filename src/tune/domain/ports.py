@@ -137,7 +137,12 @@ class ReferenceProvider(Protocol):
     """Construye la capa de referencia (agua permanente / cicatriz previa) para una grilla."""
 
     def reference(
-        self, task: HazardTask, grid: RasterGrid, *, exclude_id: str | None = None
+        self,
+        task: HazardTask,
+        grid: RasterGrid,
+        *,
+        exclude_id: str | None = None,
+        as_of: str | None = None,
     ) -> ReferenceLayer | None: ...
 
 

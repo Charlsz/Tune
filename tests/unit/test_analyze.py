@@ -135,7 +135,7 @@ class FakeReferenceProvider:
         self.boom = boom
         self.calls = 0
 
-    def reference(self, task, grid, *, exclude_id=None):
+    def reference(self, task, grid, *, exclude_id=None, as_of=None):
         self.calls += 1
         if self.boom:
             raise RuntimeError("referencia caída")
