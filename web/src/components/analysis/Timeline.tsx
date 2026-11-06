@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
+import { analysisDate } from "../../lib/pair";
 import { fmt, TASK_META } from "../../lib/insights";
 import type { Analysis, Place, SeriesPoint, TaskId } from "../../types";
 import { Skeleton } from "../shared/Skeleton";
@@ -20,15 +21,19 @@ export function Timeline({
   analysis,
   place,
   onSelect,
+  onOpenPair,
 }: {
   analysis: Analysis | null;
   place: Place | null;
   onSelect: (a: Analysis) => void;
+  onOpenPair?: (before: Analysis, after: Analysis, at?: Place | null) => void;
 }) {
   const [items, setItems] = useState<Analysis[] | null>(null);
   const [series, setSeries] = useState<SeriesPoint[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [pickBeforeId, setPickBeforeId] = useState<string>("");
+  const [pickAfterId, setPickAfterId] = useState<string>("");
 
   useEffect(() => {
     if (!place && !analysis?.bounds) return;
@@ -49,10 +54,37 @@ export function Timeline({
   }, [place, analysis, filter]);
 
   const shown = (items ?? []).filter((a) => filter === "all" || a.task === filter);
+  const floods = useMemo(
+    () =>
+      (items ?? [])
+        .filter((a) => a.task === "flood")
+        .slice()
+        .sort((a, b) => (analysisDate(a) ?? "").localeCompare(analysisDate(b) ?? "")),
+    [items],
+  );
   const taskVariety = items != null && new Set(items.map((a) => a.task)).size > 1;
   const showFilters = (items?.length ?? 0) > 1 && taskVariety;
 
   const chart = useMemo(() => buildSparkline(series), [series]);
+
+  useEffect(() => {
+    if (floods.length < 2) {
+      setPickBeforeId("");
+      setPickAfterId("");
+      return;
+    }
+    setPickBeforeId((prev) => prev || floods[0].id);
+    setPickAfterId((prev) => prev || floods[floods.length - 1].id);
+  }, [floods]);
+
+  const pickBefore = floods.find((a) => a.id === pickBeforeId) ?? null;
+  const pickAfter = floods.find((a) => a.id === pickAfterId) ?? null;
+  const pickDatesOk =
+    pickBefore &&
+    pickAfter &&
+    analysisDate(pickBefore) != null &&
+    analysisDate(pickAfter) != null &&
+    analysisDate(pickBefore)! < analysisDate(pickAfter)!;
 
   return (
     <section className="timeline" aria-label="Historial del lugar">
@@ -60,8 +92,8 @@ export function Timeline({
         <div>
           <h2>Historial del lugar</h2>
           <p className="caption timeline-lead">
-            Otras corridas que cubren las mismas coordenadas. No cambia la máscara de arriba: solo
-            deja elegir un análisis anterior para comparar fechas.
+            Cada análisis queda guardado. Elige dos fechas del historial para comparar inundación
+            (primera / última del lugar, u otras) sin volver a correr el modelo.
           </p>
         </div>
         {showFilters && (
@@ -159,6 +191,60 @@ export function Timeline({
             {fmt.day((shown[0].acquired_at ?? shown[0].created_at).slice(0, 10))}
             ). Cuando analices otra fecha del mismo sitio, aparecerán en fila para comparar.
           </p>
+        </div>
+      )}
+
+      {floods.length > 1 && onOpenPair && (
+        <div className="timeline-pick" role="group" aria-label="Comparar dos fechas del historial">
+          <label className="field">
+            Antes
+            <select
+              value={pickBeforeId}
+              onChange={(e) => setPickBeforeId(e.target.value)}
+              aria-label="Fecha Antes del historial"
+            >
+              {floods.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {analysisDate(a) ?? a.id.slice(0, 8)}
+                  {a.affected_area_km2 != null ? ` · ${fmt.km2(a.affected_area_km2)} km²` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Después
+            <select
+              value={pickAfterId}
+              onChange={(e) => setPickAfterId(e.target.value)}
+              aria-label="Fecha Después del historial"
+            >
+              {floods.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {analysisDate(a) ?? a.id.slice(0, 8)}
+                  {a.change?.new_area_km2 != null
+                    ? ` · nueva ${fmt.km2(a.change.new_area_km2)}`
+                    : a.affected_area_km2 != null
+                      ? ` · ${fmt.km2(a.affected_area_km2)} km²`
+                      : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="primary"
+            disabled={!pickDatesOk || pickBeforeId === pickAfterId}
+            onClick={() => {
+              if (pickBefore && pickAfter) onOpenPair(pickBefore, pickAfter, place);
+            }}
+          >
+            Comparar selección
+          </button>
+          {!pickDatesOk && pickBefore && pickAfter && (
+            <p className="caption catalog-error timeline-pick-hint">
+              La fecha Después debe ser posterior a Antes (primera → última del evento).
+            </p>
+          )}
         </div>
       )}
 

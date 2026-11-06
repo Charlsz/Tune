@@ -30,6 +30,7 @@ export function App() {
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [history, setHistory] = useState<Analysis[] | null>(null);
   const [selected, setSelected] = useState<Analysis | null>(null);
+  const [pair, setPair] = useState<{ before: Analysis; after: Analysis } | null>(null);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<AnalyzePhase | null>(null);
   const [runTask, setRunTask] = useState<TaskId | null>(null);
@@ -77,6 +78,7 @@ export function App() {
     setSummaryOpen(true);
     try {
       const a = await work(setPhase);
+      setPair(null);
       setSelected(a);
       refresh();
     } catch (e) {
@@ -111,11 +113,82 @@ export function App() {
     );
   }
 
+  /** Atajo: analiza Antes y Después en serie y abre el par (inundación = agua nueva). */
+  async function onCatalogComparePair(
+    beforeItemId: string,
+    afterItemId: string,
+    at: Place,
+    sideKm: number,
+    maxCloud: number,
+  ) {
+    setBusy(true);
+    setError(null);
+    setPhase(null);
+    setPair(null);
+    setPlace(at);
+    setRunTask("flood");
+    setRunContext("catalog");
+    setLastRunContext("catalog");
+    go(paths.analysis);
+    setSummaryOpen(true);
+    try {
+      setPhase({ phase: "prepare", detail: "Paso 1 de 2 · línea base (Antes)…" });
+      const before = await api.catalogAnalyze(
+        beforeItemId,
+        "flood",
+        at,
+        sideKm,
+        maxCloud,
+        (p) => {
+          if (p.phase === "prepare") {
+            setPhase({ ...p, detail: p.detail ?? "Paso 1 de 2 · Antes" });
+          } else if (p.phase === "infer") {
+            setPhase({ ...p, detail: "Paso 1 de 2 · modelo en Antes…" });
+          } else {
+            setPhase(p);
+          }
+        },
+      );
+      setSelected(before);
+
+      setPhase({ phase: "prepare", detail: "Paso 2 de 2 · fecha pico (Después)…" });
+      const after = await api.catalogAnalyze(
+        afterItemId,
+        "flood",
+        at,
+        sideKm,
+        maxCloud,
+        (p) => {
+          if (p.phase === "prepare") {
+            setPhase({ ...p, detail: p.detail ?? "Paso 2 de 2 · Después" });
+          } else if (p.phase === "infer") {
+            setPhase({ ...p, detail: "Paso 2 de 2 · modelo en Después…" });
+          } else {
+            setPhase(p);
+          }
+        },
+      );
+      setPair({ before, after });
+      setSelected(after);
+      refresh();
+    } catch (e) {
+      const msg = (e as Error).message?.trim() || "Error desconocido durante la comparación.";
+      setError(msg);
+    } finally {
+      setBusy(false);
+      setPhase(null);
+      setRunContext(null);
+    }
+  }
+
   async function onRemove(analysis: Analysis) {
     if (!window.confirm(`¿Quitar ${analysis.input_filename} del historial?`)) return;
     try {
       await api.remove(analysis.id);
       if (selected?.id === analysis.id) setSelected(null);
+      if (pair && (pair.before.id === analysis.id || pair.after.id === analysis.id)) {
+        setPair(null);
+      }
       refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -123,13 +196,27 @@ export function App() {
   }
 
   function openAnalysis(a: Analysis) {
+    setPair(null);
     setSelected(a);
     setSummaryOpen(true);
     go(paths.analysis);
   }
 
+  function openPair(before: Analysis, after: Analysis, at?: Place | null) {
+    if (at) setPlace(at);
+    setPair({ before, after });
+    setSelected(after);
+    setSummaryOpen(true);
+    go(paths.analysis);
+  }
+
+  function clearPair() {
+    setPair(null);
+  }
+
   function closeSelected() {
     setSelected(null);
+    setPair(null);
     setSummaryOpen(false);
   }
 
@@ -137,6 +224,7 @@ export function App() {
     tasks,
     history,
     selected,
+    pair,
     busy,
     phase,
     runContext,
@@ -148,8 +236,11 @@ export function App() {
     onAnalyze,
     onExample,
     onCatalogAnalyze,
+    onCatalogComparePair: onCatalogComparePair,
     onRemove,
     openAnalysis,
+    openPair,
+    clearPair,
     closeSelected,
     goHome: () => go(paths.home),
   };

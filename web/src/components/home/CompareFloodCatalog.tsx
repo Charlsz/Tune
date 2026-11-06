@@ -193,12 +193,22 @@ export function CompareFloodCatalog({
   history,
   onPlace,
   onAnalyze,
+  onComparePair,
+  onOpenPair,
 }: {
   place: Place | null;
   busy: boolean;
   history: Analysis[] | null;
   onPlace: (place: Place | null) => void;
   onAnalyze: (itemId: string, at: Place, sideKm: number, maxCloud: number) => void;
+  onComparePair: (
+    beforeItemId: string,
+    afterItemId: string,
+    at: Place,
+    sideKm: number,
+    maxCloud: number,
+  ) => void;
+  onOpenPair: (before: Analysis, after: Analysis, at?: Place | null) => void;
 }) {
   const saved = useMemo(() => loadDraft(), []);
   const [text, setText] = useState(saved?.text ?? "");
@@ -456,6 +466,23 @@ export function CompareFloodCatalog({
     onAnalyze(scene.id, place, Math.min(sideKm, maxSideKm), maxCloud);
   }
 
+  function runCompare() {
+    if (!place || !beforeScene || !afterScene || !datesOk) return;
+    const side = Math.min(sideKm, maxSideKm);
+    if (beforeRun && afterRun) {
+      onOpenPair(beforeRun, afterRun, place);
+      return;
+    }
+    if (beforeRun && !afterRun) {
+      // Baseline ya en historial: solo hace falta el Después.
+      onAnalyze(afterScene.id, place, side, maxCloud);
+      return;
+    }
+    onComparePair(beforeScene.id, afterScene.id, place, side, maxCloud);
+  }
+
+  const canCompare = Boolean(place && beforeScene && afterScene && datesOk);
+
   return (
     <div className="location-catalog compare-flood">
       <form className="coord-search" onSubmit={(e) => void submitSearch(e)}>
@@ -553,8 +580,9 @@ export function CompareFloodCatalog({
 
       {!place && (
         <p className="caption location-hint">
-          1) Elige el lugar. 2) Elige una escena <strong>Antes</strong> y otra <strong>Después</strong>.
-          3) Analiza Antes, vuelve aquí y analiza Después. Guía:{" "}
+          1) Elige el lugar. 2) Elige una escena <strong>Antes</strong> y otra{" "}
+          <strong>Después</strong>. 3) Pulsa <strong>Comparar par</strong> (hace las dos corridas y
+          abre el lado a lado) o analízalas una a una. Guía:{" "}
           <Link to={paths.howToUse}>How to use</Link>.
         </p>
       )}
@@ -737,6 +765,25 @@ export function CompareFloodCatalog({
               La fecha Después ({afterDate}) debe ser posterior a Antes ({beforeDate}).
             </p>
           )}
+
+          <div className="compare-pair-cta">
+            <button
+              type="button"
+              className="primary wide"
+              disabled={busy || !canCompare}
+              onClick={runCompare}
+            >
+              {beforeRun && afterRun
+                ? "Abrir comparación (ya en historial)"
+                : beforeRun
+                  ? "Comparar par · analiza solo Después"
+                  : "Comparar par · Antes y Después"}
+            </button>
+            <p className="caption">
+              Un solo clic: guarda ambas escenas en el historial del lugar y muestra inundación
+              como agua nueva (rojo) frente a la línea base.
+            </p>
+          </div>
 
           <div className="compare-status" aria-live="polite">
             <div>

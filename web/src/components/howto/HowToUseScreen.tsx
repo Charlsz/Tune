@@ -112,16 +112,17 @@ export function HowToUseScreen() {
             recomendado es <strong>12 km</strong>.
           </li>
           <li>
-            En <strong>Antes</strong>, confirma la escena (fecha visible) y pulsa{" "}
-            <strong>1 · Analizar Antes</strong>. Espera a que termine.
+            Elige escena en <strong>Antes</strong> y en <strong>Después</strong>, luego{" "}
+            <strong>Comparar par</strong>: Tune analiza las dos (o reutiliza historial) y abre el
+            lado a lado.
           </li>
           <li>
-            Vuelve a Inicio (la selección se conserva). En <strong>Después</strong> pulsa{" "}
-            <strong>2 · Analizar Después</strong>. La barra inferior muestra las dos fechas.
+            También puedes analizar una a una, o en el historial elegir la primera y la última
+            fecha del lugar y pulsar <strong>Comparar selección</strong>.
           </li>
           <li>
-            En Capas abre <strong>Posible inundación</strong>: rojo = nueva, azul = permanente. La
-            cifra grande del resumen es agua nueva.
+            En la vista par: rojo = agua nueva (inundación), azul = permanente. «Resultados
+            listos» abre pares ya guardados sin recalcular.
           </li>
         </ol>
         <p>
