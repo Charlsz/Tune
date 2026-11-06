@@ -3,10 +3,13 @@ import { useOutletContext } from "react-router";
 import type { AnalyzePhase } from "../api";
 import type { Analysis, Place, TaskId, TaskInfo } from "../types";
 
+export type AnalysisPair = { before: Analysis; after: Analysis };
+
 export type Workspace = {
   tasks: TaskInfo[];
   history: Analysis[] | null;
   selected: Analysis | null;
+  pair: AnalysisPair | null;
   busy: boolean;
   phase: AnalyzePhase | null;
   runContext: string | null;
@@ -26,6 +29,8 @@ export type Workspace = {
   ) => void;
   onRemove: (analysis: Analysis) => void;
   openAnalysis: (analysis: Analysis) => void;
+  openPair: (before: Analysis, after: Analysis, at?: Place | null) => void;
+  clearPair: () => void;
   closeSelected: () => void;
   goHome: () => void;
 };

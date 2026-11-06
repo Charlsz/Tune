@@ -1,15 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnalyzeProgress } from "../components/analysis/AnalyzeProgress";
+import { PairCompare } from "../components/analysis/PairCompare";
 import { SceneStage } from "../components/analysis/SceneStage";
 import { StatsCard } from "../components/analysis/StatsCard";
 import { Timeline } from "../components/analysis/Timeline";
+import { api } from "../api";
+import { findBeforeMate } from "../lib/pair";
 import { fmt } from "../lib/insights";
 import { useWorkspace } from "../router/workspace";
+import type { Analysis } from "../types";
 
 export function AnalysisPage() {
   const {
     tasks,
     selected,
+    pair,
     busy,
     phase,
     runContext,
@@ -18,15 +23,60 @@ export function AnalysisPage() {
     setSummaryOpen,
     firstRun,
     openAnalysis,
+    openPair,
+    clearPair,
     closeSelected,
     goHome,
   } = useWorkspace();
+
+  const [placeList, setPlaceList] = useState<Analysis[] | null>(null);
 
   useEffect(() => {
     if (!selected) return;
     if (!window.matchMedia("(max-width: 720px)").matches) return;
     setSummaryOpen(false);
   }, [selected?.id, setSummaryOpen]);
+
+  useEffect(() => {
+    if (!place && !selected?.bounds) {
+      setPlaceList(null);
+      return;
+    }
+    let cancelled = false;
+    const q = place
+      ? { lat: place.lat, lon: place.lon, task: "flood" as const, limit: 50 }
+      : { analysisId: selected!.id, task: "flood" as const };
+    api
+      .timeline(q)
+      .then((list) => {
+        if (!cancelled) setPlaceList(list);
+      })
+      .catch(() => {
+        if (!cancelled) setPlaceList([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [place?.lat, place?.lon, selected?.id, busy]);
+
+  const resolvedBefore = useMemo(() => {
+    if (pair?.before) return pair.before;
+    if (!selected || !placeList) return null;
+    return findBeforeMate(selected, placeList);
+  }, [pair, selected, placeList]);
+
+  const [wantPair, setWantPair] = useState(true);
+
+  useEffect(() => {
+    // Nueva selección: preferimos el par si hay línea base (definición de inundación).
+    setWantPair(true);
+  }, [selected?.id, pair?.after.id]);
+
+  const activePair =
+    pair ??
+    (wantPair && selected && resolvedBefore
+      ? { before: resolvedBefore, after: selected }
+      : null);
 
   const summaryLabel = selected
     ? selected.change?.new_area_km2 != null
@@ -38,7 +88,45 @@ export function AnalysisPage() {
     <main className="page page-analysis">
       <div className="analysis-layout">
         <div className="view">
-          <SceneStage analysis={selected} tasks={tasks} busy={busy} onGoHome={goHome} />
+          {!busy && activePair ? (
+            <PairCompare
+              before={activePair.before}
+              after={activePair.after}
+              onSelectSingle={(a) => {
+                clearPair();
+                setWantPair(false);
+                openAnalysis(a);
+              }}
+              onClosePair={() => {
+                clearPair();
+                setWantPair(false);
+              }}
+            />
+          ) : (
+            <SceneStage analysis={selected} tasks={tasks} busy={busy} onGoHome={goHome} />
+          )}
+
+          {!busy && selected && resolvedBefore && !activePair && (
+            <div className="pair-offer">
+              <p className="caption">
+                Hay una fecha <strong>Antes</strong> en este lugar. Compárala con el Después para
+                ver inundación (agua nueva), no solo el cauce.
+              </p>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  if (resolvedBefore && selected) {
+                    openPair(resolvedBefore, selected, place);
+                    setWantPair(true);
+                  }
+                }}
+              >
+                Ver Antes | Después
+              </button>
+            </div>
+          )}
+
           {(place || (selected && !busy)) && (
             <Timeline analysis={selected} place={place} onSelect={openAnalysis} />
           )}

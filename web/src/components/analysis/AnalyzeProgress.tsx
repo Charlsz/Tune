@@ -179,8 +179,10 @@ export function AnalyzeProgress({
       {inferring && (
         <p className="caption">
           {firstRun
-            ? "Primera vez: puede descargar unos 1,2 GB de pesos del modelo. Si falla, reintenta o usa una escena de ejemplo."
-            : "El modelo recorre la imagen en ventanas de 512×512. El tiempo restante se ajusta según el ritmo real."}{" "}
+            ? "Primera vez en esta máquina: puede bajar ~1,2 GB de pesos (varios minutos). Luego el modelo suele tardar ~1–3 min en CPU."
+            : context === "catalog"
+              ? "Con el modelo en caché, un recorte de ~12 km suele tardar unos segundos a ~1 min en CPU (descarga + inferencia)."
+              : "El modelo recorre la imagen en ventanas de 512×512. En CPU caliente suele ser del orden de segundos a un minuto."}{" "}
           Faltan ~{formatRemain(remain)}.
         </p>
       )}

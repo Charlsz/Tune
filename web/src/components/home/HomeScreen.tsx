@@ -2,10 +2,45 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../api";
 import { geotiffHints, validateGeotiffFile } from "../../lib/geotiffFile";
+import { findByDate } from "../../lib/pair";
 import { fmt, TASK_META } from "../../lib/insights";
 import { paths } from "../../router/paths";
 import type { Analysis, ExampleScene, Place, TaskInfo } from "../../types";
 import { CompareFloodCatalog } from "./CompareFloodCatalog";
+
+const CACHED_DEMOS: {
+  id: string;
+  label: string;
+  place: Place;
+  beforeDay: string;
+  afterDay: string;
+  blurb: string;
+}[] = [
+  {
+    id: "sindh",
+    label: "Sindh 2022",
+    place: { lat: 27.7, lon: 68.85 },
+    beforeDay: "2022-05-18",
+    afterDay: "2022-09-05",
+    blurb: "Crecida documentada · agua nueva vs río",
+  },
+  {
+    id: "magdalena",
+    label: "Magdalena 2022",
+    place: { lat: 8.85, lon: -74.65 },
+    beforeDay: "2022-02-22",
+    afterDay: "2022-05-08",
+    blurb: "Seca → húmeda · baseline local",
+  },
+  {
+    id: "mississippi",
+    label: "Mississippi 2019",
+    place: { lat: 37.0, lon: -89.18 },
+    beforeDay: "2018-09-18",
+    afterDay: "2019-06-10",
+    blurb: "Permanente estable + lámina nueva",
+  },
+];
 
 interface Props {
   tasks: TaskInfo[];
@@ -22,6 +57,7 @@ interface Props {
     sideKm: number,
     maxCloud: number,
   ) => void;
+  onOpenPair: (before: Analysis, after: Analysis, at?: Place | null) => void;
 }
 
 function etaHint(scene: ExampleScene, firstFlood: boolean): string {
@@ -47,6 +83,7 @@ export function HomeScreen({
   onSubmit,
   onExample,
   onCatalogAnalyze,
+  onOpenPair,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -106,6 +143,35 @@ export function HomeScreen({
   }
 
   const canStart = Boolean(file || pickedExample);
+  const [pairMsg, setPairMsg] = useState<string | null>(null);
+  const [pairBusy, setPairBusy] = useState(false);
+
+  async function openCached(demo: (typeof CACHED_DEMOS)[number]) {
+    setPairMsg(null);
+    setPairBusy(true);
+    onPlace(demo.place);
+    try {
+      const list = await api.analyses({
+        lat: demo.place.lat,
+        lon: demo.place.lon,
+        task: "flood",
+        limit: 50,
+      });
+      const before = findByDate(list, demo.beforeDay);
+      const after = findByDate(list, demo.afterDay);
+      if (!before || !after) {
+        setPairMsg(
+          `${demo.label}: aún no hay par guardado aquí. Usa el atajo verificado abajo, analiza Antes y Luego Después (una vez), y este botón abrirá el resultado al instante.`,
+        );
+        return;
+      }
+      onOpenPair(before, after, demo.place);
+    } catch (e) {
+      setPairMsg((e as Error).message);
+    } finally {
+      setPairBusy(false);
+    }
+  }
 
   return (
     <div
@@ -135,8 +201,9 @@ export function HomeScreen({
 
       <p className="home-tip callout">
         Flujo: <strong>1 · Analizar Antes</strong> → vuelve a Inicio →{" "}
-        <strong>2 · Analizar Después</strong>. En el mapa, capa «Posible inundación»: rojo = nueva,
-        azul = permanente. Detalle en <Link to={paths.howToUse}>How to use</Link>.
+        <strong>2 · Analizar Después</strong>. Luego verás <strong>Antes | Después</strong> juntos:
+        la inundación es el agua nueva (rojo), no el río entero. Guía en{" "}
+        <Link to={paths.howToUse}>How to use</Link>.
       </p>
 
       <div className="home-card">
@@ -150,6 +217,28 @@ export function HomeScreen({
           )}{" "}
           · {TASK_META.flood.dataset}
         </p>
+
+        <section className="home-block">
+          <h2>Resultados listos (sin recalcular)</h2>
+          <p className="caption">
+            Si ya corriste el par en esta instalación, ábrelo al instante y compara las dos fechas.
+            Ideal para demos y feria.
+          </p>
+          <div className="presets demo-presets cached-demos">
+            {CACHED_DEMOS.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                disabled={busy || pairBusy}
+                title={d.blurb}
+                onClick={() => void openCached(d)}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+          {pairMsg && <p className="caption catalog-error">{pairMsg}</p>}
+        </section>
 
         <section className="home-block">
           <h2>1 · Lugar y comparación Antes / Después</h2>

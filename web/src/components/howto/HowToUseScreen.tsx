@@ -120,8 +120,9 @@ export function HowToUseScreen() {
             <strong>2 · Analizar Después</strong>. La barra inferior muestra las dos fechas.
           </li>
           <li>
-            En Capas abre <strong>Posible inundación</strong>: rojo = nueva, azul = permanente. La
-            cifra grande del resumen es agua nueva.
+            En Análisis se abre la vista <strong>Antes | Después</strong> (lado a lado). Rojo =
+            agua nueva (inundación), azul = permanente. También puedes usar «Resultados listos»
+            en Inicio si el par ya está guardado.
           </li>
         </ol>
         <p>
