@@ -12,6 +12,7 @@ export function HomePage() {
     onAnalyze,
     onExample,
     onCatalogAnalyze,
+    onCatalogComparePair,
     openPair,
   } = useWorkspace();
 
@@ -29,6 +30,7 @@ export function HomePage() {
         onCatalogAnalyze={(itemId, at, sideKm, maxCloud) =>
           onCatalogAnalyze(itemId, "flood", at, sideKm, maxCloud)
         }
+        onCatalogComparePair={onCatalogComparePair}
         onOpenPair={openPair}
       />
     </main>

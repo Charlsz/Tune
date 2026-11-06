@@ -128,7 +128,12 @@ export function AnalysisPage() {
           )}
 
           {(place || (selected && !busy)) && (
-            <Timeline analysis={selected} place={place} onSelect={openAnalysis} />
+            <Timeline
+              analysis={selected}
+              place={place}
+              onSelect={openAnalysis}
+              onOpenPair={openPair}
+            />
           )}
         </div>
         {(busy || (selected && !busy)) && (

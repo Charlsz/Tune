@@ -57,6 +57,13 @@ interface Props {
     sideKm: number,
     maxCloud: number,
   ) => void;
+  onCatalogComparePair: (
+    beforeItemId: string,
+    afterItemId: string,
+    at: Place,
+    sideKm: number,
+    maxCloud: number,
+  ) => void;
   onOpenPair: (before: Analysis, after: Analysis, at?: Place | null) => void;
 }
 
@@ -83,6 +90,7 @@ export function HomeScreen({
   onSubmit,
   onExample,
   onCatalogAnalyze,
+  onCatalogComparePair,
   onOpenPair,
 }: Props) {
   const [file, setFile] = useState<File | null>(null);
@@ -200,9 +208,8 @@ export function HomeScreen({
       </header>
 
       <p className="home-tip callout">
-        Flujo: <strong>1 · Analizar Antes</strong> → vuelve a Inicio →{" "}
-        <strong>2 · Analizar Después</strong>. Luego verás <strong>Antes | Después</strong> juntos:
-        la inundación es el agua nueva (rojo), no el río entero. Guía en{" "}
+        Elige dos fechas y pulsa <strong>Comparar par</strong> (o analiza una a una). Cada escena
+        queda en el historial del lugar; la inundación es el agua nueva (rojo), no el río entero.{" "}
         <Link to={paths.howToUse}>How to use</Link>.
       </p>
 
@@ -252,6 +259,8 @@ export function HomeScreen({
             history={history}
             onPlace={onPlace}
             onAnalyze={onCatalogAnalyze}
+            onComparePair={onCatalogComparePair}
+            onOpenPair={onOpenPair}
           />
         </section>
 

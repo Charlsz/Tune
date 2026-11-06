@@ -27,6 +27,13 @@ export type Workspace = {
     sideKm: number,
     maxCloud: number,
   ) => void;
+  onCatalogComparePair: (
+    beforeItemId: string,
+    afterItemId: string,
+    at: Place,
+    sideKm: number,
+    maxCloud: number,
+  ) => void;
   onRemove: (analysis: Analysis) => void;
   openAnalysis: (analysis: Analysis) => void;
   openPair: (before: Analysis, after: Analysis, at?: Place | null) => void;
