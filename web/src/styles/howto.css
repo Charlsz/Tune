@@ -225,6 +225,7 @@
 .pair-compare {
   display: flex;
   flex-direction: column;
+  flex: none;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-5);
   border-bottom: 1px solid var(--line);
@@ -301,7 +302,8 @@
   margin-top: var(--space-2);
   border: 1px solid var(--line);
   background: var(--wash);
-  overflow: hidden;
+  /* visible: el canvas define la altura; hidden recortaba al comprimir el flex */
+  overflow: visible;
 }
 
 .pair-canvas {
