@@ -26,3 +26,5 @@ terratorch==1.2.11
 torchgeo<0.9
 albumentations>=1.4
 einops>=0.7
+setuptools>=68
+-e .

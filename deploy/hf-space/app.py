@@ -21,6 +21,11 @@ os.environ.setdefault("HF_HOME", str(ROOT / ".hf_cache"))
 os.environ.setdefault("OMP_NUM_THREADS", "2")
 os.environ.setdefault("MKL_NUM_THREADS", "2")
 
+# Spaces a veces no instala ``-e .``; el código vive en /app/src.
+import sys
+
+sys.path.insert(0, str(ROOT / "src"))
+
 import spaces  # noqa: E402
 import gradio as gr  # noqa: E402
 import uvicorn  # noqa: E402
