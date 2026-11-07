@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { analysisDate } from "../../lib/pair";
 import { fmt } from "../../lib/insights";
 import { useScene } from "../../lib/scene";
+import { useFit } from "../../lib/useFit";
 import type { Analysis } from "../../types";
 
 type PanelMode = "overlay" | "change" | "scene";
@@ -17,7 +18,14 @@ function Panel({
 }) {
   const { scene, error } = useScene(analysis);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const day = analysisDate(analysis);
+  const size = useFit(
+    frameRef,
+    scene ? scene.w / scene.h : 1,
+    `${analysis.id}-${mode}-${scene?.w ?? 0}`,
+    8,
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,8 +60,12 @@ function Panel({
       </header>
       {error && <p className="caption catalog-error">{error}</p>}
       {!scene && !error && <p className="caption">Cargando escena…</p>}
-      <div className="pair-frame">
-        <canvas ref={canvasRef} className="pair-canvas" />
+      <div className="pair-frame" ref={frameRef}>
+        <canvas
+          ref={canvasRef}
+          className="pair-canvas"
+          style={size ? { width: size.w, height: size.h } : undefined}
+        />
       </div>
     </article>
   );

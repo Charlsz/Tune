@@ -87,7 +87,7 @@ export function AnalysisPage() {
   return (
     <main className="page page-analysis">
       <div className="analysis-layout">
-        <div className="view">
+        <div className={`view${!busy && activePair ? " view-pair" : ""}`}>
           {!busy && activePair ? (
             <PairCompare
               before={activePair.before}

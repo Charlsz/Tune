@@ -485,6 +485,14 @@ a.primary:hover { color: var(--ink); text-decoration: none; }
   background: var(--surface);
 }
 
+/* Par Antes|Después: el mapa cabe en el hueco y deja ver el historial del lugar. */
+.view.view-pair {
+  overflow: hidden;
+}
+.view.view-pair .timeline {
+  flex: none;
+}
+
 .summary-dock {
   width: var(--summary-w);
   max-width: 100%;
