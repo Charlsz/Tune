@@ -41,18 +41,10 @@ def _stage(staging: Path) -> None:
     shutil.copy2(SPACE_META / "Dockerfile", staging / "Dockerfile")
     shutil.copy2(SPACE_META / "README.md", staging / "README.md")
     shutil.copy2(SPACE_META / ".dockerignore", staging / ".dockerignore")
+    shutil.copy2(SPACE_META / "prefetch_flood_model.py", staging / "prefetch_flood_model.py")
     shutil.copy2(ROOT / "pyproject.toml", staging / "pyproject.toml")
-    shutil.copy2(ROOT / "README.md", staging / "README.md.repo")
     shutil.copy2(ROOT / "LICENSE", staging / "LICENSE")
-
-    # El Dockerfile espera README.md del paquete Python.
-    shutil.copy2(ROOT / "README.md", staging / "README.md.pkg")
-    # README del Space (YAML) debe vivir en la raíz del repo HF; el del paquete
-    # se renombra solo dentro del contexto de build vía copia temporal en Docker.
-    # Solución: dejar el README del Space y copiar el del repo como README.pkg
-    # no — el Dockerfile hace COPY README.md. Ajustamos: usar el README del Space
-    # también como readme del paquete (setuptools solo lo empaqueta).
-    # Ya copiamos SPACE README.md. El COPY del Dockerfile usa ese archivo: OK.
+    # README del Space (YAML frontmatter) también sirve como readme del paquete.
 
     shutil.copytree(ROOT / "src", staging / "src", dirs_exist_ok=True)
     # Solo lo necesario para construir el front.

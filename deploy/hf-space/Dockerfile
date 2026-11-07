@@ -53,13 +53,8 @@ COPY artifacts/analyses /app/artifacts/analyses
 COPY examples /app/examples
 
 # Prefetch del checkpoint de inundación (público) para cold start usable en CPU.
-RUN python - <<'PY'
-from huggingface_hub import hf_hub_download
-repo = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11"
-for name in ("config.yaml", "Prithvi-EO-V2-300M-TL-Sen1Floods11.pt"):
-    path = hf_hub_download(repo_id=repo, filename=name)
-    print("cached", name, "->", path)
-PY
+COPY prefetch_flood_model.py /tmp/prefetch_flood_model.py
+RUN python /tmp/prefetch_flood_model.py && rm /tmp/prefetch_flood_model.py
 
 EXPOSE 7860
 
