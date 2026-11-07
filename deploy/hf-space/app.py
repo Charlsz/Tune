@@ -57,6 +57,22 @@ def _report_zerogpu_startup() -> None:
         print(f"ZeroGPU startup report: {exc}", flush=True)
 
 
+def _warm_model_cache() -> None:
+    """Descarga el checkpoint en background (repo Space free ≤1GB; el .pt son 1.2GB)."""
+    try:
+        from huggingface_hub import hf_hub_download  # noqa: PLC0415
+
+        repo = "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11"
+        for name in ("config.yaml", "Prithvi-EO-V2-300M-TL-Sen1Floods11.pt"):
+            path = hf_hub_download(repo_id=repo, filename=name)
+            print(f"warmed {name} -> {path}", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"model warm skipped: {exc}", flush=True)
+
+
 if __name__ == "__main__":
+    import threading
+
     _report_zerogpu_startup()
+    threading.Thread(target=_warm_model_cache, daemon=True).start()
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", "7860")))
