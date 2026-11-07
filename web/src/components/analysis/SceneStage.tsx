@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fmt } from "../../lib/insights";
 import { type Scene, useScene } from "../../lib/scene";
+import { useFit } from "../../lib/useFit";
 import type { Analysis, TaskInfo } from "../../types";
 import { Skeleton } from "../shared/Skeleton";
 
@@ -282,33 +283,6 @@ export function SceneStage({ analysis, tasks, busy, onGoHome }: Props) {
       )}
     </main>
   );
-}
-
-function useFit(ref: React.RefObject<HTMLDivElement | null>, ratio: number, mountKey: string) {
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const fit = () => {
-      const gutter = el.clientWidth < 720 ? 40 : 88;
-      const availW = el.clientWidth - gutter;
-      const availH = el.clientHeight - gutter;
-      if (availW < 80 || availH < 80) return;
-      const w = Math.min(availW, availH * ratio);
-      const next = { w: Math.floor(w), h: Math.floor(w / ratio) };
-      setSize((prev) => (prev && prev.w === next.w && prev.h === next.h ? prev : next));
-    };
-    fit();
-    const frame = requestAnimationFrame(fit);
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    if (el.parentElement) ro.observe(el.parentElement);
-    return () => {
-      cancelAnimationFrame(frame);
-      ro.disconnect();
-    };
-  }, [ref, ratio, mountKey]);
-  return size;
 }
 
 function Painting({
