@@ -3,36 +3,24 @@ title: Tune
 emoji: 🌊
 colorFrom: blue
 colorTo: green
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 5.49.1
+app_file: app.py
 pinned: false
 license: mit
-short_description: Flood analysis with Prithvi-EO 2.0 (IBM-NASA) — free CPU Space
+short_description: Flood analysis with Prithvi-EO 2.0 — free ZeroGPU Space
 ---
 
 # Tune
 
-Aplicación de análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA).
+Análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA).
 
-Este Space usa el **plan gratuito** (`cpu-basic`: 2 vCPU / 16 GB). Duerme tras un rato
-sin tráfico; el primer request tras despertar puede tardar unos segundos.
-
-## Qué incluye
-
-- Frontend + API en el mismo origen (`/`, `/api`, `/health`)
-- Análisis sembrados (Magdalena, Sindh, Mississippi, …) listos para explorar
-- Inferencia CPU del checkpoint Sen1Floods11 (descargado en el build)
+Este Space usa el **plan gratuito**: Gradio + **ZeroGPU** (hasta 2 Spaces en
+cuentas personales). La app (SPA + API) está en la raíz; Gradio en `/gradio`.
 
 ## Probar
 
 ```bash
-curl -fsS https://<user>-tune.hf.space/health
-curl -fsS https://<user>-tune.hf.space/api/tasks
-curl -fsS https://<user>-tune.hf.space/api/analyses | head
-```
-
-O desde el repo:
-
-```bash
-python scripts/smoke_hf_space.py --base-url https://<user>-tune.hf.space
+curl -fsS https://cgalvis21-tune.hf.space/health
+python3 scripts/smoke_hf_space.py --base-url https://cgalvis21-tune.hf.space
 ```

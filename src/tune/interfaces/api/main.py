@@ -124,24 +124,33 @@ async def predict(
     )
 
 
-# SPA al final: no debe interceptar /health, /api/*, /model ni /predict.
-_WEB_DIST = Path(os.environ["TUNE_WEB_DIST"]).resolve() if os.environ.get("TUNE_WEB_DIST") else None
-if _WEB_DIST and _WEB_DIST.is_dir():
-    _assets = _WEB_DIST / "assets"
-    if _assets.is_dir():
-        app.mount("/assets", StaticFiles(directory=_assets), name="web-assets")
+def mount_spa(application: FastAPI, dist: Path) -> None:
+    """Monta el build de Vite. Llamar *después* de montar Gradio u otras apps."""
+    dist = dist.resolve()
+    if not dist.is_dir():
+        return
+    assets = dist / "assets"
+    if assets.is_dir():
+        application.mount("/assets", StaticFiles(directory=assets), name="web-assets")
 
-    @app.get("/", include_in_schema=False)
+    @application.get("/", include_in_schema=False)
     async def spa_root() -> FileResponse:
-        assert _WEB_DIST is not None
-        return FileResponse(_WEB_DIST / "index.html")
+        return FileResponse(dist / "index.html")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @application.get("/{full_path:path}", include_in_schema=False)
     async def spa(full_path: str) -> FileResponse:
-        """Sirve el build de Vite (SPA) detrás de la API en un solo puerto."""
-        assert _WEB_DIST is not None
-        candidate = (_WEB_DIST / full_path).resolve()
-        if candidate.is_file() and str(candidate).startswith(str(_WEB_DIST)):
+        candidate = (dist / full_path).resolve()
+        if candidate.is_file() and str(candidate).startswith(str(dist)):
             return FileResponse(candidate)
-        return FileResponse(_WEB_DIST / "index.html")
+        return FileResponse(dist / "index.html")
+
+
+# Auto-mount salvo si el host (p.ej. Gradio Space) diferirá el montaje.
+_WEB_DIST = Path(os.environ["TUNE_WEB_DIST"]).resolve() if os.environ.get("TUNE_WEB_DIST") else None
+if (
+    _WEB_DIST
+    and _WEB_DIST.is_dir()
+    and os.environ.get("TUNE_DEFER_SPA", "").strip() not in {"1", "true", "yes"}
+):
+    mount_spa(app, _WEB_DIST)
 
