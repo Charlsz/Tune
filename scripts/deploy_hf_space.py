@@ -89,11 +89,6 @@ def _stage(staging: Path, *, prefetch: bool) -> None:
     shutil.copytree(ROOT / "artifacts" / "analyses", staging / "artifacts" / "analyses")
     shutil.copytree(ROOT / "examples", staging / "examples")
 
-    # Instalable como paquete desde requirements (línea "-e .").
-    req = (staging / "requirements.txt").read_text()
-    if "-e ." not in req and ".\n" not in req:
-        (staging / "requirements.txt").write_text(req.rstrip() + "\n-e .\n")
-
     if prefetch:
         _prefetch_model(staging)
 

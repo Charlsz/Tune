@@ -1,12 +1,5 @@
-# Gradio Space (ZeroGPU free). Torch lo aporta el runtime de Spaces;
-# fijamos CPU wheels por si arranca sin CUDA.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
-torchvision
-gradio>=5.0
-spaces>=0.30
+# ZeroGPU Gradio Space — HF inyecta torch/gradio/spaces/uvicorn.
 fastapi>=0.110
-uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 pillow>=10.0
 numpy>=1.26
@@ -23,8 +16,6 @@ transformers>=4.40,<5
 psutil>=5.9
 huggingface_hub>=0.23
 terratorch==1.2.11
-torchgeo<0.9
+torchgeo==0.8.1
 albumentations>=1.4
 einops>=0.7
-setuptools>=68
--e .
