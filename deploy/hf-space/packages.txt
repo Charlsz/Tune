@@ -1,0 +1,6 @@
+git
+curl
+libgdal-dev
+gdal-bin
+libgl1
+libglib2.0-0

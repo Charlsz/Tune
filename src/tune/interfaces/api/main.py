@@ -2,15 +2,21 @@
 
 Arranque local:   uvicorn tune.interfaces.api.main:app --reload
 En Docker:        docker compose up   # app; laboratorio: ver lab/
+Hugging Face Space: un solo proceso sirve ``/api`` y el frontend estático
+si ``TUNE_WEB_DIST`` apunta al build de Vite.
 """
 
 from __future__ import annotations
 
+import os
 import time
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from tune import __version__
 from tune.infrastructure.config import get_settings
@@ -37,9 +43,14 @@ app = FastAPI(
         },
     ],
 )
+_settings = get_settings()
+_cors = _settings.cors_origins
+# En Spaces el front y la API comparten origen; permitir * solo si se pide.
+if os.environ.get("TUNE_CORS_ORIGINS", "").strip() == "*":
+    _cors = ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_settings().cors_origins,
+    allow_origins=_cors,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -111,3 +122,35 @@ async def predict(
         model_version=p.model_version,
         latency_ms=(time.perf_counter() - t0) * 1000,
     )
+
+
+def mount_spa(application: FastAPI, dist: Path) -> None:
+    """Monta el build de Vite. Llamar *después* de montar Gradio u otras apps."""
+    dist = dist.resolve()
+    if not dist.is_dir():
+        return
+    assets = dist / "assets"
+    if assets.is_dir():
+        application.mount("/assets", StaticFiles(directory=assets), name="web-assets")
+
+    @application.get("/", include_in_schema=False)
+    async def spa_root() -> FileResponse:
+        return FileResponse(dist / "index.html")
+
+    @application.get("/{full_path:path}", include_in_schema=False)
+    async def spa(full_path: str) -> FileResponse:
+        candidate = (dist / full_path).resolve()
+        if candidate.is_file() and str(candidate).startswith(str(dist)):
+            return FileResponse(candidate)
+        return FileResponse(dist / "index.html")
+
+
+# Auto-mount salvo si el host (p.ej. Gradio Space) diferirá el montaje.
+_WEB_DIST = Path(os.environ["TUNE_WEB_DIST"]).resolve() if os.environ.get("TUNE_WEB_DIST") else None
+if (
+    _WEB_DIST
+    and _WEB_DIST.is_dir()
+    and os.environ.get("TUNE_DEFER_SPA", "").strip() not in {"1", "true", "yes"}
+):
+    mount_spa(app, _WEB_DIST)
+
