@@ -1,4 +1,5 @@
-# ZeroGPU Gradio Space — HF inyecta torch/gradio/spaces/uvicorn.
+# ZeroGPU Gradio Space (Python 3.10). HF inyecta torch/gradio/spaces/uvicorn.
+# torchgeo 0.7+ exige Py>=3.11; en 3.10 el tope es 0.6.2 (+ patch en app.py).
 fastapi>=0.110
 python-multipart>=0.0.9
 pillow>=10.0
@@ -16,6 +17,6 @@ transformers>=4.40,<5
 psutil>=5.9
 huggingface_hub>=0.23
 terratorch==1.2.11
-torchgeo==0.8.1
+torchgeo==0.6.2
 albumentations>=1.4
 einops>=0.7

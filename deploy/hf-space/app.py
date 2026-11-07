@@ -26,6 +26,25 @@ import sys
 
 sys.path.insert(0, str(ROOT / "src"))
 
+
+def _patch_torchgeo_for_py310() -> None:
+    """Gradio Spaces usan Python 3.10 → torchgeo≤0.6.2.
+
+    terratorch 1.2.11 referencia ``SENTINEL2_ALL_SOFTCON`` (torchgeo≥0.7,
+    requiere Py≥3.11). Alias a MOCO para que el import no falle.
+    """
+    try:
+        from torchgeo.models import ResNet50_Weights  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        print(f"torchgeo patch skipped: {exc}", flush=True)
+        return
+    if not hasattr(ResNet50_Weights, "SENTINEL2_ALL_SOFTCON"):
+        ResNet50_Weights.SENTINEL2_ALL_SOFTCON = ResNet50_Weights.SENTINEL2_ALL_MOCO
+        print("patched ResNet50_Weights.SENTINEL2_ALL_SOFTCON → MOCO", flush=True)
+
+
+_patch_torchgeo_for_py310()
+
 import spaces  # noqa: E402
 import gradio as gr  # noqa: E402
 import uvicorn  # noqa: E402
