@@ -86,10 +86,15 @@ export function PairCompare({
   onSelectSingle: (a: Analysis) => void;
   onClosePair: () => void;
 }) {
-  const [mode, setMode] = useState<PanelMode>("overlay");
+  const canChange = Boolean(after.artifacts.change_png);
+  const [mode, setMode] = useState<PanelMode>(canChange ? "change" : "overlay");
   const ch = after.change;
   const afterDay = analysisDate(after);
   const beforeDay = analysisDate(before);
+
+  useEffect(() => {
+    setMode(after.artifacts.change_png ? "change" : "overlay");
+  }, [after.id, after.artifacts.change_png]);
 
   return (
     <section className="pair-compare" aria-label="Comparación Antes y Después">
@@ -102,8 +107,11 @@ export function PairCompare({
             Después {afterDay ? <span className="num">{afterDay}</span> : null}
           </h2>
           <p className="caption pair-lead">
-            Inundación = agua que aparece en Después y no estaba en la línea base. Rojo = agua
-            nueva · azul = permanente.
+            {mode === "change"
+              ? "Inundación = agua nueva frente a la línea base. Rojo = agua nueva · azul = permanente."
+              : mode === "overlay"
+                ? "Máscara de agua sobre el satélite (blanco/negro). Para ver inundación en color, abre Cambio (inundación)."
+                : "Solo la imagen satelital de cada fecha."}
           </p>
         </div>
         <div className="pair-actions">

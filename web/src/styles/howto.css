@@ -231,6 +231,8 @@
   padding: var(--space-3) var(--space-5) var(--space-3);
   border-bottom: 1px solid var(--line);
   overflow: hidden;
+  /* Hueco sobrante debajo del pie, no dentro de los marcos de mapa. */
+  justify-content: flex-start;
 }
 
 .pair-toolbar,
@@ -295,8 +297,10 @@
 }
 
 .pair-grid {
+  /* Tope de altura: deja sitio a métricas + historial (fix de Zenen en Space). */
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 160px;
+  max-height: min(48vh, 520px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
@@ -322,7 +326,7 @@
 
 .pair-frame {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 120px;
   margin-top: var(--space-2);
   border: 1px solid var(--line);
   background: var(--wash);
