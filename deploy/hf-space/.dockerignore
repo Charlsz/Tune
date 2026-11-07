@@ -8,7 +8,8 @@
 **/node_modules
 **/mlruns
 **/lab
-**/docs
+# Solo docs del repo (Markdown); no excluir web/src/components/docs
+/docs
 **/tests
 **/notebooks
 **/.venv
