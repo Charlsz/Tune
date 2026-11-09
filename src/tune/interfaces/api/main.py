@@ -153,4 +153,3 @@ if (
     and os.environ.get("TUNE_DEFER_SPA", "").strip() not in {"1", "true", "yes"}
 ):
     mount_spa(app, _WEB_DIST)
-
