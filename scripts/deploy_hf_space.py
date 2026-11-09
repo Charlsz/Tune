@@ -47,11 +47,7 @@ def _prefetch_model(staging: Path) -> None:
     """Copia o descarga el checkpoint al staging para cold start usable."""
     cache = staging / ".hf_cache"
     local = Path(os.environ.get("HF_HOME", str(ROOT / ".hf_cache")))
-    flood = (
-        local
-        / "hub"
-        / "models--ibm-nasa-geospatial--Prithvi-EO-2.0-300M-TL-Sen1Floods11"
-    )
+    flood = local / "hub" / "models--ibm-nasa-geospatial--Prithvi-EO-2.0-300M-TL-Sen1Floods11"
     if flood.is_dir():
         print(f"Copiando checkpoint local {flood} → staging…")
         dest = cache / "hub" / flood.name

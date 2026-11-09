@@ -7,6 +7,7 @@ Inferencia en CPU del Space; ``@spaces.GPU`` solo pasa el check de ZeroGPU.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -22,8 +23,6 @@ os.environ.setdefault("OMP_NUM_THREADS", "2")
 os.environ.setdefault("MKL_NUM_THREADS", "2")
 
 # Spaces a veces no instala ``-e .``; el código vive en /app/src.
-import sys
-
 sys.path.insert(0, str(ROOT / "src"))
 
 
@@ -45,8 +44,8 @@ def _patch_torchgeo_for_py310() -> None:
 
 _patch_torchgeo_for_py310()
 
-import spaces  # noqa: E402
 import gradio as gr  # noqa: E402
+import spaces  # noqa: E402
 import uvicorn  # noqa: E402
 
 from tune.interfaces.api.main import app as fastapi_app  # noqa: E402
