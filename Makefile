@@ -102,7 +102,8 @@ install:
 	$(PYTHON) -m pip install -e ".[api,dev]"
 
 install-all:
-	$(PYTHON) -m pip install -e ".[api,tracking,training,dev]"
+	$(PYTHON) -m pip install -e ".[api,tracking,inference,dev]"
+# `training` es alias histórico del mismo runtime Prithvi; preferir `inference`.
 
 lint:
 	ruff check .

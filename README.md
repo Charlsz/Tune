@@ -5,7 +5,7 @@
 
 ##
 
-Aplicación de análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA). En la web eliges el mismo punto dos veces: **Antes** (línea base) y **Después** (pico). El modelo detecta agua; Tune calcula inundación como agua nueva frente a esa referencia (historial del territorio o JRC). Cuando hay dato, compara con Copernicus GFM.
+Aplicación de análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA). En la web eliges el mismo punto (mapa, búsqueda o coordenadas) dos veces: **Antes** (línea base) y **Después** (pico). El modelo detecta agua; Tune calcula inundación como agua nueva frente a esa referencia (historial del territorio o JRC). Cuando hay dato, compara con Copernicus GFM.
 
 ## Resultados verificados (inundación ≠ solo agua)
 
@@ -42,8 +42,10 @@ make app-logs    # sigue los logs (primera vez descarga pesos)
 make app-down    # apaga todo
 ```
 
-- Web: http://localhost:8080 — menú **How to use** para demos verificadas
+- Web: http://localhost:8080 — mapa para confirmar ubicación, luego **How to use** para demos verificadas
 - API: http://localhost:8000/docs
+
+Instalación local de dependencias de inferencia Prithvi: `pip install -e ".[api,inference,dev]"` (el extra histórico `training` instala el mismo runtime).
 
 ### Docker Compose
 
