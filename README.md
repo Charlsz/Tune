@@ -42,7 +42,7 @@ make app-logs    # sigue los logs (primera vez descarga pesos)
 make app-down    # apaga todo
 ```
 
-- Web: http://localhost:8080 — mapa para confirmar ubicación, luego **How to use** para demos verificadas
+- Web: http://localhost:8080 — mapa a la izquierda y panel contextual a la derecha (punto o rectángulo → escenas → agua nueva). **How to use** tiene demos verificadas
 - API: http://localhost:8000/docs
 
 Instalación local de dependencias de inferencia Prithvi: `pip install -e ".[api,inference,dev]"` (el extra histórico `training` instala el mismo runtime).
