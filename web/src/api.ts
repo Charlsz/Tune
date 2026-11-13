@@ -74,6 +74,8 @@ export const api = {
       end: string;
       maxCloud?: number;
       sideKm?: number;
+      /** west,south,east,north — si se envía, es el AOI exacto de la consulta */
+      bbox?: string;
     },
     signal?: AbortSignal,
   ) {
@@ -85,6 +87,7 @@ export const api = {
       max_cloud: String(q.maxCloud ?? 40),
       side_km: String(q.sideKm ?? 20),
     });
+    if (q.bbox) p.set("bbox", q.bbox);
     return fetch(`/api/catalog/search?${p}`, { signal }).then(json<CatalogScene[]>);
   },
   geocode(q: string, signal?: AbortSignal) {
@@ -101,6 +104,7 @@ export const api = {
     sideKm: number,
     maxCloud: number,
     onPhase?: (p: AnalyzePhase) => void,
+    bbox?: string,
   ): Promise<Analysis> {
     onPhase?.({ phase: "prepare", detail: "Preparando descarga del catálogo…" });
     const body = new FormData();
@@ -109,6 +113,7 @@ export const api = {
     body.append("lon", String(place.lon));
     body.append("side_km", String(sideKm));
     body.append("max_cloud", String(maxCloud));
+    if (bbox) body.append("bbox", bbox);
     const res = await fetch(
       `/api/catalog/${encodeURIComponent(itemId)}/analyze?stream=true`,
       {

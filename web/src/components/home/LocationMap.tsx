@@ -53,11 +53,14 @@ function MapClickCapture({
 
 function FlyToPlace({ place, sideKm }: { place: Place | null; sideKm: number }) {
   const map = useMap();
+  // Solo recentrar al cambiar el punto. Cambiar sideKm actualiza el rectángulo
+  // sin forzar fitBounds (evita pelear con pan/zoom del usuario).
   useEffect(() => {
     if (!place) return;
     const bounds = bboxToLatLngBounds(bboxFromPoint(place.lat, place.lon, sideKm));
     map.fitBounds(bounds, { padding: [28, 28], maxZoom: 12, animate: false });
-  }, [map, place?.lat, place?.lon, sideKm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sideKm a propósito fuera
+  }, [map, place?.lat, place?.lon]);
   return null;
 }
 
