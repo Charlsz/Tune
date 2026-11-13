@@ -16,6 +16,30 @@ def test_bbox_from_point_is_centered() -> None:
     assert south < 4.6 < north
 
 
+def test_bbox_from_point_side_length_approx_km() -> None:
+    """Altura ~side_km; ancho se estrecha cerca de los polos (fórmula cos)."""
+    side = 12.0
+    west, south, east, north = bbox_from_point(8.85, -74.65, side)
+    height_km = (north - south) * 110.57
+    assert height_km == pytest.approx(side, rel=1e-3)
+    assert east > west
+    polar_w, _, polar_e, _ = bbox_from_point(80.0, 0.0, side)
+    equator_w, _, equator_e, _ = bbox_from_point(0.0, 0.0, side)
+    assert (polar_e - polar_w) > (equator_e - equator_w)
+
+
+def test_search_propagates_catalog_client_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = StacCatalog(max_km=30)
+
+    class BoomClient:
+        def search(self, **kwargs):
+            raise RuntimeError("STAC caído")
+
+    monkeypatch.setattr(catalog, "_client", lambda: BoomClient())
+    with pytest.raises(RuntimeError, match="STAC"):
+        catalog.search(4.6, -74.1, "2024-01-01", "2024-01-10")
+
+
 def test_search_filters_and_orders(monkeypatch: pytest.MonkeyPatch) -> None:
     catalog = StacCatalog(max_km=30)
 
