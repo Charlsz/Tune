@@ -107,9 +107,10 @@ export function App() {
     at: Place,
     sideKm: number,
     maxCloud: number,
+    bbox?: string,
   ) {
     return run(task, "catalog", (onPhase) =>
-      api.catalogAnalyze(itemId, task, at, sideKm, maxCloud, onPhase),
+      api.catalogAnalyze(itemId, task, at, sideKm, maxCloud, onPhase, bbox),
     );
   }
 
@@ -120,6 +121,7 @@ export function App() {
     at: Place,
     sideKm: number,
     maxCloud: number,
+    bbox?: string,
   ) {
     setBusy(true);
     setError(null);
@@ -148,6 +150,7 @@ export function App() {
             setPhase(p);
           }
         },
+        bbox,
       );
       setSelected(before);
 
@@ -167,6 +170,7 @@ export function App() {
             setPhase(p);
           }
         },
+        bbox,
       );
       setPair({ before, after });
       setSelected(after);

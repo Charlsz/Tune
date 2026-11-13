@@ -158,6 +158,7 @@ class SceneCatalog(Protocol):
         *,
         max_cloud: float = 40.0,
         side_km: float = 20.0,
+        bbox: tuple[float, float, float, float] | None = None,
     ) -> list[SceneItem]: ...
 
     def fetch_six_bands(

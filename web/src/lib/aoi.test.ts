@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  aoiFromPoint,
+  aoiFromRectangle,
+  bboxDimensionsKm,
   bboxFromPoint,
   bboxToLatLngBounds,
   clampSideKm,
+  coverageRatio,
   formatPlaceCoords,
   parseCoords,
+  validateAoiBbox,
 } from "./aoi";
 
 describe("aoi helpers", () => {
@@ -46,5 +51,30 @@ describe("aoi helpers", () => {
 
   it("formatPlaceCoords redondea", () => {
     expect(formatPlaceCoords({ lat: 4.71111, lon: -74.07222 })).toBe("4.7111, -74.0722");
+  });
+
+  it("validateAoiBbox rechaza AOI demasiado grande", () => {
+    const huge = bboxFromPoint(0, 0, 80);
+    expect(validateAoiBbox(huge, 30).ok).toBe(false);
+  });
+
+  it("aoiFromRectangle conserva el bbox pedido", () => {
+    const bbox: [number, number, number, number] = [-74.2, 4.6, -74.0, 4.8];
+    const aoi = aoiFromRectangle(bbox, 30);
+    expect("error" in aoi).toBe(false);
+    if (!("error" in aoi)) {
+      expect(aoi.mode).toBe("rectangle");
+      expect(aoi.bbox).toEqual(bbox);
+      const { heightKm, widthKm } = bboxDimensionsKm(aoi.bbox);
+      expect(heightKm).toBeGreaterThan(0);
+      expect(widthKm).toBeGreaterThan(0);
+    }
+  });
+
+  it("aoiFromPoint y coverageRatio son coherentes", () => {
+    const aoi = aoiFromPoint({ lat: 4.7, lon: -74.1 }, 12, 30);
+    expect(aoi.mode).toBe("point");
+    expect(coverageRatio(aoi.bbox, aoi.bbox)).toBeCloseTo(1, 5);
+    expect(coverageRatio(aoi.bbox, [-80, 0, -79, 1])).toBe(0);
   });
 });

@@ -24,7 +24,13 @@ from tune.application.territory import covers
 from tune.application.territory import timeline as territory_timeline
 from tune.domain.analysis import HazardTask
 from tune.domain.ports import AnalysisRepository
-from tune.infrastructure.catalog.stac import CatalogError, bbox_from_point
+from tune.infrastructure.catalog.stac import (
+    CatalogError,
+    bbox_center,
+    bbox_from_point,
+    parse_bbox,
+    validate_bbox,
+)
 from tune.infrastructure.config import get_settings
 from tune.infrastructure.examples import (
     CATALOG,
@@ -738,8 +744,8 @@ def geocode(q: str = Query(..., min_length=2, max_length=120)) -> list[dict[str,
     },
 )
 def catalog_search(
-    lat: float = Query(ge=-90, le=90),
-    lon: float = Query(ge=-180, le=180),
+    lat: float | None = Query(None, ge=-90, le=90),
+    lon: float | None = Query(None, ge=-180, le=180),
     start: str = Query(description="YYYY-MM-DD"),
     end: str = Query(description="YYYY-MM-DD"),
     max_cloud: float = Query(40.0, ge=0, le=100),
@@ -749,11 +755,31 @@ def catalog_search(
         le=50,
         description="Lado del recorte en km; tope efectivo en GET /api/catalog/limits",
     ),
+    bbox: str | None = Query(
+        None,
+        description="AOI west,south,east,north (WGS84); sustituye lat/lon/side_km",
+    ),
     catalog=Depends(get_catalog),
 ) -> list[CatalogSceneSchema]:
-    """Lista escenas L2A de Earth Search alrededor del punto, sin descargar bandas."""
+    """Lista escenas L2A de Earth Search para el AOI, sin descargar bandas."""
     try:
-        items = catalog.search(lat, lon, start, end, max_cloud=max_cloud, side_km=side_km)
+        parsed = parse_bbox(bbox)
+        if parsed is not None:
+            parsed = validate_bbox(parsed, max_km=get_settings().tune_catalog_max_km)
+            clat, clon = bbox_center(parsed)
+            items = catalog.search(
+                clat,
+                clon,
+                start,
+                end,
+                max_cloud=max_cloud,
+                side_km=side_km,
+                bbox=parsed,
+            )
+        else:
+            if lat is None or lon is None:
+                raise CatalogError("Indica lat/lon o bbox=west,south,east,north")
+            items = catalog.search(lat, lon, start, end, max_cloud=max_cloud, side_km=side_km)
     except CatalogError as exc:
         raise HTTPException(422, str(exc)) from exc
     except Exception as exc:
@@ -797,12 +823,16 @@ def catalog_limits() -> dict:
 async def catalog_analyze(
     item_id: str = PathParam(description="Id STAC de la escena"),
     task: HazardTask = Form(description="Solo flood (Sentinel-2 L2A)"),
-    lat: float = Form(ge=-90, le=90),
-    lon: float = Form(ge=-180, le=180),
+    lat: float | None = Form(None, ge=-90, le=90),
+    lon: float | None = Form(None, ge=-180, le=180),
     side_km: float = Form(
         20.0, ge=1, le=50, description="Lado del recorte en km (tope en /api/catalog/limits)"
     ),
     max_cloud: float = Form(40.0, ge=0, le=100),
+    bbox: str | None = Form(
+        None,
+        description="AOI west,south,east,north; recorte exacto a descargar",
+    ),
     stream: bool = Query(
         False,
         description="Si true, responde NDJSON: download (bandas), infer, done (HTTP 200)",
@@ -813,7 +843,7 @@ async def catalog_analyze(
     """Descarga el recorte de 6 bandas y corre el análisis.
 
     Solo ``flood``: el catálogo es Sentinel-2 L2A; Burn Scars espera HLS.
-    El tope real de ``side_km`` es ``TUNE_CATALOG_MAX_KM`` (ver ``GET /api/catalog/limits``).
+    El tope real de ``side_km`` / AOI es ``TUNE_CATALOG_MAX_KM`` (ver ``GET /api/catalog/limits``).
     """
     if task is not HazardTask.FLOOD:
         raise HTTPException(
@@ -822,21 +852,30 @@ async def catalog_analyze(
             "Para cicatriz de incendio sube un GeoTIFF HLS o usa una escena de ejemplo.",
         )
     max_km = get_settings().tune_catalog_max_km
-    if side_km > max_km:
-        raise HTTPException(422, f"side_km máximo es {max_km}")
+    try:
+        parsed = parse_bbox(bbox)
+        if parsed is not None:
+            resolved = validate_bbox(parsed, max_km=max_km)
+        else:
+            if lat is None or lon is None:
+                raise CatalogError("Indica lat/lon o bbox=west,south,east,north")
+            if side_km > max_km:
+                raise CatalogError(f"side_km máximo es {max_km}")
+            resolved = bbox_from_point(lat, lon, side_km)
+    except CatalogError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
-    bbox = bbox_from_point(lat, lon, side_km)
     dest = get_settings().tune_artifacts_dir / "catalog"
 
     if stream:
-        return _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task)
+        return _catalog_stream(catalog, use_case, item_id, resolved, dest, max_cloud, task)
 
     try:
         with _inference_slot():
             path = await run_in_threadpool(
                 catalog.fetch_six_bands,
                 item_id,
-                bbox,
+                resolved,
                 dest,
                 max_cloud=max_cloud,
             )

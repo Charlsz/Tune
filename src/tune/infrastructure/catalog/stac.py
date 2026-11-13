@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import math
 from datetime import date
@@ -20,16 +21,84 @@ SCL_CLOUD = {3, 8, 9, 10, 11}
 OFFSET_CUTOFF = date(2022, 1, 25)
 TARGET_RES_M = 20.0
 
+BBox = tuple[float, float, float, float]
+
 
 class CatalogError(RuntimeError):
     """Fallo de búsqueda o descarga del catálogo."""
 
 
-def bbox_from_point(lat: float, lon: float, side_km: float) -> tuple[float, float, float, float]:
+def bbox_from_point(lat: float, lon: float, side_km: float) -> BBox:
     """Caja WGS84 centrada en (lat, lon) de lado side_km."""
     dlat = (side_km / 2) / 110.57
     dlon = (side_km / 2) / (111.32 * max(0.2, math.cos(math.radians(lat))))
     return (lon - dlon, lat - dlat, lon + dlon, lat + dlat)
+
+
+def parse_bbox(raw: str | None) -> BBox | None:
+    """Parsea ``west,south,east,north`` o None si vacío."""
+    if raw is None or not str(raw).strip():
+        return None
+    parts = [p.strip() for p in str(raw).split(",")]
+    if len(parts) != 4:
+        raise CatalogError("bbox debe ser west,south,east,north")
+    try:
+        west, south, east, north = (float(p) for p in parts)
+    except ValueError as exc:
+        raise CatalogError("bbox con coordenadas no numéricas") from exc
+    return validate_bbox((west, south, east, north))
+
+
+def validate_bbox(bbox: BBox, *, max_km: float | None = None) -> BBox:
+    """Valida orden WGS84 y opcionalmente el lado máximo."""
+    west, south, east, north = bbox
+    if not (-180 <= west <= 180 and -180 <= east <= 180):
+        raise CatalogError("longitud fuera de [-180, 180]")
+    if not (-90 <= south <= 90 and -90 <= north <= 90):
+        raise CatalogError("latitud fuera de [-90, 90]")
+    if east <= west or north <= south:
+        raise CatalogError("bbox degenerado: se requiere west<east y south<north")
+    if max_km is not None:
+        height_km, width_km = bbox_dimensions_km(bbox)
+        if max(height_km, width_km) > max_km + 1e-6:
+            raise CatalogError(
+                f"AOI demasiado grande ({max(height_km, width_km):.1f} km); máximo {max_km} km"
+            )
+    return (west, south, east, north)
+
+
+def bbox_dimensions_km(bbox: BBox) -> tuple[float, float]:
+    """Altura y ancho aproximados en km (fórmula plana; documentada como aproximada)."""
+    west, south, east, north = bbox
+    mid_lat = (south + north) / 2
+    height_km = (north - south) * 110.57
+    width_km = (east - west) * 111.32 * max(0.2, math.cos(math.radians(mid_lat)))
+    return height_km, width_km
+
+
+def bbox_center(bbox: BBox) -> tuple[float, float]:
+    west, south, east, north = bbox
+    return ((south + north) / 2, (west + east) / 2)
+
+
+def bbox_tag(bbox: BBox) -> str:
+    west, south, east, north = bbox
+    raw = f"{west:.5f},{south:.5f},{east:.5f},{north:.5f}"
+    return hashlib.sha1(raw.encode()).hexdigest()[:8]
+
+
+def intersection_ratio(aoi: BBox, scene: BBox) -> float:
+    """Fracción del AOI cubierta por el bbox de la escena (0–1). Aproximación planar."""
+    aw, as_, ae, an = aoi
+    sw, ss, se, sn = scene
+    iw = max(aw, sw)
+    is_ = max(as_, ss)
+    ie = min(ae, se)
+    in_ = min(an, sn)
+    if ie <= iw or in_ <= is_:
+        return 0.0
+    aoi_area = max(1e-12, (ae - aw) * (an - as_))
+    return max(0.0, min(1.0, ((ie - iw) * (in_ - is_)) / aoi_area))
 
 
 class StacCatalog:
@@ -47,10 +116,14 @@ class StacCatalog:
         *,
         max_cloud: float = 40.0,
         side_km: float = 20.0,
+        bbox: BBox | None = None,
     ) -> list[SceneItem]:
-        if side_km > self.max_km:
-            raise CatalogError(f"side_km máximo es {self.max_km}")
-        bbox = bbox_from_point(lat, lon, side_km)
+        if bbox is not None:
+            bbox = validate_bbox(bbox, max_km=self.max_km)
+        else:
+            if side_km > self.max_km:
+                raise CatalogError(f"side_km máximo es {self.max_km}")
+            bbox = bbox_from_point(lat, lon, side_km)
         client = self._client()
         search = client.search(
             collections=[COLLECTION],
@@ -166,7 +239,8 @@ class StacCatalog:
 
         stamp = acquired.strftime("%Y%m%dT120000")
         dest.mkdir(parents=True, exist_ok=True)
-        out = dest / f"S2_{stamp}_{item_id[-8:]}.tif"
+        # Incluye hash del AOI para no reutilizar un GeoTIFF de otro recorte.
+        out = dest / f"S2_{stamp}_{item_id[-8:]}_{bbox_tag(bbox)}.tif"
         self._write_geotiff(out, stack, transform, crs, acquired)
         return out
 

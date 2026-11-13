@@ -26,6 +26,7 @@ export type Workspace = {
     at: Place,
     sideKm: number,
     maxCloud: number,
+    bbox?: string,
   ) => void;
   onCatalogComparePair: (
     beforeItemId: string,
@@ -33,6 +34,7 @@ export type Workspace = {
     at: Place,
     sideKm: number,
     maxCloud: number,
+    bbox?: string,
   ) => void;
   onRemove: (analysis: Analysis) => void;
   openAnalysis: (analysis: Analysis) => void;
