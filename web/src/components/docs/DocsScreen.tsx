@@ -285,16 +285,22 @@ export function DocsScreen() {
                 Escribir latitud y longitud separadas por coma, por ejemplo{" "}
                 <code>4.71, -74.07</code>.
               </li>
+              <li>
+                Usar el mapa: navega, haz clic en el punto, ajusta el recorte (km) y pulsa{" "}
+                <strong>Confirmar ubicación</strong>.
+              </li>
               <li>Usar un atajo (Bogotá, Magdalena, Valencia, Sindh) o un par verificado.</li>
             </ul>
             <p>
-              Cada columna (Antes / Después) tiene su propio rango de fechas y lista de escenas.
-              Cada fila muestra miniatura, fecha y el % de nubes de <strong>toda la escena</strong>{" "}
-              (~100 km). Al analizar se comprueba la nubosidad real del recorte.
+              El rectángulo del mapa es el área de interés que se envía al catálogo. Cada columna
+              (Antes / Después) tiene su propio rango de fechas y lista de escenas. Cada fila
+              muestra miniatura, fecha y el % de nubes de <strong>toda la escena</strong> (~100 km).
+              Al analizar se comprueba la nubosidad real del recorte.
             </p>
             <p>
               El catálogo Earth Search es Sentinel-2 L2A. El recorte máximo lo fija el servidor (por
-              defecto 30 km). Solo corre un análisis a la vez.
+              defecto 30 km). Solo corre un análisis a la vez. Sin escenas en el rango, amplía fechas
+              o el umbral de nubes; un fallo del catálogo no deja la app bloqueada.
             </p>
           </section>
 

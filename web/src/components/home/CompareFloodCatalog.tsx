@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { api } from "../../api";
+import { clampSideKm, formatPlaceCoords, parseCoords } from "../../lib/aoi";
 import { paths } from "../../router/paths";
 import type { Analysis, CatalogScene, Place } from "../../types";
+import { LocationMap } from "./LocationMap";
 
 const PRESETS: { label: string; place: Place; hint: string }[] = [
   { label: "Bogotá", place: { lat: 4.71, lon: -74.07 }, hint: "Andes" },
@@ -88,15 +90,6 @@ type Draft = {
 };
 
 type GeoHit = { label: string; lat: number; lon: number };
-
-function parseCoords(raw: string): Place | null {
-  const match = raw.trim().match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-  if (!match) return null;
-  const lat = Number(match[1]);
-  const lon = Number(match[2]);
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
-  return { lat, lon };
-}
 
 function dateKey(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -232,11 +225,15 @@ export function CompareFloodCatalog({
   const [afterError, setAfterError] = useState<string | null>(null);
   const [activeDemo, setActiveDemo] = useState<string | null>(null);
   const [preferred, setPreferred] = useState<{ before?: string; after?: string }>({});
+  const [mapDraft, setMapDraft] = useState<Place | null>(null);
   const geoAbort = useRef<AbortController | null>(null);
   const beforeAbort = useRef<AbortController | null>(null);
   const afterAbort = useRef<AbortController | null>(null);
 
   const placeKey = place ? `${place.lat},${place.lon}` : "";
+  const draftPending =
+    mapDraft != null &&
+    (place == null || mapDraft.lat !== place.lat || mapDraft.lon !== place.lon);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,9 +242,11 @@ export function CompareFloodCatalog({
       .then((lim) => {
         if (cancelled) return;
         setMaxSideKm(lim.max_side_km);
-        setSideKm((prev) => Math.min(prev, lim.max_side_km));
+        setSideKm((prev) => clampSideKm(prev, lim.max_side_km));
       })
-      .catch(() => {});
+      .catch(() => {
+        /* límites por defecto si el catálogo no responde */
+      });
     return () => {
       cancelled = true;
     };
@@ -256,6 +255,7 @@ export function CompareFloodCatalog({
   useEffect(() => {
     if (saved?.place) {
       onPlace(saved.place);
+      setMapDraft(saved.place);
     }
     // hydrate once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,16 +273,25 @@ export function CompareFloodCatalog({
   }, [text, place, sideKm, maxCloud, before, after]);
 
   function applyPlace(next: Place, label?: string) {
-    setText(label ?? `${next.lat}, ${next.lon}`);
+    setText(label ?? formatPlaceCoords(next));
     setCoordError(null);
     setGeoHits([]);
+    setMapDraft(next);
     onPlace(next);
+  }
+
+  function confirmMapDraft() {
+    if (!mapDraft) return;
+    setActiveDemo(null);
+    setPreferred({});
+    applyPlace(mapDraft);
   }
 
   function clearPlace() {
     setText("");
     setCoordError(null);
     setGeoHits([]);
+    setMapDraft(null);
     setBeforeScenes(null);
     setAfterScenes(null);
     setActiveDemo(null);
@@ -423,7 +432,7 @@ export function CompareFloodCatalog({
   function applyDemo(demo: DemoPair) {
     setActiveDemo(demo.id);
     setPreferred({ before: demo.beforeItem, after: demo.afterItem });
-    setSideKm(Math.min(demo.sideKm, maxSideKm));
+    setSideKm(clampSideKm(demo.sideKm, maxSideKm));
     setMaxCloud(40);
     setBefore({ start: demo.beforeStart, end: demo.beforeEnd, selectedId: demo.beforeItem });
     setAfter({ start: demo.afterStart, end: demo.afterEnd, selectedId: demo.afterItem });
@@ -567,10 +576,8 @@ export function CompareFloodCatalog({
         {coordError && <p className="caption catalog-error">{coordError}</p>}
         {place && (
           <p className="caption place-active">
-            Punto:{" "}
-            <span className="num">
-              {place.lat.toFixed(4)}, {place.lon.toFixed(4)}
-            </span>
+            Punto confirmado:{" "}
+            <span className="num">{formatPlaceCoords(place)}</span>
             <button type="button" className="close" disabled={busy} onClick={clearPlace}>
               Quitar
             </button>
@@ -578,9 +585,54 @@ export function CompareFloodCatalog({
         )}
       </form>
 
+      <section className="tune-map-section" aria-label="Mapa de ubicación">
+        <LocationMap
+          place={place}
+          draft={mapDraft}
+          sideKm={sideKm}
+          maxSideKm={maxSideKm}
+          disabled={busy}
+          onDraft={(next) => {
+            setMapDraft(next);
+            setActiveDemo(null);
+            setCoordError(null);
+          }}
+          onSideKm={(km) => setSideKm(clampSideKm(km, maxSideKm))}
+        />
+        <div className="tune-map-confirm">
+          {draftPending && mapDraft ? (
+            <>
+              <p className="caption">
+                Borrador: <span className="num">{formatPlaceCoords(mapDraft)}</span>
+                {" · "}
+                el rectángulo es el área que se enviará a Sentinel-2 ({sideKm} km de lado).
+              </p>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={confirmMapDraft}
+              >
+                Confirmar ubicación
+              </button>
+            </>
+          ) : place ? (
+            <p className="caption">
+              Ubicación lista para buscar escenas. Ajusta el recorte en el mapa si hace falta
+              (máx. {maxSideKm} km).
+            </p>
+          ) : (
+            <p className="caption">
+              Busca un lugar, usa un atajo o haz clic en el mapa; luego confirma para enlazar el
+              catálogo STAC.
+            </p>
+          )}
+        </div>
+      </section>
+
       {!place && (
         <p className="caption location-hint">
-          1) Elige el lugar. 2) Elige una escena <strong>Antes</strong> y otra{" "}
+          1) Confirma el lugar en el mapa. 2) Elige una escena <strong>Antes</strong> y otra{" "}
           <strong>Después</strong>. 3) Pulsa <strong>Comparar par</strong> (hace las dos corridas y
           abre el lado a lado) o analízalas una a una. Guía:{" "}
           <Link to={paths.howToUse}>How to use</Link>.
@@ -609,14 +661,13 @@ export function CompareFloodCatalog({
                 max={maxSideKm}
                 value={sideKm}
                 disabled={busy}
-                onChange={(e) =>
-                  setSideKm(Math.min(maxSideKm, Math.max(1, Number(e.target.value) || 1)))
-                }
+                onChange={(e) => setSideKm(clampSideKm(Number(e.target.value) || 1, maxSideKm))}
               />
             </label>
             <p className="caption cloud-note compare-note">
-              Recorte máx. {maxSideKm} km. Misma ubicación en las dos columnas. Orden:{" "}
-              <strong>Antes → Después</strong>.
+              Recorte máx. {maxSideKm} km (límite de procesamiento). Misma ubicación en las dos
+              columnas. Orden: <strong>Antes → Después</strong>. El modelo detecta agua; la
+              inundación se interpreta como agua nueva frente a la referencia.
             </p>
           </div>
 

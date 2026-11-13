@@ -1180,6 +1180,96 @@ a.primary:hover { color: var(--ink); text-decoration: none; }
 }
 .geo-hits li:last-child button { border-bottom: 0; }
 .geo-hits button:hover { background: var(--accent-soft); }
+
+.tune-map-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.tune-location-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  background: var(--wash);
+}
+.tune-location-map.is-disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+.tune-location-map-canvas {
+  width: 100%;
+  height: min(42vh, 320px);
+  min-height: 220px;
+  z-index: 0;
+  background: color-mix(in srgb, var(--ink) 4%, var(--paper));
+}
+.tune-location-map-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+.tune-map-side {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.tune-map-side input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--ink);
+}
+.tune-map-pin-icon {
+  background: transparent;
+  border: 0;
+}
+.tune-map-pin {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--paper);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.tune-map-pin.is-draft {
+  background: var(--paper);
+  border-style: dashed;
+}
+.tune-map-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.tune-map-confirm .primary {
+  min-height: 44px;
+}
+.tune-location-map .leaflet-container {
+  font: inherit;
+}
+.tune-location-map .leaflet-control-attribution {
+  font-size: 10px;
+  max-width: 70%;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+}
+
+@media (max-width: 720px) {
+  .tune-location-map-canvas {
+    height: min(48vh, 280px);
+    min-height: 200px;
+  }
+  .tune-map-side {
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+  }
+  .tune-map-side input[type="range"] {
+    grid-column: 1 / -1;
+  }
+}
+
 .catalog-filters-inline {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
