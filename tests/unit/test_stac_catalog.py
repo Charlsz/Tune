@@ -73,6 +73,63 @@ def test_search_rejects_oversized_bbox() -> None:
         StacCatalog(max_km=10).search(0, 0, "2024-01-01", "2024-01-02", side_km=20)
 
 
+def test_validate_and_parse_bbox() -> None:
+    from tune.infrastructure.catalog.stac import (
+        bbox_dimensions_km,
+        bbox_tag,
+        intersection_ratio,
+        parse_bbox,
+        validate_bbox,
+    )
+
+    bb = validate_bbox((-75.0, 4.0, -74.0, 5.0), max_km=200)
+    assert bb[0] < bb[2]
+    h, w = bbox_dimensions_km(bb)
+    assert h > 0 and w > 0
+    assert parse_bbox("-75,4,-74,5") == bb
+    assert len(bbox_tag(bb)) == 8
+    assert intersection_ratio(bb, (-75.5, 3.5, -73.5, 5.5)) == pytest.approx(1.0)
+    assert intersection_ratio(bb, (-80, 0, -79, 1)) == 0.0
+    with pytest.raises(CatalogError):
+        validate_bbox((-74, 4, -75, 5))  # east < west
+    with pytest.raises(CatalogError, match="grande"):
+        validate_bbox((-80.0, -10.0, -70.0, 10.0), max_km=30)
+
+
+def test_search_accepts_explicit_bbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    catalog = StacCatalog(max_km=30)
+    seen: dict = {}
+
+    class FakeItem:
+        def __init__(self) -> None:
+            self.id = "x"
+            self.properties = {"datetime": "2024-01-02T10:00:00Z", "eo:cloud_cover": 3}
+            self.datetime = None
+            self.bbox = [-75, 4, -74, 5]
+            self.assets: dict = {}
+
+    class FakeSearch:
+        def items(self):
+            return [FakeItem()]
+
+    class FakeClient:
+        def search(self, **kwargs):
+            seen.update(kwargs)
+            return FakeSearch()
+
+    monkeypatch.setattr(catalog, "_client", lambda: FakeClient())
+    small = (-74.15, 4.65, -74.05, 4.75)
+    items = catalog.search(
+        0,
+        0,
+        "2024-01-01",
+        "2024-01-10",
+        bbox=small,
+    )
+    assert len(items) == 1
+    assert seen["bbox"] == small
+
+
 def test_fetch_six_bands_with_local_cogs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     rasterio = pytest.importorskip("rasterio")
     from rasterio.transform import from_origin

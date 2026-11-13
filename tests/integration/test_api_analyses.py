@@ -251,7 +251,7 @@ def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
     from tune.domain.analysis import SceneItem
 
     class FakeCatalog:
-        def search(self, lat, lon, start, end, *, max_cloud=40.0, side_km=20.0):
+        def search(self, lat, lon, start, end, *, max_cloud=40.0, side_km=20.0, bbox=None):
             return [
                 SceneItem(
                     id="S2A_fake",
@@ -392,3 +392,40 @@ def test_catalog_search_rejects_invalid_coords(client):
         },
     )
     assert r.status_code == 422
+
+
+def test_catalog_search_accepts_bbox_without_lat_lon(client, monkeypatch):
+    from tune.domain.analysis import SceneItem
+
+    class FakeCatalog:
+        def __init__(self):
+            self.last_bbox = None
+
+        def search(self, lat, lon, start, end, *, max_cloud=40.0, side_km=20.0, bbox=None):
+            self.last_bbox = bbox
+            return [
+                SceneItem(
+                    id="S2A_bbox",
+                    datetime="2024-06-01T15:00:00",
+                    cloud_cover=2.0,
+                    bbox=(-75.0, 4.0, -74.0, 5.0),
+                    thumbnail=None,
+                )
+            ]
+
+    fake = FakeCatalog()
+    app.dependency_overrides[analyses_api.get_catalog] = lambda: fake
+    try:
+        r = client.get(
+            "/api/catalog/search",
+            params={
+                "start": "2024-05-01",
+                "end": "2024-06-30",
+                "bbox": "-74.15,4.65,-74.05,4.75",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()[0]["id"] == "S2A_bbox"
+        assert fake.last_bbox == (-74.15, 4.65, -74.05, 4.75)
+    finally:
+        app.dependency_overrides.pop(analyses_api.get_catalog, None)
