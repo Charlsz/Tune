@@ -55,6 +55,11 @@ notebooks/**/.ipynb_checkpoints/
 lab/notebooks/**/.ipynb_checkpoints/
 *.ipynb_checkpoints
 
+# --- Frontend (artefactos de TypeScript / Vite) ---
+web/tsconfig.tsbuildinfo
+web/node_modules/
+web/dist/
+
 # --- IDE / SO ---
 .vscode/
 .idea/
