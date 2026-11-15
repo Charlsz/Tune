@@ -4,6 +4,9 @@ WORKDIR /web
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
+# Mapbox y demás VITE_* se inyectan en build (Compose / CI).
+ARG VITE_MAPBOX_TOKEN=
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
 RUN npm run build
 
 FROM nginx:1.27-alpine
