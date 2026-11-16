@@ -1,0 +1,87 @@
+{
+  "site": "pakistan",
+  "label": "Sindh (Pakistán) 2022",
+  "center": { "lat": 27.70, "lon": 68.85 },
+  "side_km": 12,
+  "max_cloud": 40,
+  "task": "flood",
+  "model_loaded_at_health_check": false,
+  "success": true,
+  "baseline": {
+    "phase": "pre",
+    "catalog_id": "S2B_42RVR_20220518_0_L2A",
+    "acquired_at": "2022-05-18",
+    "id": "a4c7b4c0480f",
+    "model_id": "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+    "affected_area_km2": 10.3436,
+    "affected_pixels": 25859,
+    "affected_ratio": 0.07178867882624025,
+    "latency_s": 58.74244961500017,
+    "change": {
+      "reference_source": "jrc_gsw_v1_4",
+      "reference_id": null,
+      "new_area_km2": 7.062,
+      "persistent_area_km2": 3.2704,
+      "receded_area_km2": 0.6168,
+      "new_pixels": 17655,
+      "persistent_pixels": 8176,
+      "receded_pixels": 1542
+    },
+    "exposure": {
+      "population_exposed": 0.0,
+      "population_source": "ghsl_pop_2020",
+      "new_area_km2": 7.062
+    },
+    "fusion": null,
+    "artifacts": {
+      "input": "/api/analyses/a4c7b4c0480f/input",
+      "mask_png": "/api/analyses/a4c7b4c0480f/mask_png",
+      "preview_png": "/api/analyses/a4c7b4c0480f/preview_png",
+      "mask_tif": "/api/analyses/a4c7b4c0480f/mask_tif",
+      "change_png": "/api/analyses/a4c7b4c0480f/change_png",
+      "reference_tif": "/api/analyses/a4c7b4c0480f/reference_tif"
+    }
+  },
+  "peak": {
+    "phase": "peak",
+    "catalog_id": "S2B_42RVR_20220905_0_L2A",
+    "acquired_at": "2022-09-05",
+    "id": "dd5b7490e5b2",
+    "model_id": "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+    "affected_area_km2": 60.2228,
+    "affected_pixels": 150557,
+    "affected_ratio": 0.4162125999706965,
+    "latency_s": 67.00914973399995,
+    "change": {
+      "reference_source": "history_baseline",
+      "reference_id": "a4c7b4c0480f",
+      "reference_dates": ["2022-05-18"],
+      "new_area_km2": 49.5556,
+      "persistent_area_km2": 10.0304,
+      "receded_area_km2": 0.2908,
+      "new_pixels": 123889,
+      "persistent_pixels": 25076,
+      "receded_pixels": 727
+    },
+    "exposure": {
+      "population_exposed": 0.0,
+      "population_source": "ghsl_pop_2020",
+      "new_area_km2": 49.5556
+    },
+    "fusion": null,
+    "artifacts": {
+      "input": "/api/analyses/dd5b7490e5b2/input",
+      "mask_png": "/api/analyses/dd5b7490e5b2/mask_png",
+      "preview_png": "/api/analyses/dd5b7490e5b2/preview_png",
+      "mask_tif": "/api/analyses/dd5b7490e5b2/mask_tif",
+      "change_png": "/api/analyses/dd5b7490e5b2/change_png",
+      "reference_tif": "/api/analyses/dd5b7490e5b2/reference_tif"
+    }
+  },
+  "delta": {
+    "detected_km2_baseline_to_peak": 49.8792,
+    "new_km2_at_peak_vs_baseline": 49.5556,
+    "persistent_km2_at_peak": 10.0304,
+    "note": "Peak change uses history_baseline from pre analyze a4c7b4c0480f; new ≫ persistent as expected for Sindh 2022."
+  }
+}
