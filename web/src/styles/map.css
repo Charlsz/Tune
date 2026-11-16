@@ -466,6 +466,10 @@ button[aria-pressed="true"] {
   background: var(--ink);
   color: var(--paper);
 }
+.mode-bar button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .water-legend {
   padding: 4px 0 22px;
 }
@@ -481,6 +485,9 @@ button[aria-pressed="true"] {
   border-radius: var(--radius);
   background: var(--data-water);
   flex-shrink: 0;
+}
+.water-swatch.agree {
+  background: linear-gradient(135deg, #16a34a 50%, #dc2626 50%);
 }
 .water-legend input {
   margin-left: auto;
@@ -578,6 +585,53 @@ button[aria-pressed="true"] {
   font-size: 15px;
   color: #8997ac;
   letter-spacing: 0;
+}
+.result-metrics {
+  padding: 0 0 18px;
+}
+.result-metrics dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.result-metrics dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+.result-metrics dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 550;
+}
+.result-metrics .gfm-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.history-hint {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.result-metrics .cover-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--map-border);
+}
+.result-metrics .cover-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--map-border);
+}
+.result-metrics .cover-list strong {
+  font-weight: 550;
+  white-space: nowrap;
 }
 .map-label {
   position: absolute;

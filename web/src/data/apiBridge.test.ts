@@ -81,12 +81,20 @@ describe("mapeo CatalogScene / Analysis → UI", () => {
     const afterAnalysis = {
       id: "a2",
       created_at: "2022-09-05T12:00:00Z",
-      change: { new_area_km2: 12.5 },
+      model_id: "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+      change: { new_area_km2: 12.5, persistent_area_km2: 3.1 },
       affected_area_km2: 20,
+      exposure: {
+        population_exposed: 1250,
+        classes: [{ label: "Cropland", area_km2: 4.2, fraction: 0.4 }],
+      },
+      fusion: { iou: 0.61, sources: ["gfm"] },
+      metadata: { pipeline: { observation: "ok", reference: "ok", exposure: "ok" } },
       artifacts: {
         preview_png: "/api/a2/preview.png",
         mask_png: "/api/a2/mask.png",
         change_png: "/api/a2/change.png",
+        fusion_png: "/api/a2/fusion.png",
       },
     } as unknown as Analysis;
 
@@ -102,5 +110,33 @@ describe("mapeo CatalogScene / Analysis → UI", () => {
     expect(result.id).toBe("a2");
     expect(result.cells).toEqual([]);
     expect(result.overlays?.change).toBe("/api/a2/change.png");
+    expect(result.overlays?.fusion).toBe("/api/a2/fusion.png");
+    expect(result.metrics?.population).toBe(1250);
+    expect(result.metrics?.newKm2).toBe(12.5);
+    expect(result.metrics?.cover[0]?.label).toBe("Cropland");
+    expect(result.metrics?.fusionIou).toBe(0.61);
+    expect(result.metrics?.fusionSources).toEqual(["gfm"]);
+    expect(result.metrics?.observation).toBe("ok");
+  });
+
+  it("analysesToResult deja fusión vacía si no hubo GFM", () => {
+    const aoi: [number, number, number, number] = [67.65, 26.8, 68.25, 27.4];
+    const scene = catalogSceneToUi(catalog);
+    const base = {
+      id: "a0",
+      created_at: "2022-05-18T12:00:00Z",
+      model_id: "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+      change: null,
+      affected_area_km2: 1,
+      fusion: null,
+      metadata: {
+        pipeline: { observation: "empty", reference: "ok", exposure: "ok" },
+      },
+      artifacts: { preview_png: "/p.png", mask_png: "/m.png" },
+    } as unknown as Analysis;
+    const result = analysesToResult(aoi, scene, scene, base, base);
+    expect(result.overlays?.fusion).toBeUndefined();
+    expect(result.metrics?.fusionIou).toBeNull();
+    expect(result.metrics?.observation).toBe("empty");
   });
 });

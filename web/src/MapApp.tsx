@@ -14,6 +14,7 @@ import {
   Minimize,
 } from "lucide-react";
 import MapView from "./components/map/MapView";
+import ResultMetrics from "./components/map/ResultMetrics";
 import VisualizationControls from "./components/map/VisualizationControls";
 import {
   initialState,
@@ -516,6 +517,7 @@ export default function MapApp({
                       <span> km²</span>
                     </strong>
                   </div>
+                  <ResultMetrics metrics={result.metrics} />
                   <button
                     className="primary full"
                     onClick={() => patch({ page: "map" })}
@@ -531,8 +533,11 @@ export default function MapApp({
           ) : (
             <>
               <h1>Historial</h1>
+              <p className="history-hint">
+                Solo esta sesión. Los análisis del servidor no se listan aquí.
+              </p>
               {!s.history.length ? (
-                <p className="empty">Vacío.</p>
+                <p className="empty">Sin comparaciones aún.</p>
               ) : (
                 s.history.map((r, i) => (
                   <div className="history-entry" key={r.id}>
@@ -544,6 +549,9 @@ export default function MapApp({
                     <small>
                       {r.areaKm2.toFixed(2)} km² ·{" "}
                       {new Date(r.created).toLocaleTimeString("es")}
+                      {r.metrics?.fusionIou != null
+                        ? ` · IoU ${r.metrics.fusionIou.toFixed(2)}`
+                        : ""}
                     </small>
                   </div>
                 ))

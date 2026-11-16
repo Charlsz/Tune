@@ -5,6 +5,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { formatDate, type State } from "../../domain/lab";
+import ResultMetrics from "./ResultMetrics";
 
 type ViewPatch = Partial<Pick<State, "mode" | "slider" | "mask" | "opacity">>;
 
@@ -17,27 +18,49 @@ export default function VisualizationControls({
   onView: (patch: ViewPatch) => void;
   onDates: () => void;
 }) {
-  if (!s.result) return null;
+  const result = s.result;
+  if (!result) return null;
   return (
     <div className="visualization-controls">
       <div className="mode-bar" aria-label="Modo temporal">
-        {(["before", "after", "change"] as const).map((mode, i) => (
-          <button
-            key={mode}
-            aria-pressed={s.mode === mode && !s.slider}
-            onClick={() => onView({ mode, slider: false })}
-          >
-            {["Antes", "Después", "Cambio"][i]}
-          </button>
-        ))}
+        {(
+          [
+            ["before", "Antes"],
+            ["after", "Después"],
+            ["change", "Cambio"],
+            ["agree", "Acuerdo"],
+          ] as const
+        ).map(([mode, label]) => {
+          const agreeDisabled =
+            mode === "agree" && !result.overlays?.fusion;
+          return (
+            <button
+              key={mode}
+              aria-pressed={s.mode === mode && !s.slider}
+              disabled={agreeDisabled}
+              title={
+                agreeDisabled
+                  ? "Sin capa GFM para esta zona/fecha"
+                  : undefined
+              }
+              onClick={() => onView({ mode, slider: false })}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
       <div className="water-legend">
         <label>
-          <span className="water-swatch" />
+          <span
+            className={`water-swatch${s.mode === "agree" ? " agree" : ""}`}
+          />
           <span>
             {s.mode === "change" && !s.slider
-              ? `${s.result.areaKm2.toLocaleString("es", { maximumFractionDigits: 2 })} km²`
-              : "Máscara"}
+              ? `${result.areaKm2.toLocaleString("es", { maximumFractionDigits: 2 })} km²`
+              : s.mode === "agree"
+                ? "Acuerdo GFM"
+                : "Máscara"}
           </span>
           <input
             type="checkbox"
@@ -46,6 +69,7 @@ export default function VisualizationControls({
           />
         </label>
       </div>
+      <ResultMetrics metrics={result.metrics} />
       <div className="panel-dates">
         <CalendarDays size={21} />
         <div>

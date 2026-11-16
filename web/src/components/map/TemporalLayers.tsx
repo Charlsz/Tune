@@ -63,9 +63,24 @@ export function TemporalLayers({
   const overlayBounds = overlays
     ? bboxToLatLngBounds(overlays.bounds)
     : null;
-  const showBefore = state.slider || state.mode === "before",
-    showAfter = state.slider || state.mode !== "before";
+  const showBefore = state.slider || state.mode === "before";
+  const showAfterBase =
+    state.slider ||
+    state.mode === "after" ||
+    state.mode === "change" ||
+    state.mode === "agree";
   const useApiOverlays = Boolean(overlays);
+  const showChange =
+    state.result &&
+    state.mode === "change" &&
+    !state.slider &&
+    state.mask;
+  const showAgree =
+    state.result &&
+    state.mode === "agree" &&
+    !state.slider &&
+    state.mask &&
+    overlays?.fusion;
 
   return (
     <>
@@ -115,7 +130,7 @@ export function TemporalLayers({
       <Pane name="after" style={{ zIndex: 411 }}>
         {useApiOverlays && overlayBounds ? (
           <>
-            {showAfter && overlays?.afterPreview && (
+            {showAfterBase && overlays?.afterPreview && (
               <ImageOverlay
                 url={overlays.afterPreview}
                 bounds={overlayBounds}
@@ -124,7 +139,6 @@ export function TemporalLayers({
             )}
             {state.result &&
               state.mask &&
-              showAfter &&
               (state.slider || state.mode === "after") &&
               overlays?.afterMask && (
                 <ImageOverlay
@@ -136,7 +150,7 @@ export function TemporalLayers({
           </>
         ) : (
           <>
-            {after && showAfter && after.image && (
+            {after && showAfterBase && after.image && (
               <ImageOverlay
                 url={after.image}
                 bounds={bboxToLatLngBounds(after.bbox as BBox)}
@@ -144,7 +158,6 @@ export function TemporalLayers({
             )}
             {state.result &&
               state.mask &&
-              showAfter &&
               (state.slider || state.mode === "after") &&
               after && (
                 <Mask
@@ -155,10 +168,7 @@ export function TemporalLayers({
           </>
         )}
       </Pane>
-      {state.result &&
-        state.mode === "change" &&
-        !state.slider &&
-        state.mask &&
+      {showChange &&
         (useApiOverlays && overlayBounds && overlays?.change ? (
           <Pane name="change" style={{ zIndex: 420 }}>
             <ImageOverlay
@@ -169,9 +179,18 @@ export function TemporalLayers({
           </Pane>
         ) : (
           <Pane name="change" style={{ zIndex: 420 }}>
-            <Mask cells={state.result.cells} opacity={state.opacity} />
+            <Mask cells={state.result!.cells} opacity={state.opacity} />
           </Pane>
         ))}
+      {showAgree && overlayBounds && overlays?.fusion && (
+        <Pane name="agree" style={{ zIndex: 421 }}>
+          <ImageOverlay
+            url={overlays.fusion}
+            bounds={overlayBounds}
+            opacity={state.opacity}
+          />
+        </Pane>
+      )}
       <Clip split={state.split} active={state.slider} />
     </>
   );

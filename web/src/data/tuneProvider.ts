@@ -63,6 +63,7 @@ export const tuneProvider: DataProvider = {
     const q = catalogQueryFromAoi(aoi, before.datetime.slice(0, 10), 40, maxSideKm);
     const place = { lat: q.lat, lon: q.lon };
 
+    // Catálogo Sentinel-2 → siempre tarea flood → checkpoint Prithvi Sen1Floods11.
     const beforeAnalysis = await api.catalogAnalyze(
       before.id,
       "flood",
@@ -77,6 +78,9 @@ export const tuneProvider: DataProvider = {
       q.sideKm,
       q.maxCloud,
     );
+    if (!afterAnalysis.model_id.includes("Prithvi")) {
+      throw new Error(`Modelo inesperado: ${afterAnalysis.model_id}`);
+    }
 
     return analysesToResult(aoi, before, after, beforeAnalysis, afterAnalysis);
   },

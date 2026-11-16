@@ -1,6 +1,10 @@
+/**
+ * Estado del flujo MapApp (área → fechas → escenas → resultado).
+ * No es el laboratorio MLOps de `lab/` en la raíz del repo.
+ */
 import type { BBox } from "./aoi";
-import type { CatalogScene } from "../types";
-export type Mode = "before" | "after" | "change";
+import type { CatalogScene, PipelineLayerStatus } from "../types";
+export type Mode = "before" | "after" | "change" | "agree";
 export type Step =
   "area" | "dates" | "scenes" | "ready" | "running" | "results";
 export interface Scene extends CatalogScene {
@@ -19,7 +23,29 @@ export interface ResultOverlays {
   beforeMask?: string;
   afterMask?: string;
   change?: string;
+  /** PNG de acuerdo Tune↔GFM cuando el backend encontró capa. */
+  fusion?: string;
 }
+export interface ExposureClassMetric {
+  label: string;
+  areaKm2: number | null;
+  fraction: number;
+}
+
+export interface ResultMetrics {
+  detectedKm2: number | null;
+  newKm2: number | null;
+  persistentKm2: number | null;
+  recededKm2: number | null;
+  population: number | null;
+  cover: ExposureClassMetric[];
+  modelId: string;
+  /** IoU con GFM/OPERA si hubo observación; null si no hubo capa. */
+  fusionIou: number | null;
+  fusionSources: string[];
+  observation: PipelineLayerStatus | null;
+}
+
 export interface Result {
   id: string;
   key: string;
@@ -30,6 +56,7 @@ export interface Result {
   created: string;
   aoi: BBox;
   overlays?: ResultOverlays;
+  metrics?: ResultMetrics;
 }
 export interface DataProvider {
   places: { label: string; bbox: BBox }[];

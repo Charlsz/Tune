@@ -69,10 +69,8 @@ export function analysesToResult(
   beforeAnalysis: Analysis,
   afterAnalysis: Analysis,
 ): Result {
-  const areaKm2 =
-    afterAnalysis.change?.new_area_km2 ??
-    afterAnalysis.affected_area_km2 ??
-    0;
+  const newKm2 = afterAnalysis.change?.new_area_km2 ?? null;
+  const areaKm2 = newKm2 ?? afterAnalysis.affected_area_km2 ?? 0;
   const bounds = boundsFromAnalysis(afterAnalysis, aoi);
   const overlays: ResultOverlays = {
     bounds,
@@ -81,7 +79,20 @@ export function analysesToResult(
     beforeMask: beforeAnalysis.artifacts.mask_png,
     afterMask: afterAnalysis.artifacts.mask_png,
     change: afterAnalysis.artifacts.change_png,
+    fusion: afterAnalysis.artifacts.fusion_png,
   };
+  const cover = (afterAnalysis.exposure?.classes ?? [])
+    .slice(0, 4)
+    .map((c) => ({
+      label: c.label,
+      areaKm2: c.area_km2,
+      fraction: c.fraction,
+    }));
+  const pipeline = afterAnalysis.metadata?.pipeline;
+  const observation =
+    pipeline && typeof pipeline === "object" && "observation" in pipeline
+      ? pipeline.observation
+      : null;
   return {
     id: afterAnalysis.id,
     key: selectionKey(aoi, before, after),
@@ -106,6 +117,18 @@ export function analysesToResult(
     created: afterAnalysis.created_at,
     aoi: [...aoi] as BBox,
     overlays,
+    metrics: {
+      detectedKm2: afterAnalysis.affected_area_km2,
+      newKm2,
+      persistentKm2: afterAnalysis.change?.persistent_area_km2 ?? null,
+      recededKm2: afterAnalysis.change?.receded_area_km2 ?? null,
+      population: afterAnalysis.exposure?.population_exposed ?? null,
+      cover,
+      modelId: afterAnalysis.model_id,
+      fusionIou: afterAnalysis.fusion?.iou ?? null,
+      fusionSources: afterAnalysis.fusion?.sources ?? [],
+      observation,
+    },
   };
 }
 
