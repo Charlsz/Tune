@@ -35,7 +35,8 @@ PRESETS: dict[str, dict] = {
         "nodata": 255,
         "source": "gfm",
         "needs_token": False,
-        "window_days": 6,
+        # Óptico S2 vs SAR GFM: ±10 d mejora hit-rate sin forzar otro mes.
+        "window_days": 10,
     },
     "opera_dswx_hls": {
         "stac_url": "https://cmr.earthdata.nasa.gov/stac/POCLOUD",

@@ -21,3 +21,6 @@ assets están detrás de Earthdata. GFM está encendido (`TUNE_OBSERVE_GFM=true`
 - La app sigue siendo global: el usuario elige cualquier coordenada.
 - La cifra defendible junto a `new_km2` es el IoU cuando hay capa externa.
 - Tests sin red: monkeypatch de `_search` y `_read_window`.
+- Ventana temporal GFM: ±10 días respecto a `acquired_at` de la escena (óptico
+  S2 vs SAR). MapApp muestra IoU y capa Acuerdo cuando `fusion` / `fusion_png`
+  existen; si no, degrada sin tumbar el análisis.
