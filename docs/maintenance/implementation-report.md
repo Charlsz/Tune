@@ -131,3 +131,6 @@ pip install -e ".[api,inference,dev]"
 ---
 
 **Estado de la rama:** lista para revisión. `main` no fue modificada. No se abrió ni fusionó un Pull Request.
+
+> **Nota (nov 2026):** supersedido en gran parte por `feature/mapa` (MapApp
+> map-first). Conservar este informe como histórico de `feature/tune-stabilization-map`.

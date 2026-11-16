@@ -1,9 +1,15 @@
 # Auditoría de mantenimiento — Tune
 
-**Fecha:** 2026-11-13  
-**Rama de trabajo:** `feature/tune-stabilization-map`  
+**Fecha:** 2026-11-13 (snapshot)  
+**Rama de trabajo entonces:** `feature/tune-stabilization-map`  
 **Commit base:** `785a6b6` (`main`)  
 **Respaldo histórico verificado:** `origin/backup/mlops-finetuning-lab` (`b7eec22`)
+
+> **Nota (nov 2026, `feature/mapa`):** la UI de producción es **MapApp**
+> (`web/src/main.tsx`), no las rutas `/` `/analysis` `/history` de esta auditoría.
+> GFM ya se consulta en cada analyze; MapApp muestra IoU/Acuerdo cuando hay capa.
+> Tratar secciones de frontend de este documento como históricas hasta una
+> reauditoría.
 
 ## Resumen ejecutivo
 
