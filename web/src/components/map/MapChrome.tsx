@@ -12,7 +12,6 @@ import { formatAoiCaption } from "../../domain/aoi";
 import { cn } from "../ui/cn";
 import MapStatusBanner from "./MapStatusBanner";
 import MapView from "./MapView";
-import SwipeControl from "./SwipeControl";
 import "./leaflet.css";
 
 export default function MapChrome() {
@@ -134,7 +133,6 @@ export default function MapChrome() {
           <PanelLeft size={16} /> B
         </button>
       </div>
-      <SwipeControl />
     </div>
   );
 }

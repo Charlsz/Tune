@@ -1,30 +1,19 @@
-import {
-  ArrowRight,
-  CalendarDays,
-  Droplets,
-  SlidersHorizontal,
-} from "lucide-react";
-import { formatDate, type State } from "../../domain/lab";
-import {
-  btnOutline,
-  btnOutlineSelected,
-  btnPrimary,
-  btnText,
-  sectionGap,
-} from "../ui/classes";
+import { SlidersHorizontal } from "lucide-react";
+import type { State } from "../../domain/lab";
+import { btnOutline, btnOutlineSelected, sectionGap } from "../ui/classes";
 import { cn } from "../ui/cn";
-import ResultMetrics from "./ResultMetrics";
 
-type ViewPatch = Partial<Pick<State, "mode" | "slider" | "mask" | "opacity">>;
+type ViewPatch = Partial<
+  Pick<State, "mode" | "slider" | "mask" | "opacity" | "split">
+>;
 
+/** Controles de vista del análisis activo (viven en Resultados). */
 export default function VisualizationControls({
   state: s,
   onView,
-  onDates,
 }: {
   state: State;
   onView: (patch: ViewPatch) => void;
-  onDates: () => void;
 }) {
   const result = s.result;
   if (!result) return null;
@@ -33,7 +22,7 @@ export default function VisualizationControls({
     <div>
       <div
         className={cn(
-          "flex w-full rounded-md border border-[#e5e7ec] bg-[#f3f4f6] p-1",
+          "flex w-full rounded-md border border-line bg-accent-soft p-1",
           sectionGap,
         )}
         aria-label="Modo temporal"
@@ -73,7 +62,7 @@ export default function VisualizationControls({
         })}
       </div>
 
-      <div className="pb-6 pt-1 max-[760px]:pb-4">
+      <div className="pb-5 pt-1 max-[760px]:pb-4">
         <label className="flex items-center gap-3 text-sm max-xl:text-[15px] max-lg:text-xs max-sm:text-sm">
           <span
             className={cn(
@@ -85,7 +74,7 @@ export default function VisualizationControls({
           />
           <span>
             {s.mode === "change" && !s.slider
-              ? `${result.areaKm2.toLocaleString("es", { maximumFractionDigits: 2 })} km²`
+              ? "Capa de cambio"
               : s.mode === "agree"
                 ? "Acuerdo GFM"
                 : "Máscara"}
@@ -99,35 +88,7 @@ export default function VisualizationControls({
         </label>
       </div>
 
-      <ResultMetrics metrics={result.metrics} />
-
-      <div className="flex gap-4 border-y border-line py-5 max-[760px]:gap-3 max-[760px]:py-3">
-        <CalendarDays size={21} className="mt-1 shrink-0 text-fg-muted" />
-        <div className="min-w-0">
-          {s.selected.map((scene, i) => (
-            <p
-              key={i}
-              className="mb-2 flex flex-wrap gap-2 text-xs leading-normal max-xl:text-[13px] max-lg:text-[11px] max-sm:text-[13px]"
-            >
-              <span className="min-w-[57px] text-fg-muted">
-                {i === 0 ? "Antes" : "Después"}
-              </span>
-              <strong className="font-normal">
-                {scene && formatDate(scene.datetime)}
-              </strong>
-            </p>
-          ))}
-          <button
-            type="button"
-            className={cn(btnText, "pb-2 text-[10px]")}
-            onClick={onDates}
-          >
-            Editar fechas
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-1 py-6 max-[760px]:py-4">
+      <div className="mb-1 py-4 max-[760px]:py-3">
         <label className="flex flex-wrap items-center gap-2 text-[13px]">
           Opacidad
           <span className="ml-auto">{Math.round(s.opacity * 100)}%</span>
@@ -151,15 +112,6 @@ export default function VisualizationControls({
       >
         <SlidersHorizontal size={17} />
         {s.slider ? "Cerrar deslizador" : "Deslizador"}
-      </button>
-      <button
-        type="button"
-        className={cn(btnPrimary, "justify-center gap-2.5")}
-        onClick={onDates}
-      >
-        <Droplets size={19} className="mr-auto" />
-        Otra fecha
-        <ArrowRight size={17} className="ml-auto" />
       </button>
     </div>
   );

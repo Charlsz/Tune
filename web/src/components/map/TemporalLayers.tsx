@@ -1,33 +1,62 @@
-import { ImageOverlay, Pane, Rectangle } from "react-leaflet";
+import { useEffect } from "react";
+import { ImageOverlay, Pane, Rectangle, useMap } from "react-leaflet";
 import type { BBox } from "../../domain/aoi";
 import { bboxToLatLngBounds } from "../../domain/aoi";
 import type { Cell, Scene, State } from "../../domain/lab";
-import { useEffect } from "react";
-import { useMap } from "react-leaflet";
 
-export function Clip({ split, active }: { split: number; active: boolean }) {
+/** Clip del swipe limitado al rectángulo del AOI en píxeles de capa. */
+export function Clip({
+  split,
+  active,
+  aoi,
+}: {
+  split: number;
+  active: boolean;
+  aoi: BBox | null;
+}) {
   const map = useMap();
   useEffect(() => {
-    const update = () => {
-      const rect = map.getContainer().getBoundingClientRect();
+    const clear = () => {
       for (const name of ["before", "after"]) {
         const pane = map.getPane(name);
-        if (!pane) continue;
-        const origin = map.containerPointToLayerPoint([0, 0]);
-        const left = name === "before" ? 0 : (rect.width * split) / 100;
-        const right =
-          name === "before" ? (rect.width * split) / 100 : rect.width;
-        pane.style.clipPath = active
-          ? `polygon(${origin.x + left}px ${origin.y}px,${origin.x + right}px ${origin.y}px,${origin.x + right}px ${origin.y + rect.height}px,${origin.x + left}px ${origin.y + rect.height}px)`
-          : "none";
+        if (pane) pane.style.clipPath = "none";
       }
     };
-    update();
-    map.on("move zoom resize", update);
-    return () => {
-      map.off("move zoom resize", update);
+
+    const update = () => {
+      if (!active || !aoi) {
+        clear();
+        return;
+      }
+      const [west, south, east, north] = aoi;
+      const sw = map.latLngToLayerPoint([south, west]);
+      const ne = map.latLngToLayerPoint([north, east]);
+      const left = Math.min(sw.x, ne.x);
+      const right = Math.max(sw.x, ne.x);
+      const top = Math.min(sw.y, ne.y);
+      const bottom = Math.max(sw.y, ne.y);
+      if (right - left < 2 || bottom - top < 2) {
+        clear();
+        return;
+      }
+      const splitX = left + ((right - left) * split) / 100;
+
+      for (const name of ["before", "after"] as const) {
+        const pane = map.getPane(name);
+        if (!pane) continue;
+        const x0 = name === "before" ? left : splitX;
+        const x1 = name === "before" ? splitX : right;
+        pane.style.clipPath = `polygon(${x0}px ${top}px, ${x1}px ${top}px, ${x1}px ${bottom}px, ${x0}px ${bottom}px)`;
+      }
     };
-  }, [map, split, active]);
+
+    update();
+    map.on("move zoom resize moveend zoomend", update);
+    return () => {
+      map.off("move zoom resize moveend zoomend", update);
+      clear();
+    };
+  }, [map, split, active, aoi]);
   return null;
 }
 
@@ -60,6 +89,8 @@ export function TemporalLayers({
   const before = state.selected[0],
     after = state.selected[1];
   const overlays = state.result?.overlays;
+  const swipeAoi: BBox | null =
+    overlays?.bounds ?? state.result?.aoi ?? null;
   const overlayBounds = overlays
     ? bboxToLatLngBounds(overlays.bounds)
     : null;
@@ -191,7 +222,7 @@ export function TemporalLayers({
           />
         </Pane>
       )}
-      <Clip split={state.split} active={state.slider} />
+      <Clip split={state.split} active={state.slider} aoi={swipeAoi} />
     </>
   );
 }

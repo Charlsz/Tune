@@ -24,6 +24,7 @@ function MapAppShell() {
   const floating = state.variant === "floating";
   const page = useAppPage();
   const { pathname } = useLocation();
+  const belowSearch = page === "map";
 
   if (pathname === "/" || pathname === "") {
     return <Navigate to={paths.map} replace />;
@@ -60,21 +61,31 @@ function MapAppShell() {
               panelCard,
               floating
                 ? [
-                    "absolute top-24 max-h-[calc(100%-7.5rem)]",
                     floatingChromeLeft,
                     floatingColumnWidth,
-                    "rounded-lg border border-panel-border",
-                    "max-lg:top-[5.5rem] max-lg:max-h-[calc(100%-7rem)]",
+                    "absolute rounded-lg border border-panel-border",
                     "max-sm:relative max-sm:top-0 max-sm:left-0 max-sm:order-2 max-sm:max-h-none max-sm:w-full",
                     "max-sm:rounded-none max-sm:border-0 max-sm:shadow-none",
-                    "max-[760px]:top-20 max-[760px]:max-h-[calc(100%-6.5rem)]",
+                    belowSearch
+                      ? [
+                          "top-24 max-h-[calc(100%-7.5rem)]",
+                          "max-lg:top-[5.5rem] max-lg:max-h-[calc(100%-7rem)]",
+                          "max-[760px]:top-20 max-[760px]:max-h-[calc(100%-6.5rem)]",
+                        ]
+                      : [
+                          "top-6 max-h-[calc(100%-3rem)]",
+                          "max-lg:top-5 max-lg:max-h-[calc(100%-2.5rem)]",
+                          "max-sm:top-0",
+                        ],
                   ]
                 : [
                     "relative top-0 left-0 order-1 max-h-full w-1/4 min-w-[360px] shrink-0",
-                    "rounded-none border-y-0 border-l-0 border-r border-line pt-24 shadow-none",
+                    "rounded-none border-y-0 border-l-0 border-r border-line shadow-none",
                     "max-xl:min-w-[386px]",
-                    "max-sm:order-2 max-sm:max-h-none max-sm:min-w-0 max-sm:w-full max-sm:border-r-0 max-sm:pt-6",
-                    "max-[760px]:pt-20",
+                    "max-sm:order-2 max-sm:max-h-none max-sm:min-w-0 max-sm:w-full max-sm:border-r-0",
+                    belowSearch
+                      ? "pt-24 max-sm:pt-6 max-[760px]:pt-20"
+                      : "pt-6 max-sm:pt-6",
                   ],
             )}
             hidden={!panelOpen}

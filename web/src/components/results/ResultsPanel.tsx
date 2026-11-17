@@ -1,17 +1,28 @@
-import { ArrowRight, History, Map } from "lucide-react";
+import { ArrowRight, CalendarDays, Droplets, History, Map } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { formatDate } from "../../domain/lab";
-import { btnPrimary, btnText, emptyBox, sectionGap } from "../ui/classes";
+import {
+  btnPrimary,
+  btnText,
+  emptyBox,
+  sectionGap,
+} from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 import ResultMetrics from "./ResultMetrics";
+import VisualizationControls from "./VisualizationControls";
 
 export default function ResultsPanel() {
-  const { state } = useMapApp();
+  const { state, patch, dispatch } = useMapApp();
   const navigate = useNavigate();
   const result = state.result;
+
+  const goEditDates = () => {
+    dispatch({ type: "step", step: "dates" });
+    navigate(paths.map);
+  };
 
   return (
     <FadeIn>
@@ -25,7 +36,7 @@ export default function ResultsPanel() {
           <p className="mb-1 mt-0 text-[11px] text-fg-muted">
             {formatAoiCaption(result.label ?? state.label, result.aoi)}
           </p>
-          <p className="mb-3 mt-0 flex flex-wrap items-center gap-x-2 text-[11px] text-fg-soft">
+          <p className="mb-4 mt-0 flex flex-wrap items-center gap-x-2 text-[11px] text-fg-soft">
             <span>Análisis activo de esta sesión</span>
             <button
               type="button"
@@ -35,14 +46,7 @@ export default function ResultsPanel() {
               Cambiar en Historial
             </button>
           </p>
-          <div className="mb-6 border-y border-line py-3 text-xs max-[760px]:mb-4">
-            <p className="m-0 py-1">
-              Antes — {formatDate(result.before.datetime)}
-            </p>
-            <p className="m-0 py-1">
-              Después — {formatDate(result.after.datetime)}
-            </p>
-          </div>
+
           <div className="pb-5">
             <p className="m-0 text-[11px] text-fg-soft">Agua nueva (cambio)</p>
             <strong className="mt-1 block text-[32px] font-medium tracking-[-1.1px]">
@@ -55,7 +59,36 @@ export default function ResultsPanel() {
               </span>
             </strong>
           </div>
+
           <ResultMetrics metrics={result.metrics} />
+
+          <div className="mb-5 flex gap-4 border-y border-line py-4 max-[760px]:gap-3 max-[760px]:py-3">
+            <CalendarDays size={21} className="mt-1 shrink-0 text-fg-muted" />
+            <div className="min-w-0">
+              <p className="mb-2 flex flex-wrap gap-2 text-xs">
+                <span className="min-w-[57px] text-fg-muted">Antes</span>
+                <strong className="font-normal">
+                  {formatDate(result.before.datetime)}
+                </strong>
+              </p>
+              <p className="mb-2 flex flex-wrap gap-2 text-xs">
+                <span className="min-w-[57px] text-fg-muted">Después</span>
+                <strong className="font-normal">
+                  {formatDate(result.after.datetime)}
+                </strong>
+              </p>
+              <button
+                type="button"
+                className={`${btnText} pb-0 text-[10px]`}
+                onClick={goEditDates}
+              >
+                Editar fechas
+              </button>
+            </div>
+          </div>
+
+          <VisualizationControls state={state} onView={patch} />
+
           <button
             type="button"
             className={btnPrimary}
@@ -63,6 +96,15 @@ export default function ResultsPanel() {
           >
             Ver en el mapa
             <ArrowRight size={16} />
+          </button>
+          <button
+            type="button"
+            className={`${btnPrimary} justify-center gap-2.5`}
+            onClick={goEditDates}
+          >
+            <Droplets size={19} className="mr-auto" />
+            Otra fecha
+            <ArrowRight size={17} className="ml-auto" />
           </button>
         </>
       ) : (

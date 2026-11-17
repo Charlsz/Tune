@@ -5,6 +5,7 @@
   height: 100%;
   background: var(--color-map-bg);
   font-family: inherit;
+  position: relative;
 }
 
 .leaflet-control-attribution {
@@ -43,11 +44,15 @@
   cursor: crosshair;
 }
 
+/* Caja del swipe = bbox AOI en píxeles de contenedor (inline left/top/width/height). */
 .tune-swipe {
   pointer-events: none;
   position: absolute;
-  inset: 0;
   z-index: 620;
+}
+
+.tune-swipe-aoi {
+  overflow: hidden;
 }
 
 .tune-swipe-line {
@@ -78,6 +83,7 @@
   pointer-events: auto;
   position: absolute;
   top: calc(50% - 19px);
+  left: 0;
   width: 100%;
   height: 38px;
   margin: 0;
@@ -92,30 +98,19 @@
 
 .tune-swipe-label {
   position: absolute;
-  top: 24px;
+  top: 8px;
   border-radius: var(--radius-sm);
   background: #fff;
-  padding: 8px 12px;
+  padding: 6px 10px;
   font-size: 11px;
 }
 
 .tune-swipe-label.left {
-  left: 20px;
+  left: 8px;
 }
 
 .tune-swipe-label.right {
-  right: 90px;
-}
-
-/* Panel flotante 360 + left 24; lg 320 + left 16 */
-.tune-floating .tune-swipe-label.left {
-  left: 384px;
-}
-
-@media (max-width: 950px) {
-  .tune-floating .tune-swipe-label.left {
-    left: 336px;
-  }
+  right: 8px;
 }
 
 @media (max-width: 640px) {
@@ -132,18 +127,5 @@
   .leaflet-control-scale {
     right: 12px;
     bottom: 23px;
-  }
-
-  .tune-swipe-label {
-    top: 90px;
-  }
-
-  .tune-swipe-label.left,
-  .tune-floating .tune-swipe-label.left {
-    left: 15px;
-  }
-
-  .tune-swipe-label.right {
-    right: 15px;
   }
 }

@@ -18,6 +18,7 @@ import {
   type BBox,
 } from "../../domain/aoi";
 import type { State, Scene, Cell } from "../../domain/lab";
+import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
 
 function Controls({
@@ -148,6 +149,7 @@ export default function MapView({
         {...(token ? { tileSize: 512, zoomOffset: -1, maxZoom: 22 } : {})}
       />
       <TemporalLayers state={state} waterCells={waterCells} />
+      <SwipeControl />
       <Pane name="selection" style={{ zIndex: 450 }}>
         <Rectangle
           bounds={bboxToLatLngBounds(state.aoi)}
