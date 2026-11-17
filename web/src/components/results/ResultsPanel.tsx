@@ -1,16 +1,28 @@
-import { ArrowRight, CalendarDays, Droplets, History, Map } from "lucide-react";
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarDays,
+  Droplets,
+  History,
+  Map,
+} from "lucide-react";
 import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { formatDate } from "../../domain/lab";
 import {
+  btnOutline,
   btnPrimary,
   btnText,
   emptyBox,
+  panelCallout,
+  panelLead,
+  panelMeta,
   sectionGap,
 } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
+import PanelHeader from "../ui/PanelHeader";
 import ResultMetrics from "./ResultMetrics";
 import VisualizationControls from "./VisualizationControls";
 
@@ -26,17 +38,13 @@ export default function ResultsPanel() {
 
   return (
     <FadeIn>
-      <h1
-        className={`m-0 text-[21px] font-semibold tracking-[-0.45px] ${sectionGap}`}
-      >
-        Resultados
-      </h1>
+      <PanelHeader title="Resultados" icon={BarChart3} />
       {result ? (
         <>
-          <p className="mb-1 mt-0 text-[11px] text-fg-muted">
+          <p className={`${panelLead} mb-1`}>
             {formatAoiCaption(result.label ?? state.label, result.aoi)}
           </p>
-          <p className="mb-4 mt-0 flex flex-wrap items-center gap-x-2 text-[11px] text-fg-soft">
+          <p className={`${panelMeta} mb-5 flex flex-wrap items-center gap-x-2`}>
             <span>Análisis activo de esta sesión</span>
             <button
               type="button"
@@ -47,22 +55,9 @@ export default function ResultsPanel() {
             </button>
           </p>
 
-          <div className="pb-5">
-            <p className="m-0 text-[11px] text-fg-soft">Agua nueva (cambio)</p>
-            <strong className="mt-1 block text-[32px] font-medium tracking-[-1.1px]">
-              {result.areaKm2.toLocaleString("es", {
-                maximumFractionDigits: 2,
-              })}
-              <span className="text-[15px] tracking-normal text-fg-soft">
-                {" "}
-                km²
-              </span>
-            </strong>
-          </div>
-
-          <ResultMetrics metrics={result.metrics} />
-
-          <div className="mb-5 flex gap-4 border-y border-line py-4 max-[760px]:gap-3 max-[760px]:py-3">
+          <div
+            className={`mb-5 flex gap-4 border-y border-line py-4 max-[760px]:gap-3 max-[760px]:py-3`}
+          >
             <CalendarDays size={21} className="mt-1 shrink-0 text-fg-muted" />
             <div className="min-w-0">
               <p className="mb-2 flex flex-wrap gap-2 text-xs">
@@ -87,7 +82,30 @@ export default function ResultsPanel() {
             </div>
           </div>
 
-          <VisualizationControls state={state} onView={patch} />
+          <div className={sectionGap}>
+            <p className="m-0 text-[11px] text-fg-soft">Agua nueva (cambio)</p>
+            <strong className="mt-1 block text-[22px] font-semibold tracking-[-0.4px] text-ink max-sm:text-[24px]">
+              {result.areaKm2.toLocaleString("es", {
+                maximumFractionDigits: 2,
+              })}
+              <span className="text-[13px] font-medium tracking-normal text-fg-soft">
+                {" "}
+                km²
+              </span>
+            </strong>
+            <p className={`${panelCallout} mt-3`}>
+              En Tune, inundación = agua nueva frente a la referencia, no agua
+              total.
+            </p>
+          </div>
+
+          <div className={sectionGap}>
+            <VisualizationControls state={state} onView={patch} />
+          </div>
+
+          <div className={sectionGap}>
+            <ResultMetrics metrics={result.metrics} />
+          </div>
 
           <button
             type="button"
@@ -99,12 +117,12 @@ export default function ResultsPanel() {
           </button>
           <button
             type="button"
-            className={`${btnPrimary} justify-center gap-2.5`}
+            className={`${btnOutline} mt-2`}
             onClick={goEditDates}
           >
-            <Droplets size={19} className="mr-auto" />
+            <Droplets size={17} />
             Otra fecha
-            <ArrowRight size={17} className="ml-auto" />
+            <ArrowRight size={16} className="ml-auto" />
           </button>
         </>
       ) : (

@@ -45,6 +45,20 @@ export const panelCard = [
 /** Espacio vertical entre bloques del panel. */
 export const sectionGap = "mb-6 max-[760px]:mb-4";
 
+/** Título de panel (Mapa / Resultados / Historial / Docs). */
+export const panelTitle =
+  "m-0 text-[21px] font-semibold leading-tight tracking-[-0.45px] text-ink max-xl:text-[23px] max-lg:text-[19px] max-sm:text-[22px]";
+
+/** Subtítulo / lugar bajo el h1. */
+export const panelLead = "m-0 text-[12px] leading-snug text-fg-muted";
+
+/** Meta de sesión (11px). */
+export const panelMeta = "m-0 text-[11px] leading-snug text-fg-soft";
+
+/** Callout product (callout accent-soft). */
+export const panelCallout =
+  "m-0 rounded-sm bg-accent-soft px-4 py-3 text-[12px] leading-snug text-fg";
+
 /**
  * Ancho compartido buscador ↔ panel flotante (misma columna visual).
  * Desktop 360 · xl 386 · lg 320.

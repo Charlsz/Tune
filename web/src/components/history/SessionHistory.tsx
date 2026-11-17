@@ -4,9 +4,14 @@ import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { formatDate } from "../../domain/lab";
-import { btnPrimary, emptyBox, sectionGap } from "../ui/classes";
+import {
+  btnPrimary,
+  emptyBox,
+  panelMeta,
+} from "../ui/classes";
 import { cn } from "../ui/cn";
 import FadeIn from "../ui/FadeIn";
+import PanelHeader from "../ui/PanelHeader";
 
 export default function SessionHistory() {
   const { state, restoreAnalysis } = useMapApp();
@@ -14,15 +19,10 @@ export default function SessionHistory() {
 
   return (
     <FadeIn>
-      <h1
-        className={`m-0 text-[21px] font-semibold tracking-[-0.45px] ${sectionGap}`}
-      >
-        Historial
-      </h1>
-      <p className="mb-4 mt-0 text-xs leading-snug text-muted">
-        Análisis de esta sesión en el navegador. Elige uno para verlo en
-        Resultados y en el mapa. No lista el historial del servidor; al
-        recargar se vacía.
+      <PanelHeader title="Historial" icon={History} />
+      <p className={`${panelMeta} mb-5`}>
+        Solo esta sesión. Elige un análisis para verlo en Resultados y en el
+        mapa.
       </p>
       {!state.history.length ? (
         <div className={`${emptyBox} flex flex-col gap-3`}>
@@ -32,7 +32,7 @@ export default function SessionHistory() {
               <p className="m-0 font-medium text-fg">Sin comparaciones aún</p>
               <p className="mb-0 mt-1 text-[11px] leading-snug">
                 Cada Analizar en Mapa guarda aquí la corrida. Luego puedes
-                reabrirla para ver máscaras y métricas.
+                reabrirla para ver máscaras y métricas. Al recargar se vacía.
               </p>
             </div>
           </div>
@@ -46,7 +46,10 @@ export default function SessionHistory() {
           </button>
         </div>
       ) : (
-        <ul className="m-0 list-none space-y-0 p-0" aria-label="Análisis de sesión">
+        <ul
+          className="m-0 list-none space-y-0 border-t border-line p-0"
+          aria-label="Análisis de sesión"
+        >
           {state.history.map((r, i) => {
             const active = state.result?.id === r.id;
             return (
@@ -55,15 +58,15 @@ export default function SessionHistory() {
                   type="button"
                   aria-current={active ? "true" : undefined}
                   className={cn(
-                    "w-full cursor-pointer rounded-none border-0 px-0 py-4 text-left animate-fade-up",
-                    active ? "bg-accent-soft px-3 -mx-0" : "bg-transparent",
+                    "w-full cursor-pointer rounded-none border-0 px-3 py-4 text-left transition-colors",
+                    active ? "bg-accent-soft" : "bg-transparent hover:bg-accent-soft/60",
                   )}
                   onClick={() => {
                     if (restoreAnalysis(r.id)) navigate(paths.results);
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <strong className="text-[13px] text-ink">
+                    <strong className="text-[13px] font-medium text-ink">
                       {formatAoiCaption(r.label, r.aoi)}
                     </strong>
                     {active ? (

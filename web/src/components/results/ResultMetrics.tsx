@@ -26,7 +26,8 @@ export default function ResultMetrics({ metrics }: { metrics?: Metrics }) {
       : metrics.fusionIou.toLocaleString("es", { maximumFractionDigits: 2 });
 
   return (
-    <div className="pb-5">
+    <div>
+      <p className="mb-2 mt-0 text-[11px] font-medium text-fg-soft">Métricas</p>
       <dl className="m-0 grid grid-cols-2 gap-x-3.5 gap-y-2.5">
         <div>
           <dt className="text-[11px] text-muted">Detectada</dt>

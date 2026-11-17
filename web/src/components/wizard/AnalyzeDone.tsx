@@ -4,7 +4,12 @@ import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { formatDate } from "../../domain/lab";
-import { btnPrimary, btnText } from "../ui/classes";
+import {
+  btnPrimary,
+  btnText,
+  panelLead,
+  panelMeta,
+} from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 
 /** Resumen corto en Mapa cuando hay análisis activo (opción A). */
@@ -18,12 +23,7 @@ export default function AnalyzeDone() {
 
   return (
     <FadeIn>
-      <p className="mb-1 mt-0 text-[11px] font-medium uppercase tracking-[0.06em] text-fg-soft">
-        Listo
-      </p>
-      <p className="mb-3 mt-0 text-[15px] font-medium leading-snug text-ink">
-        {caption}
-      </p>
+      <p className={`${panelLead} mb-3 font-medium text-ink`}>{caption}</p>
       <div className="mb-5 border-y border-line py-3 text-xs">
         <p className="m-0 py-1">
           Antes — {formatDate(result.before.datetime)}
@@ -31,15 +31,11 @@ export default function AnalyzeDone() {
         <p className="m-0 py-1">
           Después — {formatDate(result.after.datetime)}
         </p>
-        <p className="m-0 py-1 text-fg-muted">
+        <p className={`${panelMeta} py-1`}>
           {result.areaKm2.toLocaleString("es", { maximumFractionDigits: 2 })}{" "}
           km² agua nueva
         </p>
       </div>
-      <p className="mb-4 mt-0 text-[12px] leading-relaxed text-fg-muted">
-        Modos, máscara y deslizador están en Resultados. El mapa ya muestra
-        este análisis.
-      </p>
       <button
         type="button"
         className={btnPrimary}

@@ -1,6 +1,6 @@
 import { SlidersHorizontal } from "lucide-react";
 import type { State } from "../../domain/lab";
-import { btnOutline, btnOutlineSelected, sectionGap } from "../ui/classes";
+import { btnOutline, btnOutlineSelected } from "../ui/classes";
 import { cn } from "../ui/cn";
 
 type ViewPatch = Partial<
@@ -20,10 +20,12 @@ export default function VisualizationControls({
 
   return (
     <div>
+      <p className="mb-2 mt-0 text-[11px] font-medium text-fg-soft">
+        Vista en el mapa
+      </p>
       <div
         className={cn(
-          "flex w-full rounded-md border border-line bg-accent-soft p-1",
-          sectionGap,
+          "mb-4 flex w-full rounded-md border border-line bg-accent-soft p-1",
         )}
         aria-label="Modo temporal"
       >
@@ -62,7 +64,7 @@ export default function VisualizationControls({
         })}
       </div>
 
-      <div className="pb-5 pt-1 max-[760px]:pb-4">
+      <div className="pb-4 pt-1">
         <label className="flex items-center gap-3 text-sm max-xl:text-[15px] max-lg:text-xs max-sm:text-sm">
           <span
             className={cn(
@@ -88,7 +90,7 @@ export default function VisualizationControls({
         </label>
       </div>
 
-      <div className="mb-1 py-4 max-[760px]:py-3">
+      <div className="mb-3 py-2">
         <label className="flex flex-wrap items-center gap-2 text-[13px]">
           Opacidad
           <span className="ml-auto">{Math.round(s.opacity * 100)}%</span>
@@ -97,7 +99,7 @@ export default function VisualizationControls({
             type="range"
             min="0"
             max="100"
-            className="mt-3 mb-1 h-1.5 w-full accent-ink"
+            className="mt-2 mb-0 h-1.5 w-full accent-ink"
             value={s.opacity * 100}
             onChange={(e) => onView({ opacity: +e.target.value / 100 })}
           />
@@ -106,7 +108,10 @@ export default function VisualizationControls({
 
       <button
         type="button"
-        className={s.slider ? btnOutlineSelected : btnOutline}
+        className={cn(
+          s.slider ? btnOutlineSelected : btnOutline,
+          "mt-0",
+        )}
         aria-pressed={s.slider}
         onClick={() => onView({ slider: !s.slider })}
       >
