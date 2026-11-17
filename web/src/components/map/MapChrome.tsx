@@ -8,6 +8,7 @@ import {
 import { useMapApp } from "../../app/MapAppProvider";
 import { formatAoiCaption } from "../../domain/aoi";
 import { cn } from "../ui/cn";
+import MapStatusBanner from "./MapStatusBanner";
 import MapView from "./MapView";
 import SwipeControl from "./SwipeControl";
 import "./leaflet.css";
@@ -39,6 +40,7 @@ export default function MapChrome() {
         onError={setError}
         waterCells={provider.maskCells}
       />
+      <MapStatusBanner />
       <div
         className="absolute bottom-6 left-1/2 z-[600] flex max-w-[min(90%,28rem)] -translate-x-1/2 items-center gap-2 truncate rounded-sm border border-line bg-[#ffffffef] px-3 py-2 text-[9px] text-fg-muted max-lg:hidden"
         title={mapCaption}

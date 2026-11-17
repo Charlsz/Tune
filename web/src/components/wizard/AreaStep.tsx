@@ -1,25 +1,37 @@
 import { ArrowRight, MapPin, Scan } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
+import { formatAoiCaption } from "../../domain/aoi";
 import { btnOutline, btnOutlineSelected, btnPrimary } from "../ui/classes";
+import FadeIn from "../ui/FadeIn";
 
 export default function AreaStep() {
   const { state, drawing, setDrawing, dispatch } = useMapApp();
+  const coords = formatAoiCaption(undefined, state.aoi);
 
   return (
-    <>
-      <div className="mb-6 flex items-center gap-3 pb-0 text-fg-muted max-[760px]:mb-4">
-        <MapPin size={18} />
-        <div>
-          <strong className="text-sm font-medium text-fg">{state.label}</strong>
+    <FadeIn>
+      <div className="mb-4 flex items-start gap-3 text-fg-muted">
+        <MapPin size={18} className="mt-0.5 shrink-0" />
+        <div className="min-w-0">
+          <strong className="block text-sm font-medium text-fg">
+            {state.label}
+          </strong>
+          <span className="mt-1 block text-[11px] tabular-nums text-fg-soft">
+            {coords}
+          </span>
         </div>
       </div>
+      <p className="mb-5 mt-0 text-[12px] leading-relaxed text-fg-muted">
+        Busca un lugar arriba, pega coordenadas, o dibuja un rectángulo en el
+        mapa. El área debe caber en el límite del catálogo (~30 km).
+      </p>
       <button
         type="button"
         className={drawing ? btnOutlineSelected : btnOutline}
         onClick={() => setDrawing(!drawing)}
       >
         <Scan size={17} />
-        {drawing ? "Cancelar" : "Dibujar"}
+        {drawing ? "Cancelar dibujo" : "Dibujar en el mapa"}
       </button>
       <button
         type="button"
@@ -32,6 +44,6 @@ export default function AreaStep() {
         Continuar
         <ArrowRight size={17} />
       </button>
-    </>
+    </FadeIn>
   );
 }

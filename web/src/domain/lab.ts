@@ -58,11 +58,25 @@ export interface Result {
   overlays?: ResultOverlays;
   metrics?: ResultMetrics;
 }
+/** Progreso de analyze (stream NDJSON × 2 escenas). */
+export type AnalyzeProgressEvent = {
+  scene: "before" | "after";
+  phase: "prepare" | "fetch" | "infer";
+  loaded?: number;
+  total?: number;
+  detail?: string;
+};
+
 export interface DataProvider {
   places: { label: string; bbox: BBox }[];
   maskCells(scene: Scene, aoi: BBox): Cell[];
   scenes(aoi: BBox, date: string): Promise<Scene[]>;
-  analyze(aoi: BBox, before: Scene, after: Scene): Promise<Result>;
+  analyze(
+    aoi: BBox,
+    before: Scene,
+    after: Scene,
+    onProgress?: (e: AnalyzeProgressEvent) => void,
+  ): Promise<Result>;
 }
 export interface State {
   aoi: BBox;

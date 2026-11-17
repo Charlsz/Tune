@@ -12,6 +12,7 @@ import {
 import {
   initialState,
   reducer,
+  type AnalyzeProgressEvent,
   type DataProvider,
   type Scene,
   type State,
@@ -43,6 +44,7 @@ export type MapAppContextValue = {
   panelOpen: boolean;
   setPanelOpen: (v: boolean) => void;
   fullscreen: boolean;
+  analyzeProgress: AnalyzeProgressEvent | null;
   patch: (p: ViewPatch) => void;
   setArea: (bbox: BBox, label: string) => void;
   findScenes: () => Promise<void>;
@@ -53,6 +55,11 @@ export type MapAppContextValue = {
 };
 
 const MapAppContext = createContext<MapAppContextValue | null>(null);
+
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
 
 export function MapAppProvider({
   children,
@@ -70,6 +77,8 @@ export function MapAppProvider({
   const [searchOpen, setSearchOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] =
+    useState<AnalyzeProgressEvent | null>(null);
   const request = useRef(0);
   const analysis = useRef(0);
 
@@ -92,6 +101,7 @@ export function MapAppProvider({
       setPanelOpen(true);
       setError("");
       setCatalog([[], []]);
+      setAnalyzeProgress(null);
     },
     [bumpTokens],
   );
@@ -108,9 +118,9 @@ export function MapAppProvider({
         setCatalog(scenes as [Scene[], Scene[]]);
         dispatch({ type: "step", step: "scenes" });
       }
-    } catch {
+    } catch (err) {
       if (token === request.current) {
-        setError("No se pudieron consultar las imágenes.");
+        setError(errorMessage(err, "No se pudieron consultar las imágenes."));
       }
     } finally {
       if (token === request.current) setLoading(false);
@@ -122,16 +132,24 @@ export function MapAppProvider({
     const token = ++analysis.current;
     dispatch({ type: "step", step: "running" });
     setError("");
+    setAnalyzeProgress({ scene: "before", phase: "prepare" });
     try {
       const result = await provider.analyze(
         state.aoi,
         state.selected[0],
         state.selected[1],
+        (e) => {
+          if (token === analysis.current) setAnalyzeProgress(e);
+        },
       );
-      if (token === analysis.current) dispatch({ type: "result", result });
-    } catch {
       if (token === analysis.current) {
-        setError("No se pudo completar el análisis.");
+        setAnalyzeProgress(null);
+        dispatch({ type: "result", result });
+      }
+    } catch (err) {
+      if (token === analysis.current) {
+        setAnalyzeProgress(null);
+        setError(errorMessage(err, "No se pudo completar el análisis."));
         dispatch({ type: "step", step: "ready" });
       }
     }
@@ -183,6 +201,7 @@ export function MapAppProvider({
       panelOpen,
       setPanelOpen,
       fullscreen,
+      analyzeProgress,
       patch,
       setArea,
       findScenes,
@@ -202,6 +221,7 @@ export function MapAppProvider({
       searchOpen,
       panelOpen,
       fullscreen,
+      analyzeProgress,
       patch,
       setArea,
       findScenes,

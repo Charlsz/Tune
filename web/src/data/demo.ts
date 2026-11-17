@@ -110,8 +110,19 @@ export const demoProvider: DataProvider = {
       return [];
     return [fixture(date, 0), fixture(date, 1)];
   },
-  async analyze(aoi, before, after) {
-    await new Promise((r) => setTimeout(r, 900));
+  async analyze(aoi, before, after, onProgress) {
+    onProgress?.({ scene: "before", phase: "prepare" });
+    await new Promise((r) => setTimeout(r, 200));
+    onProgress?.({ scene: "before", phase: "fetch", loaded: 1, total: 1 });
+    await new Promise((r) => setTimeout(r, 200));
+    onProgress?.({ scene: "before", phase: "infer" });
+    await new Promise((r) => setTimeout(r, 250));
+    onProgress?.({ scene: "after", phase: "prepare" });
+    await new Promise((r) => setTimeout(r, 200));
+    onProgress?.({ scene: "after", phase: "fetch", loaded: 1, total: 1 });
+    await new Promise((r) => setTimeout(r, 200));
+    onProgress?.({ scene: "after", phase: "infer" });
+    await new Promise((r) => setTimeout(r, 250));
     const cells = after.water.flatMap((water, i) => {
       const c = water && !before.water[i] ? clippedCell(i, aoi) : null;
       return c ? [c] : [];

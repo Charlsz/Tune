@@ -2,13 +2,15 @@ import { ArrowRight } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
 import { formatDate } from "../../domain/lab";
 import { btnPrimary, btnText } from "../ui/classes";
+import FadeIn from "../ui/FadeIn";
+import AnalyzeRunning from "./AnalyzeRunning";
 
 export default function AnalyzeStep() {
   const { state, analyze, dispatch } = useMapApp();
   const running = state.step === "running";
 
   return (
-    <>
+    <FadeIn>
       <div className="my-6 border-y border-line py-3 text-xs max-[760px]:my-4">
         {state.selected.map((scene, i) => (
           <div className="flex justify-between gap-3 py-2" key={i}>
@@ -20,15 +22,13 @@ export default function AnalyzeStep() {
         ))}
       </div>
       {running ? (
-        <div
-          className="my-5 flex items-center gap-2 rounded-sm bg-running px-5 py-5 text-xs"
-          role="status"
-        >
-          <span className="inline-block size-1.5 shrink-0 animate-pulse rounded-full bg-[#819aca]" />
-          Analizando…
-        </div>
+        <AnalyzeRunning />
       ) : (
         <>
+          <p className="mb-4 mt-0 text-[12px] leading-relaxed text-fg-muted">
+            Tune descargará las bandas Sentinel-2 y ejecutará Prithvi en ambas
+            fechas para detectar agua nueva.
+          </p>
           <button
             type="button"
             className={btnPrimary}
@@ -46,6 +46,6 @@ export default function AnalyzeStep() {
           </button>
         </>
       )}
-    </>
+    </FadeIn>
   );
 }

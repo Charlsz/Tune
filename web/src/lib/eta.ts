@@ -17,10 +17,9 @@ export function remainingSeconds(
   budgetRef: { current: number },
 ): number {
   const inferBudget = () => {
-    // Medido en CPU con pesos en caché: ~4–15 s de modelo; primera descarga de pesos
-    // ~1,2 GB puede ir a varios minutos. Catálogo añade descarga de bandas.
+    // CPU / emulación amd64: primera corrida (pesos) varios minutos; luego ~1–3 min/escena.
     if (budgetRef.current <= 0) {
-      budgetRef.current = firstRun ? 180 : 45;
+      budgetRef.current = firstRun ? 300 : 120;
     }
     // Si ya pasamos el presupuesto, estíralo un poco para no mostrar 0 prematuro.
     if (phaseElapsedS > budgetRef.current * 0.92) {
@@ -38,12 +37,12 @@ export function remainingSeconds(
       const rate = loaded / phaseElapsedS;
       downloadRemain = rate > 0 ? (total - loaded) / rate : 0;
     }
-    const inferGuess = firstRun ? 180 : 45;
+    const inferGuess = firstRun ? 300 : 120;
     return downloadRemain + (frac >= 1 ? inferBudget() : inferGuess);
   }
 
   if (phase.phase === "check") {
-    return (firstRun ? 180 : 45) + 8;
+    return (firstRun ? 300 : 120) + 8;
   }
 
   // infer o sin fase aún
