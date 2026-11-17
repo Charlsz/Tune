@@ -1,0 +1,79 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+
+/*
+  Tokens Tune.
+  Radius: CTAs/planos = 0 (marca); cromo flotante = sm/md/lg/pill.
+  Spacing: escala 4/8/12/16/24/32.
+*/
+@theme {
+  --font-sans: "Inter Variable", "Inter", sans-serif;
+
+  --color-paper: #ffffff;
+  --color-ink: #111111;
+  --color-ink-soft: color-mix(in srgb, #111111 72%, transparent);
+  --color-muted: color-mix(in srgb, #111111 40%, transparent);
+  --color-line: color-mix(in srgb, #111111 15%, transparent);
+  --color-line-strong: color-mix(in srgb, #111111 40%, transparent);
+  --color-accent-soft: color-mix(in srgb, #111111 6%, transparent);
+  --color-danger: #c4382d;
+
+  --color-fg: #303642;
+  --color-fg-muted: #657086;
+  --color-fg-soft: #8993a4;
+
+  --color-data-agree: #15803d;
+  --color-data-flood: #e63946;
+  --color-data-water: #2563eb;
+  --color-data-persistent: #1d4e89;
+  --color-data-receded: #94a3b8;
+
+  --color-map-bg: #dce1d6;
+  --color-panel-border: #e4e6eb;
+  --color-search-border: #e7e9ee;
+  --color-running: #eff3fd;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --spacing-panel: 24px;
+  --spacing-panel-sm: 16px;
+  --spacing-chrome: 24px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 460;
+    line-height: 20px;
+    letter-spacing: -0.006em;
+    color: var(--color-ink);
+    background: var(--color-paper);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}

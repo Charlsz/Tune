@@ -1,4 +1,4 @@
-import { api } from "../api";
+import { api } from "../api/client";
 import { places as demoPlaces } from "./demo";
 import {
   aoiFitsCatalogLimits,

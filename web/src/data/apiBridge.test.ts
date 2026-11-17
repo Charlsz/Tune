@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { bboxFromPoint as libBboxFromPoint } from "../lib/aoi";
 import { bboxFromPoint, bboxCenter, aoiSideKm } from "../domain/aoi";
 import type { Analysis, CatalogScene } from "../types";
 import {
@@ -11,10 +10,8 @@ import {
 import { selectionKey } from "../domain/lab";
 
 describe("compatibilidad AOI UI ↔ backend", () => {
-  it("domain y lib usan la misma fórmula de bbox que el backend Python", () => {
+  it("bboxFromPoint usa la misma fórmula de bbox que el backend Python", () => {
     const a = bboxFromPoint(4.6, -74.1, 20);
-    const b = libBboxFromPoint(4.6, -74.1, 20);
-    expect(a).toEqual(b);
     const [west, south, east, north] = a;
     expect((north - south) * 110.57).toBeCloseTo(20, 1);
     expect(west).toBeLessThan(-74.1);
