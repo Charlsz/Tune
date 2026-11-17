@@ -1,5 +1,6 @@
 import { ChevronRight, MapPin, Search } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
+import { useAppPage } from "../../app/useAppPage";
 import { aoiFromPoint, parseCoords } from "../../domain/aoi";
 import {
   emptyBox,
@@ -20,8 +21,9 @@ export default function PlaceSearch() {
     setArea,
     panelOpen,
   } = useMapApp();
+  const page = useAppPage();
 
-  if (state.page !== "map") return null;
+  if (page !== "map") return null;
 
   const matches = provider.places.filter((p) =>
     p.label.toLowerCase().includes(query.toLowerCase()),

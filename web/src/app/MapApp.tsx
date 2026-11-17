@@ -1,3 +1,4 @@
+import { Navigate, useLocation } from "react-router";
 import type { DataProvider } from "../domain/lab";
 import AppHeader from "../components/layout/AppHeader";
 import MapChrome from "../components/map/MapChrome";
@@ -12,10 +13,23 @@ import {
 } from "../components/ui/classes";
 import { cn } from "../components/ui/cn";
 import { MapAppProvider, useMapApp } from "./MapAppProvider";
+import { paths } from "./paths";
+import { useAppPage } from "./useAppPage";
+
+const KNOWN = new Set<string>([paths.map, paths.results, paths.history]);
 
 function MapAppShell() {
   const { state, panelOpen, error } = useMapApp();
   const floating = state.variant === "floating";
+  const page = useAppPage();
+  const { pathname } = useLocation();
+
+  if (pathname === "/" || pathname === "") {
+    return <Navigate to={paths.map} replace />;
+  }
+  if (!KNOWN.has(pathname)) {
+    return <Navigate to={paths.map} replace />;
+  }
 
   return (
     <div
@@ -57,9 +71,9 @@ function MapAppShell() {
           )}
           hidden={!panelOpen}
         >
-          {state.page === "map" && <WizardPanel />}
-          {state.page === "results" && <ResultsPanel />}
-          {state.page === "history" && <SessionHistory />}
+          {page === "map" && <WizardPanel />}
+          {page === "results" && <ResultsPanel />}
+          {page === "history" && <SessionHistory />}
           {error && (
             <p className="mt-4 text-xs text-danger" role="alert">
               {error}

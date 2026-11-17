@@ -1,16 +1,21 @@
 import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
+import { paths } from "../../app/paths";
 import { formatDate } from "../../domain/lab";
 import { btnPrimary, emptyBox, sectionGap } from "../ui/classes";
 import ResultMetrics from "./ResultMetrics";
 
 export default function ResultsPanel() {
-  const { state, patch } = useMapApp();
+  const { state } = useMapApp();
+  const navigate = useNavigate();
   const result = state.result;
 
   return (
     <>
-      <h1 className={`m-0 text-[21px] font-semibold tracking-[-0.45px] ${sectionGap}`}>
+      <h1
+        className={`m-0 text-[21px] font-semibold tracking-[-0.45px] ${sectionGap}`}
+      >
         Resultados
       </h1>
       {result ? (
@@ -38,7 +43,7 @@ export default function ResultsPanel() {
           <button
             type="button"
             className={btnPrimary}
-            onClick={() => patch({ page: "map" })}
+            onClick={() => navigate(paths.map)}
           >
             Ver en el mapa
             <ArrowRight size={16} />

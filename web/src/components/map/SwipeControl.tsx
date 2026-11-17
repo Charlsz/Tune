@@ -1,10 +1,12 @@
 import { useMapApp } from "../../app/MapAppProvider";
+import { useAppPage } from "../../app/useAppPage";
 
 export default function SwipeControl() {
   const { state, patch } = useMapApp();
+  const page = useAppPage();
   const result = state.result;
 
-  if (!result || state.page !== "map" || !state.slider) return null;
+  if (!result || page !== "map" || !state.slider) return null;
 
   return (
     <div className="tune-swipe">
