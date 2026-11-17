@@ -161,6 +161,21 @@ export function aoiLabel(aoi: Aoi): string {
   return formatPlaceCoords(p);
 }
 
+/**
+ * Texto del chip de mapa / historial: nombre + centro del AOI.
+ * Si no hay nombre útil, solo coordenadas.
+ */
+export function formatAoiCaption(
+  label: string | undefined,
+  bbox: BBox,
+  digits = 4,
+): string {
+  const coords = formatPlaceCoords(bboxCenter(bbox), digits);
+  const name = (label ?? "").trim();
+  if (!name || /^coordenadas$/i.test(name)) return coords;
+  return `${name} · ${coords}`;
+}
+
 /** Fracción del AOI cubierta por el bbox de la escena (0–1). */
 export function coverageRatio(aoi: BBox, scene: number[]): number {
   if (scene.length < 4) return 0;

@@ -6,6 +6,7 @@ import {
   RectangleHorizontal,
 } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
+import { formatAoiCaption } from "../../domain/aoi";
 import { cn } from "../ui/cn";
 import MapView from "./MapView";
 import SwipeControl from "./SwipeControl";
@@ -25,6 +26,10 @@ export default function MapChrome() {
     patch,
   } = useMapApp();
 
+  const mapCaption = formatAoiCaption(state.label, state.aoi);
+  const showName =
+    Boolean(state.label?.trim()) && !/^coordenadas$/i.test(state.label.trim());
+
   return (
     <div className="relative order-2 min-w-0 flex-1 max-sm:order-1 max-sm:h-[48dvh] max-sm:min-h-[360px] max-sm:flex-none">
       <MapView
@@ -34,8 +39,21 @@ export default function MapChrome() {
         onError={setError}
         waterCells={provider.maskCells}
       />
-      <div className="absolute bottom-6 left-1/2 z-[600] flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-sm border border-line bg-[#ffffffef] px-3 py-2 text-[9px] text-fg-muted max-lg:hidden">
-        {state.label}
+      <div
+        className="absolute bottom-6 left-1/2 z-[600] flex max-w-[min(90%,28rem)] -translate-x-1/2 items-center gap-2 truncate rounded-sm border border-line bg-[#ffffffef] px-3 py-2 text-[9px] text-fg-muted max-lg:hidden"
+        title={mapCaption}
+      >
+        {showName && (
+          <>
+            <span className="truncate text-fg">{state.label}</span>
+            <span className="shrink-0 text-fg-soft" aria-hidden>
+              ·
+            </span>
+          </>
+        )}
+        <span className="shrink-0 tabular-nums">
+          {formatAoiCaption(undefined, state.aoi)}
+        </span>
       </div>
       <div className="absolute top-6 right-6 z-[710] flex flex-col gap-3 max-sm:top-4 max-sm:right-3 max-sm:gap-2.5">
         <button
