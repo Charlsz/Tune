@@ -1,5 +1,6 @@
 import { SlidersHorizontal } from "lucide-react";
 import type { State } from "../../domain/lab";
+import MapLegend from "../map/MapLegend";
 import { btnOutline, btnOutlineSelected } from "../ui/classes";
 import { cn } from "../ui/cn";
 
@@ -64,6 +65,15 @@ export default function VisualizationControls({
         })}
       </div>
 
+      <MapLegend
+        className="mb-4"
+        mode={s.mode}
+        mask={s.mask}
+        slider={s.slider}
+        hasFusion={Boolean(result.overlays?.fusion)}
+        variant="panel"
+      />
+
       <div className="pb-4 pt-1">
         <label className="flex items-center gap-3 text-sm max-xl:text-[15px] max-lg:text-xs max-sm:text-sm">
           <span
@@ -71,15 +81,17 @@ export default function VisualizationControls({
               "size-6 shrink-0 rounded-none",
               s.mode === "agree"
                 ? "bg-[linear-gradient(135deg,#16a34a_50%,#dc2626_50%)]"
-                : "bg-data-water",
+                : s.mode === "change"
+                  ? "bg-data-flood"
+                  : "bg-data-water",
             )}
           />
           <span>
             {s.mode === "change" && !s.slider
               ? "Capa de cambio"
               : s.mode === "agree"
-                ? "Acuerdo GFM"
-                : "Máscara"}
+                ? "Capa de acuerdo"
+                : "Máscara de agua"}
           </span>
           <input
             type="checkbox"

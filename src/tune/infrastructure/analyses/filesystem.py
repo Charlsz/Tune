@@ -28,12 +28,12 @@ from tune.domain.analysis import (
 
 log = logging.getLogger(__name__)
 
-# RGBA de la clase positiva sobre el mapa (rojo semitransparente)
-MASK_COLOR = (230, 57, 70, 170)
+# RGBA: agua detectada (Antes/Después) = azul; inundación nueva = rojo solo en change.png
+MASK_COLOR = (37, 99, 235, 170)  # data-water #2563eb
 # Capas de cambio frente a referencia
-NEW_COLOR = (230, 57, 70, 200)  # agua / cicatriz nueva
-PERSISTENT_COLOR = (29, 78, 137, 160)  # permanente
-RECEDED_COLOR = (148, 163, 184, 140)  # retirado
+NEW_COLOR = (230, 57, 70, 200)  # agua nueva / inundación #e63946
+PERSISTENT_COLOR = (29, 78, 137, 160)  # permanente / agua vieja
+RECEDED_COLOR = (148, 163, 184, 140)  # retirada
 AGREE_COLOR = (21, 128, 61, 200)
 TUNE_ONLY_COLOR = (230, 57, 70, 180)
 EXTERNAL_ONLY_COLOR = (37, 99, 235, 180)

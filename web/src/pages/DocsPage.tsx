@@ -40,7 +40,7 @@ const STEPS = [
     n: "5",
     title: "Leer el resultado",
     tab: "Resultados",
-    body: "Agua nueva, modos Antes/Después/Cambio/Acuerdo, máscara y deslizador. El mapa refleja lo que eliges aquí.",
+    body: "Antes/Después: agua detectada. Cambio: rojo = nueva, azul = permanente, gris = retirada. Acuerdo: Tune vs GFM (IoU) si hay capa.",
   },
   {
     n: "6",

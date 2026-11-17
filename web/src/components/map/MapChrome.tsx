@@ -10,6 +10,7 @@ import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { cn } from "../ui/cn";
+import MapLegend from "./MapLegend";
 import MapStatusBanner from "./MapStatusBanner";
 import MapView from "./MapView";
 import "./leaflet.css";
@@ -63,6 +64,17 @@ export default function MapChrome() {
           >
             Resultados
           </button>
+        </div>
+      ) : null}
+      {state.result ? (
+        <div className="absolute bottom-6 left-6 z-[600] max-w-[min(90%,16rem)] max-lg:left-4 max-sm:bottom-[4.5rem] max-sm:left-3.5">
+          <MapLegend
+            mode={state.mode}
+            mask={state.mask}
+            slider={state.slider}
+            hasFusion={Boolean(state.result.overlays?.fusion)}
+            variant="map"
+          />
         </div>
       ) : null}
       <div

@@ -60,7 +60,23 @@ export function Clip({
   return null;
 }
 
-function Mask({ cells, opacity }: { cells: Cell[]; opacity: number }) {
+const WATER_FILL = "#2563eb";
+const FLOOD_FILL = "#e63946";
+
+/** Evita PNG de máscara cacheados con el color antiguo (rojo). */
+function maskUrl(url: string) {
+  return `${url}${url.includes("?") ? "&" : "?"}v=water`;
+}
+
+function Mask({
+  cells,
+  opacity,
+  fill = WATER_FILL,
+}: {
+  cells: Cell[];
+  opacity: number;
+  fill?: string;
+}) {
   return (
     <>
       {cells.map((c, i) => (
@@ -69,7 +85,7 @@ function Mask({ cells, opacity }: { cells: Cell[]; opacity: number }) {
           bounds={bboxToLatLngBounds(c.bbox)}
           pathOptions={{
             stroke: false,
-            fillColor: "#2563eb",
+            fillColor: fill,
             fillOpacity: opacity,
           }}
           interactive={false}
@@ -131,7 +147,7 @@ export function TemporalLayers({
               (state.slider || state.mode === "before") &&
               overlays?.beforeMask && (
                 <ImageOverlay
-                  url={overlays.beforeMask}
+                  url={maskUrl(overlays.beforeMask)}
                   bounds={overlayBounds}
                   opacity={state.opacity}
                 />
@@ -173,7 +189,7 @@ export function TemporalLayers({
               (state.slider || state.mode === "after") &&
               overlays?.afterMask && (
                 <ImageOverlay
-                  url={overlays.afterMask}
+                  url={maskUrl(overlays.afterMask)}
                   bounds={overlayBounds}
                   opacity={state.opacity}
                 />
@@ -210,7 +226,11 @@ export function TemporalLayers({
           </Pane>
         ) : (
           <Pane name="change" style={{ zIndex: 420 }}>
-            <Mask cells={state.result!.cells} opacity={state.opacity} />
+            <Mask
+              cells={state.result!.cells}
+              opacity={state.opacity}
+              fill={FLOOD_FILL}
+            />
           </Pane>
         ))}
       {showAgree && overlayBounds && overlays?.fusion && (

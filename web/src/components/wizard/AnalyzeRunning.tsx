@@ -96,7 +96,7 @@ export default function AnalyzeRunning() {
 
   return (
     <div
-      className="my-5 animate-fade-up rounded-sm border border-[#d8e0f0] bg-accent-soft  p-5"
+      className="my-5 animate-fade-up rounded-sm bg-accent-soft  p-5"
       role="status"
       aria-live="polite"
     >
