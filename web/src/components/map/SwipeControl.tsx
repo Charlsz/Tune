@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { DomEvent } from "leaflet";
 import { useMap } from "react-leaflet";
 import type { BBox } from "../../domain/aoi";
 import { useMapApp } from "../../app/MapAppProvider";
@@ -23,8 +24,11 @@ function aoiContainerBox(map: ReturnType<typeof useMap>, aoi: BBox): Box | null 
 /** Handle del deslizador anclado al bbox del AOI (dentro del MapContainer). */
 export default function SwipeControl() {
   const map = useMap();
-  const { state, patch } = useMapApp();
+  const { state, patch, drawing } = useMapApp();
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [box, setBox] = useState<Box | null>(null);
+  const drawingRef = useRef(drawing);
+  drawingRef.current = drawing;
 
   const aoi: BBox | null =
     state.result?.overlays?.bounds ?? state.result?.aoi ?? null;
@@ -43,10 +47,48 @@ export default function SwipeControl() {
     };
   }, [map, active, aoi]);
 
+  /* Evitar que Leaflet panee el mapa al arrastrar el range. */
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!active || !el) return;
+
+    DomEvent.disableClickPropagation(el);
+    DomEvent.disableScrollPropagation(el);
+
+    const lock = (e: Event) => {
+      DomEvent.stopPropagation(e);
+      map.dragging.disable();
+    };
+    const unlock = () => {
+      if (!drawingRef.current) map.dragging.enable();
+    };
+
+    const startEvents = ["mousedown", "touchstart", "pointerdown"] as const;
+    for (const ev of startEvents) {
+      DomEvent.on(el, ev, lock);
+    }
+    window.addEventListener("mouseup", unlock);
+    window.addEventListener("touchend", unlock);
+    window.addEventListener("pointerup", unlock);
+    window.addEventListener("blur", unlock);
+
+    return () => {
+      for (const ev of startEvents) {
+        DomEvent.off(el, ev, lock);
+      }
+      window.removeEventListener("mouseup", unlock);
+      window.removeEventListener("touchend", unlock);
+      window.removeEventListener("pointerup", unlock);
+      window.removeEventListener("blur", unlock);
+      if (!drawingRef.current) map.dragging.enable();
+    };
+  }, [map, active, box]);
+
   if (!active || !box) return null;
 
   return createPortal(
     <div
+      ref={rootRef}
       className="tune-swipe tune-swipe-aoi"
       style={{
         left: box.left,
@@ -56,7 +98,7 @@ export default function SwipeControl() {
       }}
     >
       <div className="tune-swipe-line" style={{ left: `${state.split}%` }}>
-        <span>↔</span>
+        <span aria-hidden>↔</span>
       </div>
       <input
         type="range"
@@ -65,6 +107,9 @@ export default function SwipeControl() {
         max="100"
         value={state.split}
         onChange={(e) => patch({ split: +e.target.value })}
+        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       />
       <div className="tune-swipe-label left">Antes</div>
       <div className="tune-swipe-label right">Después</div>
