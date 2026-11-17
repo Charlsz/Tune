@@ -55,6 +55,8 @@ export interface Result {
   areaKm2: number;
   created: string;
   aoi: BBox;
+  /** Nombre del lugar o “Coordenadas” al momento del análisis. */
+  label?: string;
   overlays?: ResultOverlays;
   metrics?: ResultMetrics;
 }
@@ -167,15 +169,21 @@ export function reducer(s: State, a: Action): State {
         a.result.key !== selectionKey(s.aoi, s.selected[0], s.selected[1])
       )
         return s;
-      return {
-        ...s,
-        result: a.result,
-        history: [a.result, ...s.history],
-        step: "results",
-        mode: "change",
-        mask: true,
-        slider: false,
-      };
+      {
+        const labeled: Result = {
+          ...a.result,
+          label: a.result.label?.trim() || s.label,
+        };
+        return {
+          ...s,
+          result: labeled,
+          history: [labeled, ...s.history],
+          step: "results",
+          mode: "change",
+          mask: true,
+          slider: false,
+        };
+      }
     case "view":
       return {
         ...s,

@@ -44,32 +44,24 @@ export default function SessionHistory() {
           </button>
         </div>
       ) : (
-        state.history.map((r, i) => {
-          const isCurrent = state.result?.id === r.id;
-          const caption = formatAoiCaption(
-            isCurrent ? state.label : undefined,
-            r.aoi,
-          );
-          return (
-            <div
-              key={r.id}
-              className="border-b border-line py-4 animate-fade-up"
-            >
-              <strong className="text-[13px]">{caption}</strong>
-              <p className="my-1 text-[11px]">
-                {formatDate(r.before.datetime)} → {formatDate(r.after.datetime)}
-              </p>
-              <small className="text-[10px] text-fg-soft">
-                {r.areaKm2.toFixed(2)} km² agua nueva ·{" "}
-                {new Date(r.created).toLocaleTimeString("es")}
-                {r.metrics?.fusionIou != null
-                  ? ` · IoU ${r.metrics.fusionIou.toFixed(2)}`
-                  : ""}
-                {i === 0 ? " · más reciente" : ""}
-              </small>
-            </div>
-          );
-        })
+        state.history.map((r, i) => (
+          <div key={r.id} className="border-b border-line py-4 animate-fade-up">
+            <strong className="text-[13px]">
+              {formatAoiCaption(r.label, r.aoi)}
+            </strong>
+            <p className="my-1 text-[11px]">
+              {formatDate(r.before.datetime)} → {formatDate(r.after.datetime)}
+            </p>
+            <small className="text-[10px] text-fg-soft">
+              {r.areaKm2.toFixed(2)} km² agua nueva ·{" "}
+              {new Date(r.created).toLocaleTimeString("es")}
+              {r.metrics?.fusionIou != null
+                ? ` · IoU ${r.metrics.fusionIou.toFixed(2)}`
+                : ""}
+              {i === 0 ? " · más reciente" : ""}
+            </small>
+          </div>
+        ))
       )}
     </FadeIn>
   );

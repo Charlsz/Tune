@@ -1,12 +1,14 @@
-/** Rutas de tabs MapApp. */
+/** Rutas de tabs MapApp + docs. */
 
 export const paths = {
   map: "/mapa",
   results: "/resultados",
   history: "/historial",
+  docs: "/docs",
 } as const;
 
-export type AppPage = keyof typeof paths;
+/** Tabs del panel (sin docs). */
+export type AppPage = "map" | "results" | "history";
 
 export function pageFromPath(pathname: string): AppPage {
   if (pathname === paths.results || pathname.startsWith(`${paths.results}/`)) {

@@ -23,7 +23,7 @@ export default function ResultsPanel() {
       {result ? (
         <>
           <p className="mb-3 mt-0 text-[11px] text-fg-muted">
-            {formatAoiCaption(state.label, result.aoi)}
+            {formatAoiCaption(result.label ?? state.label, result.aoi)}
           </p>
           <div className="mb-6 border-y border-line py-3 text-xs max-[760px]:mb-4">
             <p className="m-0 py-1">

@@ -95,7 +95,8 @@ describe("estado temporal", () => {
     let s: State = { ...initialState, selected: [before, after] };
     const result = await demoProvider.analyze(s.aoi, before, after);
     s = reducer(s, { type: "result", result });
-    expect(s.result).toBe(result);
+    expect(s.result).toMatchObject({ ...result, label: initialState.label });
+    expect(s.history[0]?.label).toBe(initialState.label);
     expect(s.mode).toBe("change");
     const changed = reducer(s, { type: "date", index: 0, value: "2022-06-01" });
     expect(changed.result).toBeNull();

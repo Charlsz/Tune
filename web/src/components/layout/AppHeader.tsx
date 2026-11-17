@@ -25,7 +25,7 @@ export default function AppHeader() {
         Tune
       </NavLink>
       <nav
-        className="flex items-center gap-1 max-sm:gap-0"
+        className="flex min-w-0 flex-1 items-center gap-1 max-sm:gap-0"
         aria-label="Navegación principal"
       >
         {TABS.map((tab) => (
@@ -46,6 +46,20 @@ export default function AppHeader() {
             {tab.label}
           </NavLink>
         ))}
+        <NavLink
+          to={paths.docs}
+          className={({ isActive }) =>
+            cn(
+              "ml-auto cursor-pointer rounded-none border-0 px-3.5 py-2.5 text-sm text-ink no-underline",
+              "max-lg:px-4 max-lg:py-3 max-sm:px-2.5 max-sm:py-2 max-sm:text-xs",
+              isActive
+                ? "bg-accent-soft font-semibold"
+                : "bg-transparent font-normal text-fg-muted",
+            )
+          }
+        >
+          Docs
+        </NavLink>
       </nav>
     </header>
   );
