@@ -1,10 +1,10 @@
-import { ArrowRight, Map } from "lucide-react";
+import { ArrowRight, History, Map } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { formatDate } from "../../domain/lab";
-import { btnPrimary, emptyBox, sectionGap } from "../ui/classes";
+import { btnPrimary, btnText, emptyBox, sectionGap } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 import ResultMetrics from "./ResultMetrics";
 
@@ -22,8 +22,18 @@ export default function ResultsPanel() {
       </h1>
       {result ? (
         <>
-          <p className="mb-3 mt-0 text-[11px] text-fg-muted">
+          <p className="mb-1 mt-0 text-[11px] text-fg-muted">
             {formatAoiCaption(result.label ?? state.label, result.aoi)}
+          </p>
+          <p className="mb-3 mt-0 flex flex-wrap items-center gap-x-2 text-[11px] text-fg-soft">
+            <span>Análisis activo de esta sesión</span>
+            <button
+              type="button"
+              className={cnLink}
+              onClick={() => navigate(paths.history)}
+            >
+              Cambiar en Historial
+            </button>
           </p>
           <div className="mb-6 border-y border-line py-3 text-xs max-[760px]:mb-4">
             <p className="m-0 py-1">
@@ -62,8 +72,8 @@ export default function ResultsPanel() {
             <div>
               <p className="m-0 font-medium text-fg">Aún no hay análisis</p>
               <p className="mb-0 mt-1 text-[11px] leading-snug">
-                Completa el flujo en Mapa: área → fechas → escenas → Analizar.
-                Aquí verás el agua nueva y las métricas.
+                Completa el flujo en Mapa (área → fechas → escenas → Analizar).
+                Si ya corriste alguno en esta sesión, reábrelo desde Historial.
               </p>
             </div>
           </div>
@@ -75,8 +85,21 @@ export default function ResultsPanel() {
             Ir a Mapa
             <ArrowRight size={16} />
           </button>
+          {state.history.length > 0 ? (
+            <button
+              type="button"
+              className={btnText}
+              onClick={() => navigate(paths.history)}
+            >
+              <History size={14} />
+              Abrir Historial ({state.history.length})
+            </button>
+          ) : null}
         </div>
       )}
     </FadeIn>
   );
 }
+
+const cnLink =
+  "cursor-pointer rounded-none border-0 bg-transparent p-0 text-[11px] text-ink underline-offset-2 hover:underline";

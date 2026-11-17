@@ -122,6 +122,8 @@ export type Action =
   | { type: "scene"; index: 0 | 1; scene: Scene }
   | { type: "step"; step: Step }
   | { type: "result"; result: Result }
+  /** Reabre un Result del historial de sesión como análisis activo. */
+  | { type: "restore"; id: string }
   | {
       type: "view";
       patch: Partial<
@@ -184,6 +186,25 @@ export function reducer(s: State, a: Action): State {
           slider: false,
         };
       }
+    case "restore": {
+      const found = s.history.find((r) => r.id === a.id);
+      if (!found) return s;
+      return {
+        ...s,
+        result: found,
+        aoi: [...found.aoi] as BBox,
+        label: found.label?.trim() || s.label,
+        selected: [found.before, found.after],
+        dates: [
+          found.before.datetime.slice(0, 10),
+          found.after.datetime.slice(0, 10),
+        ],
+        step: "results",
+        mode: "change",
+        mask: true,
+        slider: false,
+      };
+    }
     case "view":
       return {
         ...s,

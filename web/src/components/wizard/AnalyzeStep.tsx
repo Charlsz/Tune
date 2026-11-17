@@ -1,5 +1,7 @@
 import { ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
+import { paths } from "../../app/paths";
 import { formatDate } from "../../domain/lab";
 import { btnPrimary, btnText } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
@@ -7,6 +9,7 @@ import AnalyzeRunning from "./AnalyzeRunning";
 
 export default function AnalyzeStep() {
   const { state, analyze, dispatch } = useMapApp();
+  const navigate = useNavigate();
   const running = state.step === "running";
 
   return (
@@ -32,7 +35,11 @@ export default function AnalyzeStep() {
           <button
             type="button"
             className={btnPrimary}
-            onClick={() => void analyze()}
+            onClick={() => {
+              void analyze().then((ok) => {
+                if (ok) navigate(paths.results);
+              });
+            }}
           >
             Analizar
             <ArrowRight size={17} />

@@ -5,7 +5,9 @@ import {
   PanelLeft,
   RectangleHorizontal,
 } from "lucide-react";
+import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
+import { paths } from "../../app/paths";
 import { formatAoiCaption } from "../../domain/aoi";
 import { cn } from "../ui/cn";
 import MapStatusBanner from "./MapStatusBanner";
@@ -26,10 +28,18 @@ export default function MapChrome() {
     toggleFullscreen,
     patch,
   } = useMapApp();
+  const navigate = useNavigate();
 
   const mapCaption = formatAoiCaption(state.label, state.aoi);
   const showName =
     Boolean(state.label?.trim()) && !/^coordenadas$/i.test(state.label.trim());
+  const viewingActive =
+    Boolean(state.result) &&
+    (state.step === "results" || state.step === "ready");
+  const viewingLabel = formatAoiCaption(
+    state.result?.label ?? state.label,
+    state.result?.aoi ?? state.aoi,
+  );
 
   return (
     <div className="relative order-2 min-w-0 flex-1 max-sm:order-1 max-sm:h-[48dvh] max-sm:min-h-[360px] max-sm:flex-none">
@@ -41,6 +51,21 @@ export default function MapChrome() {
         waterCells={provider.maskCells}
       />
       <MapStatusBanner />
+      {viewingActive ? (
+        <div className="absolute top-6 left-1/2 z-[605] flex max-w-[min(90%,22rem)] -translate-x-1/2 items-center gap-2 truncate rounded-sm border border-line bg-paper px-3 py-2 text-[10px] text-fg shadow-[0_3px_12px_#15324815] max-sm:top-[4.25rem]">
+          <span className="truncate">
+            <span className="text-fg-soft">Viendo · </span>
+            <span className="font-medium text-ink">{viewingLabel}</span>
+          </span>
+          <button
+            type="button"
+            className="shrink-0 cursor-pointer rounded-none border-0 bg-transparent p-0 text-[10px] font-medium text-ink underline-offset-2 hover:underline"
+            onClick={() => navigate(paths.results)}
+          >
+            Resultados
+          </button>
+        </div>
+      ) : null}
       <div
         className="absolute bottom-6 left-1/2 z-[600] flex max-w-[min(90%,28rem)] -translate-x-1/2 items-center gap-2 truncate rounded-sm border border-line bg-[#ffffffef] px-3 py-2 text-[9px] text-fg-muted max-lg:hidden"
         title={mapCaption}

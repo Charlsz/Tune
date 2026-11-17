@@ -48,7 +48,9 @@ export type MapAppContextValue = {
   patch: (p: ViewPatch) => void;
   setArea: (bbox: BBox, label: string) => void;
   findScenes: () => Promise<void>;
-  analyze: () => Promise<void>;
+  analyze: () => Promise<boolean>;
+  /** Reabre un análisis del historial de sesión como activo. */
+  restoreAnalysis: (id: string) => boolean;
   dispatch: React.Dispatch<Parameters<typeof reducer>[1]>;
   bumpTokens: () => void;
   toggleFullscreen: () => Promise<void>;
@@ -128,7 +130,7 @@ export function MapAppProvider({
   }, [provider, state.aoi, state.dates]);
 
   const analyze = useCallback(async () => {
-    if (!state.selected[0] || !state.selected[1]) return;
+    if (!state.selected[0] || !state.selected[1]) return false;
     const token = ++analysis.current;
     dispatch({ type: "step", step: "running" });
     setError("");
@@ -145,15 +147,35 @@ export function MapAppProvider({
       if (token === analysis.current) {
         setAnalyzeProgress(null);
         dispatch({ type: "result", result });
+        return true;
       }
+      return false;
     } catch (err) {
       if (token === analysis.current) {
         setAnalyzeProgress(null);
         setError(errorMessage(err, "No se pudo completar el análisis."));
         dispatch({ type: "step", step: "ready" });
       }
+      return false;
     }
   }, [provider, state.aoi, state.selected]);
+
+  const restoreAnalysis = useCallback(
+    (id: string) => {
+      const found = state.history.some((r) => r.id === id);
+      if (!found) return false;
+      bumpTokens();
+      setError("");
+      setAnalyzeProgress(null);
+      setLoading(false);
+      setCatalog([[], []]);
+      setDrawing(false);
+      setPanelOpen(true);
+      dispatch({ type: "restore", id });
+      return true;
+    },
+    [bumpTokens, state.history],
+  );
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -206,6 +228,7 @@ export function MapAppProvider({
       setArea,
       findScenes,
       analyze,
+      restoreAnalysis,
       dispatch,
       bumpTokens,
       toggleFullscreen,
@@ -226,6 +249,7 @@ export function MapAppProvider({
       setArea,
       findScenes,
       analyze,
+      restoreAnalysis,
       bumpTokens,
       toggleFullscreen,
     ],

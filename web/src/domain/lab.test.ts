@@ -109,4 +109,40 @@ describe("estado temporal", () => {
     expect(reselected.result).toBeNull();
     expect(reducer(reselected, { type: "result", result }).result).toBeNull();
   });
+
+  it("restaura un análisis del historial como activo sin duplicarlo", async () => {
+    const [before] = await demoProvider.scenes(
+      initialState.aoi,
+      initialState.dates[0],
+    );
+    const [after] = await demoProvider.scenes(
+      initialState.aoi,
+      initialState.dates[1],
+    );
+    let s: State = { ...initialState, selected: [before, after] };
+    const first = await demoProvider.analyze(s.aoi, before, after);
+    s = reducer(s, { type: "result", result: first });
+    const second = {
+      ...first,
+      id: "second-id",
+      label: "Otro lugar",
+      areaKm2: 1.5,
+    };
+    s = {
+      ...s,
+      history: [second, ...s.history],
+      result: second,
+      label: "Otro lugar",
+    };
+    expect(s.history).toHaveLength(2);
+
+    const restored = reducer(s, { type: "restore", id: s.history[1]!.id });
+    expect(restored.result?.id).toBe(s.history[1]!.id);
+    expect(restored.history).toHaveLength(2);
+    expect(restored.label).toBe(initialState.label);
+    expect(restored.selected[0]?.id).toBe(before.id);
+    expect(restored.mode).toBe("change");
+    expect(restored.step).toBe("results");
+    expect(reducer(s, { type: "restore", id: "missing" })).toBe(s);
+  });
 });
