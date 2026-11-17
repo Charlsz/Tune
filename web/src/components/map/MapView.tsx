@@ -11,12 +11,12 @@ import {
 } from "react-leaflet";
 import type { LatLng } from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { bboxToLatLngBounds, type BBox } from "../../domain/aoi";
 import {
-  aoiFromPoint,
-  bboxToLatLngBounds,
-  validateAoiBbox,
-  type BBox,
-} from "../../domain/aoi";
+  canSelectPointOnClick,
+  pointSelectBbox,
+  resolveDrawMouseUp,
+} from "../../domain/mapAreaGesture";
 import type { State, Scene, Cell } from "../../domain/lab";
 import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
@@ -32,9 +32,16 @@ function Controls({
   onArea: (b: BBox, l: string) => void;
   onError: (s: string) => void;
 }) {
-  const map = useMap(),
-    start = useRef<LatLng | null>(null),
-    [draft, setDraft] = useState<BBox | null>(null);
+  const map = useMap();
+  const start = useRef<LatLng | null>(null);
+  const drawingRef = useRef(drawing);
+  const stepRef = useRef(state.step);
+  /** Evita que el click tras mouseup pise un dibujo (H2). */
+  const suppressPointClick = useRef(false);
+  const [draft, setDraft] = useState<BBox | null>(null);
+  drawingRef.current = drawing;
+  stepRef.current = state.step;
+
   useEffect(() => {
     const update = () => map.invalidateSize({ pan: false });
     const timer = setTimeout(update, 30);
@@ -58,8 +65,13 @@ function Controls({
     });
   }, [map, state.aoi, state.variant]);
   useEffect(() => {
+    // Búsqueda / commit nuevo: quitar draft de un rechazo anterior.
+    setDraft(null);
+  }, [state.aoi]);
+  useEffect(() => {
     start.current = null;
     setDraft(null);
+    suppressPointClick.current = false;
     if (drawing) map.dragging.disable();
     else map.dragging.enable();
     return () => {
@@ -68,7 +80,9 @@ function Controls({
   }, [map, drawing]);
   useMapEvents({
     mousedown(e) {
-      if (drawing) start.current = e.latlng;
+      if (!drawingRef.current) return;
+      start.current = e.latlng;
+      setDraft(null);
     },
     mousemove(e) {
       if (start.current)
@@ -81,24 +95,32 @@ function Controls({
     },
     mouseup(e) {
       if (!start.current) return;
-      const b: BBox = [
-        start.current.lng,
-        start.current.lat,
-        e.latlng.lng,
-        e.latlng.lat,
-      ];
+      // Siempre consumir el click que Leaflet emite después del mouseup.
+      suppressPointClick.current = true;
+      const from = start.current;
       start.current = null;
-      setDraft(null);
-      const valid = validateAoiBbox(b, 150);
-      if (valid.ok) onArea(valid.bbox, "Área dibujada");
-      else onError(valid.error);
+      const result = resolveDrawMouseUp(from, e.latlng);
+      if (result.kind === "commit") {
+        setDraft(null);
+        onArea(result.bbox, result.label);
+      } else {
+        // H1: no tocar state.aoi; dejar draft visible si es normalizable.
+        setDraft(result.draft);
+        onError(result.error);
+      }
     },
     click(e) {
-      if (!drawing && state.step === "area")
-        onArea(
-          aoiFromPoint({ lat: e.latlng.lat, lon: e.latlng.lng }, 35, 150).bbox,
-          "Punto seleccionado",
-        );
+      if (
+        !canSelectPointOnClick({
+          drawing: drawingRef.current,
+          step: stepRef.current,
+          suppressPointClick: suppressPointClick.current,
+        })
+      ) {
+        suppressPointClick.current = false;
+        return;
+      }
+      onArea(pointSelectBbox(e.latlng.lat, e.latlng.lng), "Punto seleccionado");
     },
   });
   return draft ? (

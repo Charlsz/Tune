@@ -22,8 +22,9 @@ export default function AreaStep() {
         </div>
       </div>
       <p className="mb-5 mt-0 text-[12px] leading-relaxed text-fg-muted">
-        Busca un lugar arriba, pega coordenadas, o dibuja un rectángulo en el
-        mapa. El área debe caber en el límite del catálogo (~30 km).
+        Busca un lugar arriba, pega coordenadas, haz click en el mapa para un
+        cuadrado ~35 km, o activa Dibujar y arrastra un rectángulo. El área
+        debe caber en el límite del catálogo (~30–150 km).
       </p>
       <button
         type="button"
