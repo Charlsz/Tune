@@ -1,7 +1,12 @@
 import { ChevronRight, MapPin, Search } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
 import { aoiFromPoint, parseCoords } from "../../domain/aoi";
-import { emptyBox } from "../ui/classes";
+import {
+  emptyBox,
+  floatingChromeLeft,
+  floatingColumnWidth,
+  sidebarSearchWidth,
+} from "../ui/classes";
 import { cn } from "../ui/cn";
 
 export default function PlaceSearch() {
@@ -27,10 +32,10 @@ export default function PlaceSearch() {
   return (
     <div
       className={cn(
-        "absolute top-6 left-6 z-[750] max-lg:top-5 max-lg:left-4 max-sm:top-3.5 max-sm:left-3.5 max-sm:w-[calc(100%-5.5rem)]",
-        sidebarNarrow
-          ? "w-[calc(max(25%,360px)-3rem)] max-xl:w-[calc(max(25%,386px)-3rem)] max-lg:w-[17rem]"
-          : "w-[410px] max-xl:w-[440px] max-lg:w-[350px]",
+        "absolute top-6 z-[750] max-lg:top-5 max-sm:top-3.5",
+        floatingChromeLeft,
+        sidebarNarrow ? sidebarSearchWidth : floatingColumnWidth,
+        "max-sm:w-[calc(100%-5.5rem)]",
       )}
       onBlur={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget)) setSearchOpen(false);
@@ -38,13 +43,13 @@ export default function PlaceSearch() {
     >
       <div
         className={cn(
-          "flex h-[52px] items-center gap-3.5 rounded-pill border border-search-border bg-paper px-5",
+          "flex h-[52px] w-full items-center gap-3.5 rounded-pill border border-search-border bg-paper px-5",
           "text-fg-muted shadow-[0_3px_12px_#15324816]",
           "max-lg:h-[48px] max-[760px]:h-[44px]",
           sidebarNarrow && "px-4",
         )}
       >
-        <Search size={22} />
+        <Search size={22} className="shrink-0" />
         <label className="sr-only" htmlFor="place">
           Buscar
         </label>
@@ -69,7 +74,7 @@ export default function PlaceSearch() {
         />
       </div>
       {searchOpen && (
-        <div className="mt-2.5 rounded-md border border-line bg-paper p-4 shadow-[0_8px_20px_#12253520]">
+        <div className="mt-2.5 w-full rounded-md border border-line bg-paper p-4 shadow-[0_8px_20px_#12253520]">
           {matches.map((p) => (
             <button
               key={p.label}

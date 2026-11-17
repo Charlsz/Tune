@@ -5,7 +5,11 @@ import PlaceSearch from "../components/search/PlaceSearch";
 import ResultsPanel from "../components/results/ResultsPanel";
 import SessionHistory from "../components/history/SessionHistory";
 import WizardPanel from "../components/wizard/WizardPanel";
-import { panelCard } from "../components/ui/classes";
+import {
+  floatingChromeLeft,
+  floatingColumnWidth,
+  panelCard,
+} from "../components/ui/classes";
 import { cn } from "../components/ui/cn";
 import { MapAppProvider, useMapApp } from "./MapAppProvider";
 
@@ -34,10 +38,11 @@ function MapAppShell() {
             panelCard,
             floating
               ? [
-                  "absolute top-24 left-6 max-h-[calc(100%-7.5rem)] w-[360px]",
+                  "absolute top-24 max-h-[calc(100%-7.5rem)]",
+                  floatingChromeLeft,
+                  floatingColumnWidth,
                   "rounded-lg border border-panel-border",
-                  "max-xl:w-[386px]",
-                  "max-lg:top-[5.5rem] max-lg:left-4 max-lg:max-h-[calc(100%-7rem)] max-lg:w-[320px]",
+                  "max-lg:top-[5.5rem] max-lg:max-h-[calc(100%-7rem)]",
                   "max-sm:relative max-sm:top-0 max-sm:left-0 max-sm:order-2 max-sm:max-h-none max-sm:w-full",
                   "max-sm:rounded-none max-sm:border-0 max-sm:shadow-none",
                   "max-[760px]:top-20 max-[760px]:max-h-[calc(100%-6.5rem)]",

@@ -107,13 +107,14 @@
   right: 90px;
 }
 
+/* Panel flotante 360 + left 24; lg 320 + left 16 */
 .tune-floating .tune-swipe-label.left {
-  left: 408px;
+  left: 384px;
 }
 
 @media (max-width: 950px) {
   .tune-floating .tune-swipe-label.left {
-    left: 360px;
+    left: 336px;
   }
 }
 

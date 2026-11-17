@@ -44,3 +44,21 @@ export const panelCard = [
 
 /** Espacio vertical entre bloques del panel. */
 export const sectionGap = "mb-6 max-[760px]:mb-4";
+
+/**
+ * Ancho compartido buscador ↔ panel flotante (misma columna visual).
+ * Desktop 360 · xl 386 · lg 320.
+ */
+export const floatingColumnWidth =
+  "w-[360px] max-xl:w-[386px] max-lg:w-[320px]";
+
+/** Inset horizontal del cromo flotante (search + panel). */
+export const floatingChromeLeft =
+  "left-6 max-lg:left-4 max-sm:left-3.5";
+
+/**
+ * Ancho del search en sidebar = columna sidebar menos padding del panel (p-6 / p-5).
+ * Sidebar: 25% con min 360/386.
+ */
+export const sidebarSearchWidth =
+  "w-[calc(max(25%,360px)-3rem)] max-xl:w-[calc(max(25%,386px)-2.5rem)] max-lg:w-[calc(320px-2.5rem)]";
