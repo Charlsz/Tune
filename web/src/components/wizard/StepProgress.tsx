@@ -17,23 +17,40 @@ export default function StepProgress({ step }: { step: Step }) {
   const stage = stageIndex(step);
 
   return (
-    <div className={`flex items-center ${sectionGap}`} aria-label="Progreso">
+    <div
+      className={`flex w-full items-center ${sectionGap}`}
+      aria-label="Progreso"
+    >
       {STAGES.map((name, i) => {
         const done = i <= stage;
+        const lineDone = i < stage;
+        const isLast = i === STAGES.length - 1;
         return (
-          <span
+          <div
             key={name}
-            title={name}
-            className={cn(
-              "relative mr-10 flex size-[22px] items-center justify-center rounded-full border text-[9px] last:mr-0",
-              "after:absolute after:top-2.5 after:left-7 after:h-px after:w-8 after:content-[''] last:after:hidden",
-              done
-                ? "border-ink bg-ink text-paper after:bg-ink"
-                : "border-line bg-paper text-fg-soft after:bg-line",
-            )}
+            className={cn("flex min-w-0 items-center", !isLast && "flex-1")}
           >
-            {i < stage ? <Check size={12} /> : i + 1}
-          </span>
+            <span
+              title={name}
+              className={cn(
+                "relative z-[1] flex size-[22px] shrink-0 items-center justify-center rounded-full border text-[9px]",
+                done
+                  ? "border-ink bg-ink text-paper"
+                  : "border-line bg-paper text-fg-soft",
+              )}
+            >
+              {i < stage ? <Check size={12} /> : i + 1}
+            </span>
+            {!isLast ? (
+              <span
+                aria-hidden
+                className={cn(
+                  "mx-1.5 h-px min-w-0 flex-1",
+                  lineDone ? "bg-ink" : "bg-line",
+                )}
+              />
+            ) : null}
+          </div>
         );
       })}
     </div>
