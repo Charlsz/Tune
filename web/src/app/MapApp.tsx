@@ -44,7 +44,7 @@ function MapAppShell() {
     >
       <AppHeader />
       {isDocs ? (
-        <main className="min-h-0 flex-1 overflow-auto">
+        <main className="flex-1">
           <DocsPage />
         </main>
       ) : (

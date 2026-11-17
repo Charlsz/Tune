@@ -13,7 +13,7 @@ export default function AppHeader() {
   const { setPanelOpen } = useMapApp();
 
   return (
-    <header className="flex h-16 min-h-16 items-center gap-6 border-b border-line bg-paper px-6 max-lg:h-[72px] max-lg:min-h-[72px] max-lg:gap-5 max-lg:px-5 max-sm:h-16 max-sm:gap-3 max-sm:px-4">
+    <header className="sticky top-0 z-[800] flex h-16 min-h-16 items-center gap-6 border-b border-line bg-paper px-6 max-lg:h-[72px] max-lg:min-h-[72px] max-lg:gap-5 max-lg:px-5 max-sm:h-16 max-sm:gap-3 max-sm:px-4">
       <NavLink
         to={paths.map}
         className="flex items-center gap-3 border-r border-line-strong pr-6 text-[22px] font-semibold leading-none tracking-[-0.04em] no-underline max-lg:pr-5 max-lg:text-[28px] max-sm:gap-2 max-sm:pr-3.5 max-sm:text-2xl"
