@@ -1,22 +1,14 @@
-import { normalizeBbox, validateAoiBbox, aoiFromPoint, type BBox } from "./aoi";
+import { normalizeBbox, validateAoiBbox, type BBox } from "./aoi";
 
 /** Resultado de soltar el ratón tras un gesto de dibujo. */
 export type DrawMouseUpResult =
   | { kind: "commit"; bbox: BBox; label: "Área dibujada" }
   | { kind: "reject"; error: string; draft: BBox | null };
 
-/** ¿El click de mapa puede crear AOI por punto? */
-export function canSelectPointOnClick(opts: {
-  drawing: boolean;
-  step: string;
-  suppressPointClick: boolean;
-}): boolean {
-  if (opts.suppressPointClick) return false;
-  if (opts.drawing) return false;
-  return opts.step === "area";
-}
-
-/** Interpreta el rectángulo dibujado (mousedown→mouseup). */
+/**
+ * Interpreta el rectángulo dibujado (mousedown→mouseup).
+ * El bbox commitado es exactamente el trazo normalizado (W/S/E/N), sin expandir a 35 km.
+ */
 export function resolveDrawMouseUp(
   start: { lat: number; lng: number },
   end: { lat: number; lng: number },
@@ -32,9 +24,4 @@ export function resolveDrawMouseUp(
     error: valid.error,
     draft: normalizeBbox(raw),
   };
-}
-
-/** AOI fijo ~35 km al hacer click sin modo dibujar. */
-export function pointSelectBbox(lat: number, lon: number): BBox {
-  return aoiFromPoint({ lat, lon }, 35, 150).bbox;
 }

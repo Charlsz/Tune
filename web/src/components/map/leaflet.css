@@ -44,6 +44,11 @@
   cursor: crosshair;
 }
 
+/* Al dibujar, el AOI no debe capturar el gesto (queda el del buscador). */
+.drawing-map .leaflet-selection-pane {
+  pointer-events: none !important;
+}
+
 /* Caja del swipe = bbox AOI en píxeles de contenedor (inline left/top/width/height). */
 .tune-swipe {
   pointer-events: none;

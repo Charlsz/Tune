@@ -7,16 +7,11 @@ import {
   ScaleControl,
   ZoomControl,
   useMap,
-  useMapEvents,
 } from "react-leaflet";
 import type { LatLng } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { bboxToLatLngBounds, type BBox } from "../../domain/aoi";
-import {
-  canSelectPointOnClick,
-  pointSelectBbox,
-  resolveDrawMouseUp,
-} from "../../domain/mapAreaGesture";
+import { resolveDrawMouseUp } from "../../domain/mapAreaGesture";
 import type { State, Scene, Cell } from "../../domain/lab";
 import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
@@ -34,13 +29,12 @@ function Controls({
 }) {
   const map = useMap();
   const start = useRef<LatLng | null>(null);
-  const drawingRef = useRef(drawing);
-  const stepRef = useRef(state.step);
-  /** Evita que el click tras mouseup pise un dibujo (H2). */
-  const suppressPointClick = useRef(false);
   const [draft, setDraft] = useState<BBox | null>(null);
-  drawingRef.current = drawing;
-  stepRef.current = state.step;
+  // Mantener callbacks estables para no re-registrar listeners a mitad del gesto.
+  const onAreaRef = useRef(onArea);
+  const onErrorRef = useRef(onError);
+  onAreaRef.current = onArea;
+  onErrorRef.current = onError;
 
   useEffect(() => {
     const update = () => map.invalidateSize({ pan: false });
@@ -65,67 +59,69 @@ function Controls({
     });
   }, [map, state.aoi, state.variant]);
   useEffect(() => {
-    // Búsqueda / commit nuevo: quitar draft de un rechazo anterior.
     setDraft(null);
   }, [state.aoi]);
   useEffect(() => {
     start.current = null;
     setDraft(null);
-    suppressPointClick.current = false;
     if (drawing) map.dragging.disable();
     else map.dragging.enable();
     return () => {
       map.dragging.enable();
     };
   }, [map, drawing]);
-  useMapEvents({
-    mousedown(e) {
-      if (!drawingRef.current) return;
-      start.current = e.latlng;
-      setDraft(null);
-    },
-    mousemove(e) {
-      if (start.current)
-        setDraft([
-          start.current.lng,
-          start.current.lat,
-          e.latlng.lng,
-          e.latlng.lat,
-        ]);
-    },
-    mouseup(e) {
+
+  // Solo rectángulo dibujado = AOI exacto. Sin click→punto 35 km (pisaba el trazo).
+  useEffect(() => {
+    if (!drawing) return;
+    const container = map.getContainer();
+
+    const finish = (ev: MouseEvent) => {
       if (!start.current) return;
-      // Siempre consumir el click que Leaflet emite después del mouseup.
-      suppressPointClick.current = true;
       const from = start.current;
       start.current = null;
-      const result = resolveDrawMouseUp(from, e.latlng);
+      const end = map.mouseEventToLatLng(ev);
+      const result = resolveDrawMouseUp(from, end);
       if (result.kind === "commit") {
         setDraft(null);
-        onArea(result.bbox, result.label);
+        onAreaRef.current(result.bbox, result.label);
       } else {
-        // H1: no tocar state.aoi; dejar draft visible si es normalizable.
         setDraft(result.draft);
-        onError(result.error);
+        onErrorRef.current(result.error);
       }
-    },
-    click(e) {
-      if (
-        !canSelectPointOnClick({
-          drawing: drawingRef.current,
-          step: stepRef.current,
-          suppressPointClick: suppressPointClick.current,
-        })
-      ) {
-        suppressPointClick.current = false;
-        return;
-      }
-      onArea(pointSelectBbox(e.latlng.lat, e.latlng.lng), "Punto seleccionado");
-    },
-  });
+    };
+
+    const onDown = (ev: MouseEvent) => {
+      if (ev.button !== 0) return;
+      // Evitar que el mapa u otros handlers interpreten el gesto.
+      ev.preventDefault();
+      start.current = map.mouseEventToLatLng(ev);
+      setDraft(null);
+    };
+    const onMove = (ev: MouseEvent) => {
+      if (!start.current) return;
+      const ll = map.mouseEventToLatLng(ev);
+      setDraft([start.current.lng, start.current.lat, ll.lng, ll.lat]);
+    };
+    const onUp = (ev: MouseEvent) => {
+      if (ev.button !== 0) return;
+      finish(ev);
+    };
+
+    container.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      container.removeEventListener("mousedown", onDown);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [drawing, map]);
+
   return draft ? (
     <Rectangle
       pane="selection"
+      interactive={false}
       bounds={bboxToLatLngBounds(draft)}
       pathOptions={{ color: "#111111", weight: 1, fillOpacity: 0.05 }}
     />
@@ -172,9 +168,13 @@ export default function MapView({
       />
       <TemporalLayers state={state} waterCells={waterCells} />
       <SwipeControl />
-      <Pane name="selection" style={{ zIndex: 450 }}>
+      <Pane
+        name="selection"
+        style={{ zIndex: 450, pointerEvents: drawing ? "none" : "auto" }}
+      >
         <Rectangle
           bounds={bboxToLatLngBounds(state.aoi)}
+          interactive={false}
           pathOptions={{
             color: "#111111",
             weight: 1.5,

@@ -22,9 +22,9 @@ export default function AreaStep() {
         </div>
       </div>
       <p className="mb-5 mt-0 text-[12px] leading-relaxed text-fg-muted">
-        Busca un lugar arriba, pega coordenadas, haz click en el mapa para un
-        cuadrado ~35 km, o activa Dibujar y arrastra un rectángulo. El área
-        debe caber en el límite del catálogo (~30–150 km).
+        Busca un lugar arriba, pega coordenadas, o activa Dibujar y arrastra el
+        rectángulo exacto en el mapa (el AOI es ese trazo, no un cuadrado fijo).
+        Mínimo ~0,2 km de lado; máximo ~150 km.
       </p>
       <button
         type="button"

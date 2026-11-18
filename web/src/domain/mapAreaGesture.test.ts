@@ -1,75 +1,41 @@
 import { describe, expect, it } from "vitest";
-import {
-  canSelectPointOnClick,
-  pointSelectBbox,
-  resolveDrawMouseUp,
-} from "./mapAreaGesture";
+import { resolveDrawMouseUp } from "./mapAreaGesture";
 import { bboxDimensionsKm } from "./aoi";
 
-describe("canSelectPointOnClick", () => {
-  it("bloquea click tras un gesto de dibujo (suppress)", () => {
-    expect(
-      canSelectPointOnClick({
-        drawing: false,
-        step: "area",
-        suppressPointClick: true,
-      }),
-    ).toBe(false);
-  });
-
-  it("bloquea click mientras drawing está activo", () => {
-    expect(
-      canSelectPointOnClick({
-        drawing: true,
-        step: "area",
-        suppressPointClick: false,
-      }),
-    ).toBe(false);
-  });
-
-  it("permite click→punto solo en paso area sin dibujar", () => {
-    expect(
-      canSelectPointOnClick({
-        drawing: false,
-        step: "area",
-        suppressPointClick: false,
-      }),
-    ).toBe(true);
-    expect(
-      canSelectPointOnClick({
-        drawing: false,
-        step: "dates",
-        suppressPointClick: false,
-      }),
-    ).toBe(false);
-  });
-});
-
 describe("resolveDrawMouseUp", () => {
-  it("commitea un rectángulo usable como Área dibujada", () => {
+  it("commitea el rectángulo exacto dibujado (sin expandir a 35 km)", () => {
     const result = resolveDrawMouseUp(
       { lat: 27.0, lng: 68.0 },
-      { lat: 27.2, lng: 68.3 },
+      { lat: 27.05, lng: 68.08 },
     );
     expect(result.kind).toBe("commit");
-    if (result.kind === "commit") {
-      expect(result.label).toBe("Área dibujada");
-      expect(result.bbox[0]).toBeLessThan(result.bbox[2]);
-    }
+    if (result.kind !== "commit") return;
+    expect(result.label).toBe("Área dibujada");
+    expect(result.bbox).toEqual([68.0, 27.0, 68.08, 27.05]);
+    const { heightKm, widthKm } = bboxDimensionsKm(result.bbox);
+    expect(Math.max(heightKm, widthKm)).toBeLessThan(20);
   });
 
-  it("rechaza click sin arrastre y conserva draft nulo o degenerado", () => {
+  it("commitea un sub-rectángulo pequeño pero usable dentro de un AOI previo", () => {
+    const result = resolveDrawMouseUp(
+      { lat: 27.1, lng: 68.0 },
+      { lat: 27.12, lng: 68.03 },
+    );
+    expect(result.kind).toBe("commit");
+    if (result.kind !== "commit") return;
+    expect(result.bbox[0]).toBe(68.0);
+    expect(result.bbox[2]).toBe(68.03);
+  });
+
+  it("rechaza click sin arrastre", () => {
     const result = resolveDrawMouseUp(
       { lat: 27.1, lng: 68.0 },
       { lat: 27.1, lng: 68.0 },
     );
     expect(result.kind).toBe("reject");
-    if (result.kind === "reject") {
-      expect(result.error.toLowerCase()).toMatch(/inválida|pequeña/);
-    }
   });
 
-  it("rechaza área demasiado pequeña pero deja draft normalizado", () => {
+  it("rechaza área demasiado pequeña y conserva draft", () => {
     const result = resolveDrawMouseUp(
       { lat: 27.1, lng: 68.0 },
       { lat: 27.1005, lng: 68.0005 },
@@ -79,14 +45,5 @@ describe("resolveDrawMouseUp", () => {
       expect(result.draft).not.toBeNull();
       expect(result.error).toMatch(/pequeña|inválida/i);
     }
-  });
-});
-
-describe("pointSelectBbox", () => {
-  it("crea un cuadrado ~35 km centrado en el click", () => {
-    const bbox = pointSelectBbox(27.1, 68.0);
-    const { heightKm, widthKm } = bboxDimensionsKm(bbox);
-    expect(Math.max(heightKm, widthKm)).toBeGreaterThan(30);
-    expect(Math.max(heightKm, widthKm)).toBeLessThan(40);
   });
 });
