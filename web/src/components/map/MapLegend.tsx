@@ -10,7 +10,12 @@ function itemsFor(
   if (opts.slider) {
     return {
       title: "Deslizador",
-      items: [{ color: "var(--color-data-water)", label: "Agua detectada (máscara)" }],
+      items: [
+        {
+          color: "var(--color-data-water)",
+          label: "Agua detectada Antes / Después (no es capa Cambio)",
+        },
+      ],
     };
   }
   if (mode === "before" || mode === "after") {

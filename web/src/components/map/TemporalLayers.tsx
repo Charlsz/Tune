@@ -65,7 +65,7 @@ const FLOOD_FILL = "#e63946";
 
 /** Evita PNG de máscara cacheados con el color antiguo (rojo). */
 function maskUrl(url: string) {
-  return `${url}${url.includes("?") ? "&" : "?"}v=water`;
+  return `${url}${url.includes("?") ? "&" : "?"}v=water2`;
 }
 
 function Mask({

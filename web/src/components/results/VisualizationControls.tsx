@@ -130,6 +130,12 @@ export default function VisualizationControls({
         <SlidersHorizontal size={17} />
         {s.slider ? "Cerrar deslizador" : "Deslizador"}
       </button>
+      {s.slider ? (
+        <p className="mb-0 mt-2 text-[11px] leading-snug text-fg-soft">
+          Compara agua detectada en cada fecha (azul). El rojo/azul de inundación
+          vs permanente está en el modo Cambio.
+        </p>
+      ) : null}
     </div>
   );
 }

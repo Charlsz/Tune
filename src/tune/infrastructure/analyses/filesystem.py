@@ -166,10 +166,14 @@ def from_json(text: str) -> Analysis:
 
 
 def write_mask_png(output: SegmentationOutput, path: Path) -> None:
+    """PNG RGBA: solo agua detectada en píxeles ``valid`` (azul). Nodata queda transparente."""
     from PIL import Image  # noqa: PLC0415
 
     mask = np.asarray(output.mask)
     valid = np.asarray(output.valid, dtype=bool)
+    if mask.shape != valid.shape:
+        raise ValueError(f"mask {mask.shape} y valid {valid.shape} no coinciden")
+    # Nunca pintar fuera de valid: el preview usa la misma máscara de alpha.
     positive = (mask == output.positive_class) & valid
     rgba = np.zeros((*mask.shape, 4), dtype=np.uint8)
     rgba[positive] = MASK_COLOR
