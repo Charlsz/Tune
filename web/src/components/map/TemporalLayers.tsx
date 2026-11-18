@@ -184,9 +184,21 @@ export function TemporalLayers({
                 opacity={1}
               />
             )}
+            {/* Deslizador: Después = inundación (change). Modo Después: agua detectada. */}
             {state.result &&
               state.mask &&
-              (state.slider || state.mode === "after") &&
+              state.slider &&
+              overlays?.change && (
+                <ImageOverlay
+                  url={overlays.change}
+                  bounds={overlayBounds}
+                  opacity={state.opacity}
+                />
+              )}
+            {state.result &&
+              state.mask &&
+              !state.slider &&
+              state.mode === "after" &&
               overlays?.afterMask && (
                 <ImageOverlay
                   url={maskUrl(overlays.afterMask)}
@@ -205,7 +217,17 @@ export function TemporalLayers({
             )}
             {state.result &&
               state.mask &&
-              (state.slider || state.mode === "after") &&
+              state.slider && (
+                <Mask
+                  cells={state.result.cells}
+                  opacity={state.opacity}
+                  fill={FLOOD_FILL}
+                />
+              )}
+            {state.result &&
+              state.mask &&
+              !state.slider &&
+              state.mode === "after" &&
               after && (
                 <Mask
                   cells={waterCells(after, state.aoi)}

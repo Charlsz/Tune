@@ -13,7 +13,15 @@ function itemsFor(
       items: [
         {
           color: "var(--color-data-water)",
-          label: "Agua detectada Antes / Después (no es capa Cambio)",
+          label: "Antes: agua detectada",
+        },
+        {
+          color: "var(--color-data-flood)",
+          label: "Después: inundación (agua nueva)",
+        },
+        {
+          color: "var(--color-data-persistent)",
+          label: "Después: agua permanente",
         },
       ],
     };

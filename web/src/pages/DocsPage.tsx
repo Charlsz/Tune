@@ -40,7 +40,7 @@ const STEPS = [
     n: "5",
     title: "Leer el resultado",
     tab: "Resultados",
-    body: "Antes/Después y deslizador: máscara azul = agua detectada. Cambio: rojo = nueva, azul = permanente, gris = retirada. Acuerdo: Tune vs GFM si hay capa.",
+    body: "Antes/Después: azul = agua detectada. Deslizador: Antes agua (azul) vs Después inundación (rojo). Cambio: rojo/azul/gris. Acuerdo: Tune vs GFM si hay capa.",
   },
   {
     n: "6",

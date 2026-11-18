@@ -132,8 +132,8 @@ export default function VisualizationControls({
       </button>
       {s.slider ? (
         <p className="mb-0 mt-2 text-[11px] leading-snug text-fg-soft">
-          Compara agua detectada en cada fecha (azul). El rojo/azul de inundación
-          vs permanente está en el modo Cambio.
+          Izquierda: agua que ya había (azul). Derecha: inundación = agua nueva
+          (rojo) frente a la referencia.
         </p>
       ) : null}
     </div>
