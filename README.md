@@ -13,6 +13,8 @@ La oportunidad es cerrar el ciclo desde una escena Sentinel-2 (o GeoTIFF) hasta 
 
 El valor aportado es una lectura defendible de inundación como **cambio hídrico**, con trazabilidad al checkpoint usado y documentación de ingeniería e informes del curso en este repositorio.
 
+![Pakistán](docs/assets/proof/new-sindh-pakistan.png)
+
 ## Documentación del repositorio
 
 ### Primer informe
