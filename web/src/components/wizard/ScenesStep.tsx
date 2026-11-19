@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, Check, ImageOff } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
+import { formatWeekRange } from "../../domain/dateWindow";
 import { formatDate } from "../../domain/lab";
 import { btnPrimary, btnText, emptyBox } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
@@ -16,20 +17,22 @@ export default function ScenesStep() {
         className={btnText}
         onClick={() => dispatch({ type: "step", step: "dates" })}
       >
-        <ArrowLeft size={14} /> Fechas
+        <ArrowLeft size={14} /> Semanas
       </button>
       <p className="mb-4 mt-2 text-[12px] leading-relaxed text-fg-muted">
-        Elige una escena Antes y una Después con poca nubosidad. Tune usará esas
-        dos imágenes para el análisis.
+        Escenas disponibles en cada semana, ordenadas por poca nubosidad. Elige
+        una Antes y una Después para el análisis.
       </p>
       {emptyBoth && (
         <div className={`${emptyBox} mb-4 flex items-start gap-3`}>
           <ImageOff size={18} className="mt-0.5 shrink-0 text-fg-soft" />
           <div>
-            <p className="m-0 font-medium text-fg">Sin imágenes en esas fechas</p>
+            <p className="m-0 font-medium text-fg">
+              Sin Sentinel-2 en estas semanas
+            </p>
             <p className="mb-0 mt-1 text-[11px] leading-snug">
-              Prueba fechas cercanas (±1–2 días) o un AOI distinto. Sentinel-2
-              pasa cada ~5 días.
+              Mueve el inicio de la semana o cambia el AOI. El satélite pasa cada
+              ~5 días; nubes o huecos de catálogo dejan semanas vacías.
             </p>
           </div>
         </div>
@@ -39,20 +42,25 @@ export default function ScenesStep() {
           <h2 className="mb-2 text-[13px] font-semibold">
             {i === 0 ? "Antes" : "Después"}{" "}
             <span className="mt-1.5 block text-[11px] font-normal text-fg-soft">
-              {formatDate(state.dates[i])}
+              {formatWeekRange(state.dates[i], formatDate)}
             </span>
           </h2>
           {!scenes.length ? (
-            !emptyBoth && <p className={emptyBox}>Sin imágenes en esta fecha.</p>
+            !emptyBoth && (
+              <p className={emptyBox}>
+                Sin imágenes en esta semana. Vuelve a Semanas y desplaza el
+                inicio.
+              </p>
+            )
           ) : (
-            scenes.map((scene, j) => {
+            scenes.map((scene) => {
               const chosen = state.selected[i]?.id === scene.id;
               return (
                 <button
                   type="button"
                   className={cn(
                     "my-1 flex w-full cursor-pointer items-center justify-start gap-2.5 rounded-none border bg-paper p-2 text-left transition-colors hover:bg-accent-soft",
-                    chosen ? "border-[#6c92ef]" : "border-line",
+                    chosen ? "border-line-strong bg-accent-soft" : "border-line",
                   )}
                   aria-pressed={chosen}
                   key={scene.id}
@@ -66,12 +74,12 @@ export default function ScenesStep() {
                 >
                   <img
                     src={scene.image}
-                    alt={`Vista previa ${j + 1}`}
+                    alt=""
                     className="size-12 rounded-sm object-cover"
                   />
                   <div className="min-w-0">
                     <strong className="text-[11px] font-medium">
-                      Imagen {j + 1}
+                      {formatDate(scene.datetime)}
                     </strong>
                     {scene.cloud_cover != null && (
                       <span className="mt-0.5 block text-[10px] text-fg-soft">
@@ -79,7 +87,7 @@ export default function ScenesStep() {
                       </span>
                     )}
                   </div>
-                  <span className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-[#c7cedd]">
+                  <span className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-line">
                     {chosen && <Check size={12} />}
                   </span>
                 </button>

@@ -1,5 +1,6 @@
 import type { BBox } from "../domain/aoi";
 import { coverageRatio } from "../domain/aoi";
+import { weekWindow } from "../domain/dateWindow";
 import {
   selectionKey,
   type Cell,
@@ -101,14 +102,13 @@ export const demoProvider: DataProvider = {
       return cell ? [cell] : [];
     }),
   async scenes(aoi, date) {
-    if (
-      !date ||
-      date < "2022-01-01" ||
-      date > "2022-12-31" ||
-      coverageRatio(aoi, extent) < 0.999
-    )
-      return [];
-    return [fixture(date, 0), fixture(date, 1)];
+    if (!date || coverageRatio(aoi, extent) < 0.999) return [];
+    // Cualquier semana de 7 días que toque 2022 demo.
+    const { start, end } = weekWindow(date);
+    if (end < "2022-01-01" || start > "2022-12-31") return [];
+    const mid =
+      start >= "2022-01-01" && start <= "2022-12-31" ? start : "2022-06-15";
+    return [fixture(mid, 0), fixture(mid, 1)];
   },
   async analyze(aoi, before, after, onProgress) {
     onProgress?.({ scene: "before", phase: "prepare" });

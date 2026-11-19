@@ -22,13 +22,13 @@ const STEPS = [
     n: "2",
     title: "Fechas",
     tab: "Mapa",
-    body: "Elige Antes (línea base) y Después (p. ej. pico). Después debe ser posterior a Antes.",
+    body: "Inicio de semana Antes y Después (7 días cada una, sin solaparse). No hace falta acertar el día exacto del satélite.",
   },
   {
     n: "3",
     title: "Escenas",
     tab: "Mapa",
-    body: "Consulta Sentinel-2 (STAC) y elige una escena por fecha. Sin cobertura, el panel lo dice sin bloquear el resto.",
+    body: "Consulta Sentinel-2 en cada semana y elige una escena (ordenadas por poca nubosidad). Si la semana está vacía, mueve el inicio.",
   },
   {
     n: "4",

@@ -1,4 +1,5 @@
 import { api } from "../api/client";
+import { weekWindow } from "../domain/dateWindow";
 import { places as demoPlaces } from "./demo";
 import {
   aoiFitsCatalogLimits,
@@ -19,12 +20,14 @@ async function ensureLimits() {
   }
 }
 
-function dayWindow(date: string): { start: string; end: string } {
-  const t = Date.parse(`${date}T00:00:00Z`);
-  if (!Number.isFinite(t)) return { start: date, end: date };
-  const prev = new Date(t - 86400000).toISOString().slice(0, 10);
-  const next = new Date(t + 86400000).toISOString().slice(0, 10);
-  return { start: prev, end: next };
+/** Mejor imagen primero: poca nubosidad, luego más reciente. */
+export function sortScenesByCloud(scenes: Scene[]): Scene[] {
+  return [...scenes].sort((a, b) => {
+    const ca = a.cloud_cover ?? 100;
+    const cb = b.cloud_cover ?? 100;
+    if (ca !== cb) return ca - cb;
+    return (b.datetime || "").localeCompare(a.datetime || "");
+  });
 }
 
 function mapPhase(
@@ -63,7 +66,7 @@ export const tuneProvider: DataProvider = {
       );
     }
     const q = catalogQueryFromAoi(aoi, date, 40, maxSideKm);
-    const { start, end } = dayWindow(date);
+    const { start, end } = weekWindow(date);
     const scenes = await api.catalogSearch({
       lat: q.lat,
       lon: q.lon,
@@ -72,7 +75,7 @@ export const tuneProvider: DataProvider = {
       maxCloud: q.maxCloud,
       sideKm: q.sideKm,
     });
-    return scenes.map(catalogSceneToUi);
+    return sortScenesByCloud(scenes.map(catalogSceneToUi));
   },
 
   async analyze(aoi, before, after, onProgress) {

@@ -32,8 +32,8 @@ La primera inferencia descarga ~1,2 GB de pesos desde Hugging Face (caché Docke
 Flujo del panel: **Área → Fechas → Imágenes → Comparación → Resultado**.
 
 1. Elige el lugar (búsqueda, coordenadas o dibujo en el mapa).
-2. Define fecha **Antes** (línea base) y **Después** (pico).
-3. Consulta escenas Sentinel-2 y elige una por fecha.
+2. Define el **inicio de semana** Antes (línea base) y Después (pico): cada ventana son **7 días**. Las semanas no deben solaparse.
+3. Consulta Sentinel-2 en cada semana y elige una escena disponible (prioridad: poca nubosidad).
 4. **Analizar**: Tune corre Prithvi en ambas; la segunda usa la primera como `history_baseline` cuando aplica.
 5. En el resultado, modos del mapa:
 
