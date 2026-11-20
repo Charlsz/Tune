@@ -1,18 +1,14 @@
-import "@fontsource-variable/inter";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { AppRouter } from "./router/AppRouter";
-import "./styles/tokens.css";
-import "./styles.css";
-import "./styles/shell.css";
-import "./styles/docs.css";
-import "./styles/howto.css";
-import "./styles/type.css";
-import "./styles/motion.css";
-import "./styles/adapt.css";
+import { BrowserRouter } from "react-router";
+import MapApp from "./app/MapApp";
+import "./index.css";
 
+// Un solo MapApp montado: el estado vive en MapAppProvider y la URL solo cambia el tab.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <AppRouter />
+    <BrowserRouter>
+      <MapApp />
+    </BrowserRouter>
   </StrictMode>,
 );

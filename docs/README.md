@@ -7,9 +7,10 @@ Empieza por la **[Guía de uso](./GuiaDeUso.md)** si quieres saber qué hace la 
 | Documento | Contenido |
 |---|---|
 | [GuiaDeUso.md](./GuiaDeUso.md) | Manual completo para usuarios y demos |
-| [Instalación.md](./Instalación.md) | Requisitos, `make app-up` / logs / down, Windows |
-| [Desarrollo.md](./Desarrollo.md) | Cómo desarrollar y dónde está cada pieza |
+| [Instalación.md](./Instalación.md) | Requisitos, desarrollo, Compose, despliegue, troubleshooting |
+| [Desarrollo.md](./Desarrollo.md) | Manual técnico (capas, contenedores, env, deuda) |
 | [architecture/v2.md](./architecture/v2.md) | Arquitectura actual (puertos, inferencia, web) |
+| [assets/diagramas/](./assets/diagramas/) | Mermaid: arquitectura, módulos, secuencia, despliegue |
 
 ## Validación y evidencia
 
@@ -17,7 +18,9 @@ Empieza por la **[Guía de uso](./GuiaDeUso.md)** si quieres saber qué hace la 
 |---|---|
 | [validation/casos-demostracion.md](./validation/casos-demostracion.md) | Pares STAC donde inundación ≠ solo agua |
 | [validation/sitios.md](./validation/sitios.md) | Protocolo multi-sitio |
+| [validation/sitios-resultados.md](./validation/sitios-resultados.md) | Resultados recientes (p. ej. Pakistán) |
 | [validation/jrc.md](./validation/jrc.md) | Referencia JRC / agua permanente |
+| [assets/proof/](./assets/proof/) | Capturas de máscara / UI |
 
 ## Informes del curso
 
@@ -25,10 +28,10 @@ Empieza por la **[Guía de uso](./GuiaDeUso.md)** si quieres saber qué hace la 
 |---|---|
 | [PrimerInforme.md](./PrimerInforme.md) | Planteamiento (**congelado**; no editar) |
 | [SegundoInforme.md](./SegundoInforme.md) | Avance / segundo informe |
-| [InformeFinal.md](./InformeFinal.md) | Plantilla del informe final |
+| [InformeFinal.md](./InformeFinal.md) | Documento principal de entrega final |
 
 ## Decisiones de diseño
 
-Carpeta [decisions/](./decisions/). El eje vigente de la app es [005 — inferencia con checkpoints publicados](./decisions/005-app-inferencia-checkpoints-publicados.md). Otras relevantes: [010 inundación como cambio](./decisions/010-inundacion-como-cambio.md), [014 fusión](./decisions/014-fusion-operativa.md), [015 exposición](./decisions/015-exposicion-global.md), [016 validación global](./decisions/016-validacion-global.md).
+Carpeta [decisions/](./decisions/). El eje vigente de la app es [005 — inferencia con checkpoints publicados](./decisions/005-app-inferencia-checkpoints-publicados.md). Otras relevantes: [010 inundación como cambio](./decisions/010-inundacion-como-cambio.md), [014 fusión / Global Flood Monitoring (GFM)](./decisions/014-fusion-operativa.md), [015 exposición](./decisions/015-exposicion-global.md), [016 validación global](./decisions/016-validacion-global.md).
 
 Notas del laboratorio de fine-tuning (secundario): [`lab/docs/`](../lab/docs/research/ComoProbar.md).

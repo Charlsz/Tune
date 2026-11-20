@@ -416,15 +416,26 @@ def rgb_indices_from_config(cfg: dict[str, Any]) -> tuple[int, int, int]:
 
 
 def rgb_preview(data: np.ndarray, valid: np.ndarray, rgb: tuple[int, int, int]) -> np.ndarray:
-    """(3, H, W) uint8 con estiramiento al percentil 99 (como el script oficial)."""
-    img = data[list(rgb)]
-    if valid.any():
-        max_value = max(0.3, float(np.percentile(img[:, valid], 99)))
-    else:
-        max_value = 1.0
-    img = np.clip(img / max_value, 0, 1)
-    img[:, ~valid] = 0
-    return (img * 255).astype(np.uint8)
+    """(3, H, W) uint8 legible en mapa: estiraje 2–98 por banda (como preview STAC).
+
+    El techo fijo ``max(0.3, p99)`` del script oficial subexpone AOIs inundados
+    (reflectancia baja); aquí no se fuerza ese suelo.
+    """
+    src = data[list(rgb)]
+    out = np.zeros((3, src.shape[1], src.shape[2]), dtype=np.uint8)
+    mask = np.asarray(valid, dtype=bool)
+    for i in range(3):
+        band = src[i].astype(np.float32, copy=False)
+        vals = band[mask] if mask.any() else band.ravel()
+        if vals.size == 0:
+            continue
+        lo, hi = np.percentile(vals, (2, 98))
+        if hi <= lo:
+            hi = lo + 1e-6
+        scaled = np.clip((band - lo) / (hi - lo), 0, 1)
+        scaled[~mask] = 0
+        out[i] = (scaled * 255).astype(np.uint8)
+    return out
 
 
 # --- inference core (portado del inference.py oficial) ----------------------------

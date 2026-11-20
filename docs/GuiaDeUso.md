@@ -4,13 +4,11 @@ Documento para entender la aplicación de punta a punta: qué hace, cómo levant
 
 ## 1. En una frase
 
-Tune toma una imagen satelital, detecta **agua** con el checkpoint Prithvi-EO 2.0 (Sen1Floods11) y calcula **inundación = agua nueva**: agua del modelo menos agua permanente (JRC Global Surface Water o historial del mismo lugar). Si hay producto operativo (Copernicus GFM), muestra el acuerdo.
-
-La cicatriz de incendio existe como tarea auxiliar con otro checkpoint; la demostración principal es inundación.
+Tune toma escenas Sentinel-2 del mismo lugar en dos fechas (**Antes** / **Después**), detecta **agua** con Prithvi-EO 2.0 (Sen1Floods11) y calcula **inundación = agua nueva** frente a la línea base (historial del territorio o Global Surface Water del European Commission's Joint Research Centre (JRC)). Si Copernicus Global Flood Monitoring (GFM) tiene capa para esa zona y fecha, muestra el **acuerdo** (Intersection over Union (IoU) + capa).
 
 ## 2. Cómo levantarla
 
-Necesitas Git y Docker Desktop (con el motor Linux / WSL2 en Windows).
+Necesitas Git y Docker Desktop (con el motor Linux / Windows Subsystem for Linux 2 (WSL2) en Windows).
 
 ```bash
 cd Tune
@@ -20,76 +18,56 @@ make app-up            # construye y levanta
 
 | Qué | Dónde |
 |---|---|
-| Web | http://localhost:8080 |
-| API (Swagger) | http://localhost:8000/docs |
+| Web (MapApp) | http://localhost:8080 |
+| Application Programming Interface (API) (Swagger) | http://localhost:8000/docs |
 | Logs | `make app-logs` |
 | Apagar | `make app-down` |
 
-En Windows PowerShell hace falta GNU Make (por ejemplo `winget install ezwinports.make`) y Git Bash instalado: el Makefile usa bash para las recetas.
+En Windows PowerShell hace falta GNU Make (por ejemplo `winget install ezwinports.make`) y Git Bash: el Makefile usa bash.
 
-La primera inferencia de inundación descarga ~1,2 GB de pesos desde Hugging Face. Quedan en caché Docker; las siguientes corridas son mucho más rápidas.
+La primera inferencia descarga ~1,2 GB de pesos desde Hugging Face (caché Docker).
 
-## 3. Cómo usar la web
+## 3. Cómo usar la web (MapApp)
 
-### Analizar
+Flujo del panel: **Área → Fechas → Imágenes → Comparación → Resultado**.
 
-1. Elige la tarea (**Inundación** o cicatriz).
-2. Opciones:
-   - **Escena oficial**: India, España, EE. UU. (inundación) o tiles de California (cicatriz).
-   - **Tu GeoTIFF**: 6 bandas Prithvi o Sentinel-2 L1C, hasta 200 MB.
-   - **Encontrar**: busca por latitud/longitud en el catálogo Sentinel-2 y analiza un recorte.
-3. Espera el progreso:
-   - Escena oficial: **% real** de descarga del GeoTIFF, tiempo transcurrido y ETA; luego fase de análisis.
-   - Subida propia: % de subida y luego análisis.
-4. Lee el **Resultado** a la izquierda y el mapa a la derecha.
+1. Elige el lugar (búsqueda, coordenadas o dibujo en el mapa).
+2. Define el **inicio de semana** Antes (línea base) y Después (pico): cada ventana son **7 días**. Las semanas no deben solaparse.
+3. Consulta Sentinel-2 en cada semana y elige una escena disponible (lista en orden de fecha, del inicio al fin de la semana). Al elegir, el mapa muestra un **preview RGB del AOI** (puede tardar unos segundos la primera vez; queda en caché). Ese preview no es el análisis.
+4. **Analizar**: Tune descarga 6 bandas + SCL y corre Prithvi en ambas; la segunda usa la primera como `history_baseline` cuando aplica.
+5. En el resultado, modos del mapa:
 
-### Leer el mapa (pestañas)
-
-| Pestaña | Qué muestra |
+| Modo | Qué muestra |
 |---|---|
-| **Satélite** | RGB de la escena con la máscara del modelo encima |
-| **Agua** | Solo la clasificación del modelo (toda el agua detectada) |
+| **Antes** / **Después** | Preview + máscara de agua |
 | **Cambio** | Rojo = nueva (inundación), azul = permanente, gris = retirada |
-| **Acuerdo** | Coincidencia con GFM u otro producto externo (si hubo dato) |
+| **Acuerdo** | Capa GFM (Global Flood Monitoring) vs Tune (si hubo dato); si no, el botón queda desactivado |
 
-Si en **Cambio** solo ves rojo y en el panel «agua detectada» ≈ «agua nueva», es esperable: la referencia permanente no encontró cauces estables en esa caja, así que toda el agua del modelo cuenta como nueva. Usa la pestaña **Agua** para ver la máscara completa.
+Métricas del panel: detectada, nueva, permanente, retirada, población (si hay), **Acuerdo GFM** (IoU o “—”). Una nota indica si GFM estuvo disponible, vacío o con error.
 
-### Historial del lugar
+### Historial (pestaña)
 
-Bloque bajo el mapa. Agrupa **otras corridas** con las mismas coordenadas. No filtra la máscara actual: sirve para comparar fechas cuando hay más de un análisis. Con una sola corrida solo explica eso.
+Solo guarda **comparaciones de esta sesión** en el navegador. El servidor sí persiste cada análisis (`artifacts/analyses/`) para la línea base y para `GET /api/analyses`; MapApp no lista ese historial API todavía.
 
-### Resultado (panel izquierdo)
+## 4. GFM (Global Flood Monitoring, Copernicus)
 
-- Cifra grande: **inundación (agua nueva)** cuando hay capa de cambio.
-- «Qué midió el modelo»: toda el agua detectada.
-- «Inundación frente a referencia»: nueva / permanente / retirada.
-- Acuerdo y exposición aparecen si los proveedores respondieron.
+En cada análisis de inundación el backend consulta el SpatioTemporal Asset Catalog (STAC) del Earth Observation Data Centre (EODC) (colección `GFM`, ventana ±10 días respecto a la fecha de la escena). Sin API key. Si no hay ítem o EODC falla, el análisis sigue con `fusion: null` y el modo Acuerdo desactivado.
 
-## 4. Escenas oficiales: por qué 2 MB tardan minutos
+Flag: `TUNE_OBSERVE_GFM=true` en `.env` (por defecto).
 
-El tamaño que ves (~2,1 MB) es solo el GeoTIFF. El tiempo largo casi siempre es:
-
-1. Primera descarga de pesos del modelo (~1,2 GB), o
-2. Inferencia en CPU sobre ventanas 512×512.
-
-La UI muestra el % de la **imagen** en tiempo real. El análisis posterior no tiene % fijo; muestra segundos/minutos transcurridos y una estimación.
-
-Cuando la escena ya está en caché (`Lista`), solo corre el modelo.
-
-## 5. Cómo probar sin la demo visual
+## 5. Cómo probar sin la User Interface (UI)
 
 ```bash
-# Pruebas automáticas (sin GPU ni red)
 pytest -m "not gpu"
 
-# API ya levantada: escena oficial
-curl -X POST "http://localhost:8000/api/examples/usa/analyze"
-
-# Con progreso NDJSON (como la web)
-curl -N -X POST "http://localhost:8000/api/examples/usa/analyze?stream=true"
+# Par Pakistán (base → pico)
+curl -X POST "http://localhost:8000/api/catalog/S2B_42RVR_20220518_0_L2A/analyze" \
+  -F task=flood -F lat=27.70 -F lon=68.85 -F side_km=12 -F max_cloud=40
+curl -X POST "http://localhost:8000/api/catalog/S2B_42RVR_20220905_0_L2A/analyze" \
+  -F task=flood -F lat=27.70 -F lon=68.85 -F side_km=12 -F max_cloud=40
 ```
 
-Validación multi-sitio (pesos reales, más lenta): ver `docs/validation/sitios.md` y `make validate-sites` si está disponible en el Makefile técnico.
+Pares STAC y capturas: [validation/casos-demostracion.md](./validation/casos-demostracion.md), [validation/sitios-resultados.md](./validation/sitios-resultados.md).
 
 ## 6. Mapa de documentación
 
@@ -98,16 +76,4 @@ Validación multi-sitio (pesos reales, más lenta): ver `docs/validation/sitios.
 | [Instalación.md](./Instalación.md) | Requisitos y comandos diarios |
 | [Desarrollo.md](./Desarrollo.md) | Código, tests, estructura |
 | [architecture/v2.md](./architecture/v2.md) | Arquitectura hexagonal |
-| [SegundoInforme.md](./SegundoInforme.md) | Avance académico |
-| [decisions/](./decisions/) | Decisiones de diseño (ADRs) |
-| [validation/](./validation/) | Protocolo de sitios y JRC |
-
-## 7. Glosario corto
-
-| Término | Significado |
-|---|---|
-| Agua detectada | Salida del modelo (clase agua) |
-| Agua permanente (P) | JRC o historial del lugar |
-| Agua nueva / inundación | \(W \land \lnot P\) |
-| GFM | Copernicus Global Flood Monitoring |
-| Checkpoint | Pesos publicados en Hugging Face, sin reentrenar |
+| [decisions/](./decisions/) | Architecture Decision Records (ADRs) (010 cambio, 014 fusión, 015 exposición) |

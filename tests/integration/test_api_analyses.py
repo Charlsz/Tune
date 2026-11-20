@@ -329,3 +329,66 @@ def test_catalog_search_and_analyze(client, tmp_path: Path, monkeypatch):
     assert "infer" in phases
     assert "done" in phases
     app.dependency_overrides.pop(analyses_api.get_catalog, None)
+
+
+def test_geocode_validates_query_length(client):
+    short = client.get("/api/geocode", params={"q": "a"})
+    assert short.status_code == 422
+
+
+def test_geocode_returns_hits(client, monkeypatch):
+    payload = b'[{"display_name":"Bogota, Colombia","lat":"4.71","lon":"-74.07"}]'
+
+    class FakeResp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return payload
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *a, **k: FakeResp(),
+    )
+    r = client.get("/api/geocode", params={"q": "Bogota"})
+    assert r.status_code == 200
+    assert r.json()[0]["lat"] == 4.71
+    assert r.json()[0]["lon"] == -74.07
+
+
+def test_catalog_search_maps_external_failure(client, monkeypatch):
+    class BoomCatalog:
+        def search(self, *a, **k):
+            raise ConnectionError("red caída")
+
+    app.dependency_overrides[analyses_api.get_catalog] = lambda: BoomCatalog()
+    try:
+        r = client.get(
+            "/api/catalog/search",
+            params={
+                "lat": 4.6,
+                "lon": -74.1,
+                "start": "2024-05-01",
+                "end": "2024-06-30",
+            },
+        )
+        assert r.status_code == 503
+        assert "STAC" in r.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(analyses_api.get_catalog, None)
+
+
+def test_catalog_search_rejects_invalid_coords(client):
+    r = client.get(
+        "/api/catalog/search",
+        params={
+            "lat": 99,
+            "lon": -74.1,
+            "start": "2024-05-01",
+            "end": "2024-06-30",
+        },
+    )
+    assert r.status_code == 422

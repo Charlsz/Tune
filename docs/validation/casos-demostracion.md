@@ -64,8 +64,10 @@ curl -X POST "http://localhost:8000/api/catalog/S2B_42RVR_20220905_0_L2A/analyze
   -F task=flood -F lat=27.70 -F lon=68.85 -F side_km=12 -F max_cloud=40
 ```
 
-En la web: Historial → abrir el pico → capa **Posible inundación**.
-La cifra grande del resumen es agua nueva, no toda el agua del modelo.
+En MapApp (`http://localhost:8080`): mismo centro, fechas Antes/Después del
+par, **Analizar**, modo **Cambio**. La cifra grande / métrica **Nueva** es agua
+nueva, no toda el agua del modelo. Si EODC devolvió GFM, aparece IoU y el modo
+**Acuerdo**; si no, el botón queda desactivado (el análisis igual es válido).
 
 ## Qué cambió en el código (nov 2026)
 

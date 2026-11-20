@@ -3,72 +3,37 @@
   <img src="web/public/icons/tune-darkmode.svg#gh-dark-mode-only" alt="Tune Logo" width="40%">
 </div>
 
-##
+# Tune
 
-Aplicación de análisis satelital de **inundación** con Prithvi-EO 2.0 (IBM-NASA). En la web eliges el mismo punto dos veces: **Antes** (línea base) y **Después** (pico). El modelo detecta agua; Tune calcula inundación como agua nueva frente a esa referencia (historial del territorio o JRC). Cuando hay dato, compara con Copernicus GFM.
+## Resumen ejecutivo
 
-## Resultados verificados (inundación ≠ solo agua)
+Tune es un prototipo académico de análisis satelital de **inundación**. Surge en el contexto de foundation models geoespaciales ya especializados (Prithvi-EO 2.0 / Sen1Floods11): el modelo detecta agua, pero un cauce en época seca no debe presentarse como desborde.
 
-Se analizó primero una **línea base** y después el **pico** en el mismo punto (`side_km=12`). En el mapa de cambio: **rojo = agua nueva**, **azul = permanente**.
+La oportunidad es cerrar el ciclo desde una escena Sentinel-2 (o GeoTIFF) hasta un **análisis recuperable**: agua detectada, **agua nueva** frente a una referencia (historial del territorio o Global Surface Water del European Commission's Joint Research Centre (JRC)), acuerdo con Copernicus Global Flood Monitoring (GFM) cuando hay capa, y exposición (WorldCover de la European Space Agency (ESA) / población del Global Human Settlement Layer (GHSL)). El alcance es una aplicación cliente-servidor (FastAPI + React/MapApp) reproducible con Docker, validada en sitios de demostración, no un producto comercial ni un Geographic Information System (GIS) de propósito general.
 
-### Pakistán Sindh · mayo → septiembre 2022
+El valor aportado es una lectura defendible de inundación como **cambio hídrico**, con trazabilidad al checkpoint usado y documentación de ingeniería e informes del curso en este repositorio.
 
-Crecida documentada. Pico: ~49 km² nuevas + ~10 km² permanentes (`history_baseline`).
+![Proof](docs/assets/proof/proofReadme.png)
 
-![Pakistán: base vs crecida](docs/assets/proof/pakistan-pre-vs-flood.png)
+## Documentación del repositorio
 
-![UI Tune — capa Posible inundación (Sindh)](docs/assets/proof/ui-pakistan-flood.png)
+### Primer informe
 
-### Bajo Magdalena (Colombia) · febrero → mayo 2022
+- [Primer Informe](./docs/PrimerInforme.md): Documento que presenta el planteamiento del problema, los objetivos, la solución propuesta, el estado del arte, la metodología de desarrollo y el plan de trabajo del proyecto.
 
-Humedal: JRC solo no basta; la fecha seca como baseline sí. Pico: ~38 km² nuevas + ~16 km² permanentes.
+### Segundo informe
 
-![Magdalena: seca vs húmeda](docs/assets/proof/magdalena-dry-vs-wet.png)
+- [Segundo Informe](./docs/SegundoInforme.md): Documento que presenta el estado actual del proyecto, incluyendo los avances logrados, las validaciones realizadas y los aspectos pendientes.
 
-### Mississippi (EE. UU.) · 2018 → crecida 2019
+### Informe final
 
-Tercer sitio verificado: nueva ~10 km² sobre un cauce ya permanente (~66 km²).
-
-![Mississippi: base vs crecida](docs/assets/proof/mississippi-pre-vs-flood.png)
-
-Recetas paso a paso (IDs STAC, orden, qué mirar en la UI): en la app **How to use**, o [docs/validation/casos-demostracion.md](./docs/validation/casos-demostracion.md). Evidencia en [`docs/assets/proof/`](./docs/assets/proof/).
-
-## Cómo levantar la app
-
-```bash
-cp .env.example .env
-make app-up      # levanta API y web
-make app-logs    # sigue los logs (primera vez descarga pesos)
-make app-down    # apaga todo
-```
-
-- Web: http://localhost:8080 — menú **How to use** para demos verificadas
-- API: http://localhost:8000/docs
-
-### Docker Compose
-
-Desde la raíz del repo, con `.env` ya creado:
-
-```bash
-docker compose up -d --build    # construye tune-eo-api y tune-web, y los levanta
-docker compose logs -f eo-api   # logs de la API
-docker compose down             # apaga y borra contenedores
-```
-
-`down` conserva el volumen `hf-cache` (pesos de Hugging Face, ~1,2 GB la primera vez) y la carpeta `artifacts/`.
-
-En una VM pública: `API_BIND=127.0.0.1` en `.env` para no exponer `:8000`.
-
-## Documentación
-
-| Documento | Qué es |
+| Documento | Descripción |
 |---|---|
-| [docs/GuiaDeUso.md](./docs/GuiaDeUso.md) | Manual de uso |
-| [docs/validation/casos-demostracion.md](./docs/validation/casos-demostracion.md) | Pares STAC donde inundación ≠ solo agua |
-| [docs/Instalación.md](./docs/Instalación.md) | Cómo instalar y levantar |
-| [docs/Desarrollo.md](./docs/Desarrollo.md) | Cómo tocar el código |
-| [docs/decisions/](./docs/decisions/) | ADRs |
-| [lab/README.md](./lab/README.md) | Fine-tuning (secundario) |
+| [InformeFinal.md](./docs/InformeFinal.md) | Documento principal del proyecto |
+| [Instalación.md](./docs/Instalación.md) | Guía de instalación, desarrollo y despliegue |
+| [Desarrollo.md](./docs/Desarrollo.md) | Detalles técnicos del desarrollo |
+
+Índice ampliado (guía de uso, Architecture Decision Records (ADRs), validación): [docs/README.md](./docs/README.md).
 
 ## Estudiantes
 

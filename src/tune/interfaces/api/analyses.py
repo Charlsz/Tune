@@ -39,6 +39,7 @@ from tune.infrastructure.raster.grid import grid_from_meta, reproject_mask
 from tune.interfaces.api.schemas import (
     AnalysisResponse,
     BoundsSchema,
+    CatalogPreviewSchema,
     CatalogSceneSchema,
     ChangeSchema,
     ExampleInfo,
@@ -782,6 +783,63 @@ def catalog_limits() -> dict:
         "collection": "sentinel-2-l2a",
         "note": "El catálogo STAC alimenta inundación (S2 L2A). Incendios: GeoTIFF HLS o ejemplo.",
     }
+
+
+@router.get(
+    "/catalog/{item_id}/preview",
+    response_model=CatalogPreviewSchema,
+    summary="Preview RGB del AOI para una escena",
+    responses={
+        422: {"description": "Parámetros inválidos o escena sin assets RGB"},
+        503: {"description": "STAC o lectura COG falló"},
+    },
+)
+def catalog_preview(
+    item_id: str = PathParam(description="Id STAC de la escena"),
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+    side_km: float = Query(
+        20.0,
+        ge=1,
+        le=50,
+        description="Lado del recorte en km; tope efectivo en GET /api/catalog/limits",
+    ),
+    catalog=Depends(get_catalog),
+) -> CatalogPreviewSchema:
+    """Recorte visual/RGB del AOI (cacheado). No sustituye Analizar (6 bandas)."""
+    max_km = get_settings().tune_catalog_max_km
+    if side_km > max_km:
+        raise HTTPException(422, f"side_km máximo es {max_km}")
+    bbox = bbox_from_point(lat, lon, side_km)
+    dest = get_settings().tune_artifacts_dir / "catalog" / "previews"
+    try:
+        png_path, bounds = catalog.render_aoi_preview(item_id, bbox, dest)
+    except CatalogError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(503, f"No se pudo generar el preview: {exc}") from exc
+    return CatalogPreviewSchema(
+        url=f"/api/catalog/previews/{png_path.name}",
+        bounds=list(bounds),
+    )
+
+
+@router.get(
+    "/catalog/previews/{filename}",
+    summary="PNG cacheado de preview AOI",
+    responses={404: {"description": "Preview no encontrado"}},
+)
+def catalog_preview_file(
+    filename: str = PathParam(description="Nombre del PNG en artifacts/catalog/previews"),
+) -> FileResponse:
+    """Sirve un PNG generado por ``GET /api/catalog/{id}/preview``."""
+    if "/" in filename or "\\" in filename or not filename.endswith(".png"):
+        raise HTTPException(404, "Preview no encontrado")
+    path = (get_settings().tune_artifacts_dir / "catalog" / "previews" / filename).resolve()
+    root = (get_settings().tune_artifacts_dir / "catalog" / "previews").resolve()
+    if not str(path).startswith(str(root)) or not path.is_file():
+        raise HTTPException(404, "Preview no encontrado")
+    return FileResponse(path, media_type="image/png", filename=path.name)
 
 
 @router.post(
