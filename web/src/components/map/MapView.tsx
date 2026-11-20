@@ -8,13 +8,76 @@ import {
   ZoomControl,
   useMap,
 } from "react-leaflet";
-import type { LatLng } from "leaflet";
+import type { LatLng, Rectangle as LeafletRectangle } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { bboxToLatLngBounds, type BBox } from "../../domain/aoi";
 import { resolveDrawMouseUp } from "../../domain/mapAreaGesture";
 import type { State, Scene, Cell } from "../../domain/lab";
 import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
+
+/** Contorno del AOI; con `pulsing` anima fill/stroke vía setStyle (CSS no gana a Leaflet). */
+function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
+  const [layer, setLayer] = useState<LeafletRectangle | null>(null);
+
+  useEffect(() => {
+    if (!layer) return;
+
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!pulsing) {
+      layer.setStyle({
+        fillOpacity: 0,
+        opacity: 1,
+        weight: 1.5,
+      });
+      return;
+    }
+
+    if (reduced) {
+      layer.setStyle({
+        fillOpacity: 0.16,
+        opacity: 0.9,
+        weight: 2,
+      });
+      return;
+    }
+
+    let raf = 0;
+    const start = performance.now();
+    const loop = (now: number) => {
+      const t = ((now - start) % 1150) / 1150;
+      const wave = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
+      layer.setStyle({
+        fillOpacity: 0.05 + wave * 0.26,
+        opacity: 0.35 + wave * 0.65,
+        weight: 2,
+      });
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [layer, pulsing, aoi]);
+
+  return (
+    <Rectangle
+      ref={setLayer}
+      bounds={bboxToLatLngBounds(aoi)}
+      interactive={false}
+      pathOptions={{
+        color: "#111111",
+        weight: pulsing ? 2 : 1.5,
+        dashArray: "5 4",
+        fill: true,
+        fillColor: "#111111",
+        fillOpacity: pulsing ? 0.14 : 0,
+        opacity: 1,
+      }}
+    />
+  );
+}
 
 function Controls({
   state,
@@ -153,6 +216,9 @@ export default function MapView({
   const attribution = token
     ? '&copy; <a href="https://www.mapbox.com/about/maps/">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+  const previewLoading = state.selected.some(
+    (s) => s?.previewStatus === "loading",
+  );
 
   return (
     <MapContainer
@@ -173,16 +239,7 @@ export default function MapView({
         name="selection"
         style={{ zIndex: 450, pointerEvents: drawing ? "none" : "auto" }}
       >
-        <Rectangle
-          bounds={bboxToLatLngBounds(state.aoi)}
-          interactive={false}
-          pathOptions={{
-            color: "#111111",
-            weight: 1.5,
-            dashArray: "5 4",
-            fill: false,
-          }}
-        />
+        <AoiOutline aoi={state.aoi} pulsing={previewLoading} />
       </Pane>
       <Controls
         state={state}

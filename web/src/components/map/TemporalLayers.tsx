@@ -69,7 +69,6 @@ export function Clip({
 
 const WATER_FILL = "#2563eb";
 const FLOOD_FILL = "#e63946";
-const PREVIEW_LOADING_FILL = "#94a3b8";
 
 /** Evita PNG de máscara cacheados con el color antiguo (rojo). */
 function maskUrl(url: string) {
@@ -79,11 +78,9 @@ function maskUrl(url: string) {
 /** Overlay de selección: preview AOI del servidor; fallback footprint sin estirar thumb. */
 function ScenePickOverlay({
   scene,
-  aoi,
   show,
 }: {
   scene: Scene;
-  aoi: BBox | null;
   show: boolean;
 }) {
   if (!show) return null;
@@ -96,19 +93,8 @@ function ScenePickOverlay({
       />
     );
   }
-  if (scene.previewStatus === "loading" && aoi) {
-    return (
-      <Rectangle
-        bounds={bboxToLatLngBounds(aoi)}
-        pathOptions={{
-          stroke: false,
-          fillColor: PREVIEW_LOADING_FILL,
-          fillOpacity: 0.28,
-        }}
-        interactive={false}
-      />
-    );
-  }
+  // Loading: el AOI parpadea en MapView + chip; aquí no duplicamos borde.
+  if (scene.previewStatus === "loading") return null;
   // Error / sin preview: outline del footprint (thumb queda en el panel).
   if (scene.bbox?.length >= 4) {
     return (
@@ -219,11 +205,7 @@ export function TemporalLayers({
         ) : (
           <>
             {before && (
-              <ScenePickOverlay
-                scene={before}
-                aoi={state.aoi}
-                show={showBefore}
-              />
+              <ScenePickOverlay scene={before} show={showBefore} />
             )}
             {state.result &&
               state.mask &&
@@ -274,11 +256,7 @@ export function TemporalLayers({
         ) : (
           <>
             {after && (
-              <ScenePickOverlay
-                scene={after}
-                aoi={state.aoi}
-                show={showAfterBase}
-              />
+              <ScenePickOverlay scene={after} show={showAfterBase} />
             )}
             {state.result &&
               state.mask &&

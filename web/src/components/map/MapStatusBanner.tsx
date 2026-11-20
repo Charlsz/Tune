@@ -1,7 +1,7 @@
 import { useMapApp } from "../../app/MapAppProvider";
 import { useAppPage } from "../../app/useAppPage";
 
-/** Chip de estado sobre el mapa mientras consulta o analiza. */
+/** Chip de estado sobre el mapa mientras consulta, preview o analiza. */
 export default function MapStatusBanner() {
   const { loading, state, analyzeProgress } = useMapApp();
   const page = useAppPage();
@@ -9,7 +9,10 @@ export default function MapStatusBanner() {
   if (page !== "map") return null;
 
   const analyzing = state.step === "running";
-  if (!loading && !analyzing) return null;
+  const previewLoading = state.selected.some(
+    (s) => s?.previewStatus === "loading",
+  );
+  if (!loading && !analyzing && !previewLoading) return null;
 
   const scene =
     analyzeProgress?.scene === "after" ? "Después (2/2)" : "Antes (1/2)";
@@ -19,6 +22,9 @@ export default function MapStatusBanner() {
       : analyzeProgress?.phase === "infer"
         ? "ejecutando modelo"
         : "preparando";
+
+  const previewLabel =
+    state.mode === "after" ? "Después" : state.mode === "before" ? "Antes" : null;
 
   return (
     <div
@@ -32,12 +38,19 @@ export default function MapStatusBanner() {
           <strong className="font-medium text-ink">Consultando catálogo</strong>
           <span className="text-fg-muted"> · Sentinel-2 / STAC</span>
         </span>
-      ) : (
+      ) : analyzing ? (
         <span>
           <strong className="font-medium text-ink">Analizando</strong>
           <span className="text-fg-muted">
             {" "}
             · {scene} · {phase}
+          </span>
+        </span>
+      ) : (
+        <span>
+          <strong className="font-medium text-ink">Cargando preview</strong>
+          <span className="text-fg-muted">
+            {previewLabel ? ` · ${previewLabel}` : ""} · AOI
           </span>
         </span>
       )}

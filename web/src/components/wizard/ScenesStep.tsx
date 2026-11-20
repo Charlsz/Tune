@@ -55,7 +55,9 @@ export default function ScenesStep() {
             )
           ) : (
             scenes.map((scene) => {
-              const chosen = state.selected[i]?.id === scene.id;
+              const selected = state.selected[i];
+              const chosen = selected?.id === scene.id;
+              const previewLoading = chosen && selected?.previewStatus === "loading";
               return (
                 <button
                   type="button"
@@ -64,26 +66,49 @@ export default function ScenesStep() {
                     chosen ? "border-line-strong bg-accent-soft" : "border-line",
                   )}
                   aria-pressed={chosen}
+                  aria-busy={previewLoading || undefined}
                   key={scene.id}
                   onClick={() => selectScene(i as 0 | 1, scene)}
                 >
-                  <img
-                    src={scene.image}
-                    alt=""
-                    className="size-12 rounded-sm object-cover"
-                  />
+                  <span className="relative size-12 shrink-0 overflow-hidden rounded-sm">
+                    <img
+                      src={scene.image}
+                      alt=""
+                      className={cn(
+                        "size-12 object-cover",
+                        previewLoading && "opacity-45",
+                      )}
+                    />
+                    {previewLoading && (
+                      <span
+                        className="absolute inset-0 flex items-center justify-center bg-paper/55"
+                        aria-hidden
+                      >
+                        <span className="tune-spinner tune-spinner-sm" />
+                      </span>
+                    )}
+                  </span>
                   <div className="min-w-0">
                     <strong className="text-[11px] font-medium">
                       {formatDate(scene.datetime)}
                     </strong>
-                    {scene.cloud_cover != null && (
-                      <span className="mt-0.5 block text-[10px] text-fg-soft">
-                        Nubes {Math.round(scene.cloud_cover)}%
+                    {previewLoading ? (
+                      <span className="mt-0.5 block text-[10px] text-fg-muted">
+                        Cargando preview…
                       </span>
+                    ) : (
+                      scene.cloud_cover != null && (
+                        <span className="mt-0.5 block text-[10px] text-fg-soft">
+                          Nubes {Math.round(scene.cloud_cover)}%
+                        </span>
+                      )
                     )}
                   </div>
                   <span className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-line">
-                    {chosen && <Check size={12} />}
+                    {chosen && !previewLoading && <Check size={12} />}
+                    {previewLoading && (
+                      <span className="tune-spinner tune-spinner-sm" aria-hidden />
+                    )}
                   </span>
                 </button>
               );
