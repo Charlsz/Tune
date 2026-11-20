@@ -379,9 +379,7 @@ class StacCatalog:
 
 def _preview_cache_key(item_id: str, bbox: tuple[float, float, float, float]) -> str:
     safe_id = re.sub(r"[^\w.-]+", "_", item_id)[:120]
-    digest = hashlib.sha1(
-        ",".join(f"{x:.6f}" for x in bbox).encode("utf-8")
-    ).hexdigest()[:12]
+    digest = hashlib.sha1(",".join(f"{x:.6f}" for x in bbox).encode("utf-8")).hexdigest()[:12]
     return f"{safe_id}_{digest}"
 
 

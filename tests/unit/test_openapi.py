@@ -10,6 +10,8 @@ ROUTES = (
     ("/api/geocode", "get"),
     ("/api/catalog/search", "get"),
     ("/api/catalog/limits", "get"),
+    ("/api/catalog/{item_id}/preview", "get"),
+    ("/api/catalog/previews/{filename}", "get"),
     ("/api/catalog/{item_id}/analyze", "post"),
     ("/api/timeline", "get"),
     ("/api/timeline/series", "get"),
