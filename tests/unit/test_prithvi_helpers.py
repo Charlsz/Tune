@@ -77,6 +77,19 @@ def test_rgb_preview_shape_and_range() -> None:
     assert tuple(img[:, 0, 0]) == (0, 0, 0)
 
 
+def test_rgb_preview_stretches_dark_flood_scenes() -> None:
+    """Sin suelo 0.3: un AOI oscuro (agua) no queda casi negro en el mapa."""
+    data = np.full((6, 16, 16), 0.04, dtype=np.float32)
+    # Variación baja (reflectancia de inundación) en R,G,B.
+    for b in (0, 1, 2):
+        data[b, 8:, 8:] = 0.11
+    valid = np.ones((16, 16), dtype=bool)
+    img = rgb_preview(data, valid, (2, 1, 0))
+    assert img.max() > 200
+    # Con el floor 0.3 antiguo, 0.11/0.3 ≈ 93; aquí el 98% llega a ~255.
+    assert float(np.mean(img[:, 8:, 8:])) > 200
+
+
 def test_temporal_coords_from_filename() -> None:
     assert _temporal_coords("S2_20200315T101031.tif") == [[2020, 75]]
     assert _temporal_coords("no-date.tif") is None
