@@ -28,13 +28,13 @@ const STEPS = [
     n: "3",
     title: "Escenas",
     tab: "Mapa",
-    body: "Consulta Sentinel-2 en cada semana y elige una escena (ordenadas por poca nubosidad). Si la semana está vacía, mueve el inicio.",
+    body: "Consulta Sentinel-2 en cada semana y elige una escena (ordenadas por poca nubosidad). El mapa pide un preview del AOI (unos segundos la primera vez); no es el análisis. Si la semana está vacía, mueve el inicio.",
   },
   {
     n: "4",
     title: "Analizar",
     tab: "Mapa",
-    body: "Tune corre el modelo en ambas escenas (preparar, descargar bandas, inferir) con una ETA orientativa.",
+    body: "Tune descarga 6 bandas + SCL y corre el modelo en ambas escenas (preparar, descargar, inferir). El preview de escena no sustituye este paso.",
   },
   {
     n: "5",

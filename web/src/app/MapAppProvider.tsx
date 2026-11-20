@@ -9,6 +9,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { api } from "../api/client";
+import { catalogQueryFromAoi } from "../data/apiBridge";
 import {
   initialState,
   reducer,
@@ -19,6 +21,7 @@ import {
 } from "../domain/lab";
 import { tuneProvider } from "../data/tuneProvider";
 import type { BBox } from "../domain/aoi";
+import type { CatalogLimits } from "../types";
 
 type ViewPatch = Partial<
   Pick<
@@ -51,6 +54,8 @@ export type MapAppContextValue = {
   analyze: () => Promise<boolean>;
   /** Reabre un análisis del historial de sesión como activo. */
   restoreAnalysis: (id: string) => boolean;
+  /** Elige escena Antes/Después y pide preview AOI al servidor. */
+  selectScene: (index: 0 | 1, scene: Scene) => void;
   dispatch: React.Dispatch<Parameters<typeof reducer>[1]>;
   bumpTokens: () => void;
   toggleFullscreen: () => Promise<void>;
@@ -83,6 +88,8 @@ export function MapAppProvider({
     useState<AnalyzeProgressEvent | null>(null);
   const request = useRef(0);
   const analysis = useRef(0);
+  const previewReq = useRef(0);
+  const maxSideKmRef = useRef(30);
 
   const patch = useCallback((p: ViewPatch) => {
     dispatch({ type: "view", patch: p });
@@ -96,6 +103,7 @@ export function MapAppProvider({
   const setArea = useCallback(
     (bbox: BBox, label: string) => {
       bumpTokens();
+      previewReq.current++;
       dispatch({ type: "area", bbox, label });
       setDrawing(false);
       setLoading(false);
@@ -177,6 +185,68 @@ export function MapAppProvider({
     [bumpTokens, state.history],
   );
 
+  const selectScene = useCallback(
+    (index: 0 | 1, scene: Scene) => {
+      const token = ++previewReq.current;
+      dispatch({
+        type: "scene",
+        index,
+        scene: {
+          ...scene,
+          previewStatus: "loading",
+          mapPreviewUrl: undefined,
+          mapPreviewBounds: undefined,
+        },
+      });
+      const q = catalogQueryFromAoi(
+        state.aoi,
+        scene.datetime.slice(0, 10),
+        40,
+        maxSideKmRef.current,
+      );
+      void api
+        .catalogPreview(scene.id, {
+          lat: q.lat,
+          lon: q.lon,
+          sideKm: q.sideKm,
+        })
+        .then((preview) => {
+          if (token !== previewReq.current) return;
+          const bounds = preview.bounds;
+          if (bounds.length < 4) throw new Error("bounds inválidos");
+          dispatch({
+            type: "scenePreview",
+            index,
+            sceneId: scene.id,
+            patch: {
+              previewStatus: "ready",
+              mapPreviewUrl: preview.url,
+              mapPreviewBounds: [
+                bounds[0],
+                bounds[1],
+                bounds[2],
+                bounds[3],
+              ] as BBox,
+            },
+          });
+        })
+        .catch(() => {
+          if (token !== previewReq.current) return;
+          dispatch({
+            type: "scenePreview",
+            index,
+            sceneId: scene.id,
+            patch: {
+              previewStatus: "error",
+              mapPreviewUrl: undefined,
+              mapPreviewBounds: undefined,
+            },
+          });
+        });
+    },
+    [state.aoi],
+  );
+
   const toggleFullscreen = useCallback(async () => {
     try {
       if (document.fullscreenElement) {
@@ -191,10 +261,24 @@ export function MapAppProvider({
     }
   }, []);
 
+  useEffect(() => {
+    void api
+      .catalogLimits()
+      .then((limits: CatalogLimits) => {
+        if (Number.isFinite(limits.max_side_km) && limits.max_side_km > 0) {
+          maxSideKmRef.current = limits.max_side_km;
+        }
+      })
+      .catch(() => {
+        /* conservar default */
+      });
+  }, []);
+
   useEffect(
     () => () => {
       request.current++;
       analysis.current++;
+      previewReq.current++;
     },
     [],
   );
@@ -229,6 +313,7 @@ export function MapAppProvider({
       findScenes,
       analyze,
       restoreAnalysis,
+      selectScene,
       dispatch,
       bumpTokens,
       toggleFullscreen,
@@ -250,6 +335,7 @@ export function MapAppProvider({
       findScenes,
       analyze,
       restoreAnalysis,
+      selectScene,
       bumpTokens,
       toggleFullscreen,
     ],

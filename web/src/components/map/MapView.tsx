@@ -49,22 +49,8 @@ function Controls({
   }, [map, state.variant]);
   useEffect(() => {
     map.invalidateSize({ pan: false });
-    const before = state.selected[0];
-    const after = state.selected[1];
-    // Sin análisis: encuadrar la escena enfocada; con ambas + slider, el AOI.
-    let focus = state.aoi;
-    if (!state.result) {
-      if (state.slider && before && after) {
-        focus = state.aoi;
-      } else if (state.mode === "before" && before?.bbox) {
-        focus = before.bbox as BBox;
-      } else if (after?.bbox) {
-        focus = after.bbox as BBox;
-      } else if (before?.bbox) {
-        focus = before.bbox as BBox;
-      }
-    }
-    map.fitBounds(bboxToLatLngBounds(focus), {
+    // Preview de catálogo se ancla al AOI: siempre encuadrar el cuadrado de interés.
+    map.fitBounds(bboxToLatLngBounds(state.aoi), {
       paddingTopLeft:
         state.variant === "floating" && map.getContainer().clientWidth > 640
           ? [430, 100]
@@ -72,15 +58,7 @@ function Controls({
       paddingBottomRight: [70, 120],
       animate: false,
     });
-  }, [
-    map,
-    state.aoi,
-    state.variant,
-    state.result,
-    state.selected,
-    state.mode,
-    state.slider,
-  ]);
+  }, [map, state.aoi, state.variant]);
   useEffect(() => {
     setDraft(null);
   }, [state.aoi]);

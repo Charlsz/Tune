@@ -4,15 +4,18 @@ import type { BBox } from "../../domain/aoi";
 import { bboxToLatLngBounds } from "../../domain/aoi";
 import type { Cell, Scene, State } from "../../domain/lab";
 
-/** Clip del swipe limitado al rectángulo del AOI en píxeles de capa. */
+/** Clip de panes before/after al AOI (máscara) o al deslizador (swipe). */
 export function Clip({
   split,
   active,
   aoi,
+  mode = "swipe",
 }: {
   split: number;
   active: boolean;
   aoi: BBox | null;
+  /** mask = solo dentro del AOI; swipe = Antes|Después dentro del AOI */
+  mode?: "swipe" | "mask";
 }) {
   const map = useMap();
   useEffect(() => {
@@ -44,6 +47,10 @@ export function Clip({
       for (const name of ["before", "after"] as const) {
         const pane = map.getPane(name);
         if (!pane) continue;
+        if (mode === "mask") {
+          pane.style.clipPath = `polygon(${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px)`;
+          continue;
+        }
         const x0 = name === "before" ? left : splitX;
         const x1 = name === "before" ? splitX : right;
         pane.style.clipPath = `polygon(${x0}px ${top}px, ${x1}px ${top}px, ${x1}px ${bottom}px, ${x0}px ${bottom}px)`;
@@ -56,16 +63,68 @@ export function Clip({
       map.off("move zoom resize moveend zoomend", update);
       clear();
     };
-  }, [map, split, active, aoi]);
+  }, [map, split, active, aoi, mode]);
   return null;
 }
 
 const WATER_FILL = "#2563eb";
 const FLOOD_FILL = "#e63946";
+const PREVIEW_LOADING_FILL = "#94a3b8";
 
 /** Evita PNG de máscara cacheados con el color antiguo (rojo). */
 function maskUrl(url: string) {
   return `${url}${url.includes("?") ? "&" : "?"}v=water2`;
+}
+
+/** Overlay de selección: preview AOI del servidor; fallback footprint sin estirar thumb. */
+function ScenePickOverlay({
+  scene,
+  aoi,
+  show,
+}: {
+  scene: Scene;
+  aoi: BBox | null;
+  show: boolean;
+}) {
+  if (!show) return null;
+  if (scene.previewStatus === "ready" && scene.mapPreviewUrl && scene.mapPreviewBounds) {
+    return (
+      <ImageOverlay
+        url={scene.mapPreviewUrl}
+        bounds={bboxToLatLngBounds(scene.mapPreviewBounds)}
+        opacity={1}
+      />
+    );
+  }
+  if (scene.previewStatus === "loading" && aoi) {
+    return (
+      <Rectangle
+        bounds={bboxToLatLngBounds(aoi)}
+        pathOptions={{
+          stroke: false,
+          fillColor: PREVIEW_LOADING_FILL,
+          fillOpacity: 0.28,
+        }}
+        interactive={false}
+      />
+    );
+  }
+  // Error / sin preview: outline del footprint (thumb queda en el panel).
+  if (scene.bbox?.length >= 4) {
+    return (
+      <Rectangle
+        bounds={bboxToLatLngBounds(scene.bbox as BBox)}
+        pathOptions={{
+          color: "#64748b",
+          weight: 1.5,
+          fillOpacity: 0,
+          dashArray: "4 4",
+        }}
+        interactive={false}
+      />
+    );
+  }
+  return null;
 }
 
 function Mask({
@@ -111,26 +170,16 @@ export function TemporalLayers({
   const overlayBounds = overlays
     ? bboxToLatLngBounds(overlays.bounds)
     : null;
-  // Con resultado: modos + deslizador. Sin resultado: escena elegida / par con swipe.
+  // Con resultado: modos + deslizador. Sin resultado: solo la escena enfocada (sustituye).
   const showBefore = useApiOverlays
     ? state.slider || state.mode === "before"
-    : Boolean(
-        before &&
-          (state.slider ||
-            state.mode === "before" ||
-            !after),
-      );
+    : Boolean(before && state.mode === "before");
   const showAfterBase = useApiOverlays
     ? state.slider ||
       state.mode === "after" ||
       state.mode === "change" ||
       state.mode === "agree"
-    : Boolean(
-        after &&
-          (state.slider ||
-            state.mode === "after" ||
-            !before),
-      );
+    : Boolean(after && (state.mode === "after" || state.mode === "change"));
   const showChange =
     state.result &&
     state.mode === "change" &&
@@ -169,10 +218,11 @@ export function TemporalLayers({
           </>
         ) : (
           <>
-            {before && showBefore && before.image && (
-              <ImageOverlay
-                url={before.image}
-                bounds={bboxToLatLngBounds(before.bbox as BBox)}
+            {before && (
+              <ScenePickOverlay
+                scene={before}
+                aoi={state.aoi}
+                show={showBefore}
               />
             )}
             {state.result &&
@@ -223,10 +273,11 @@ export function TemporalLayers({
           </>
         ) : (
           <>
-            {after && showAfterBase && after.image && (
-              <ImageOverlay
-                url={after.image}
-                bounds={bboxToLatLngBounds(after.bbox as BBox)}
+            {after && (
+              <ScenePickOverlay
+                scene={after}
+                aoi={state.aoi}
+                show={showAfterBase}
               />
             )}
             {state.result &&
@@ -278,7 +329,15 @@ export function TemporalLayers({
           />
         </Pane>
       )}
-      <Clip split={state.split} active={state.slider} aoi={swipeAoi} />
+      <Clip
+        split={state.split}
+        active={
+          Boolean(swipeAoi) &&
+          (state.slider || (!useApiOverlays && (showBefore || showAfterBase)))
+        }
+        aoi={swipeAoi}
+        mode={state.slider ? "swipe" : "mask"}
+      />
     </>
   );
 }

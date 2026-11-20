@@ -87,6 +87,20 @@ export const api = {
     });
     return fetch(`/api/catalog/search?${p}`, { signal }).then(json<CatalogScene[]>);
   },
+  catalogPreview(
+    itemId: string,
+    q: { lat: number; lon: number; sideKm?: number },
+    signal?: AbortSignal,
+  ) {
+    const p = new URLSearchParams({
+      lat: String(q.lat),
+      lon: String(q.lon),
+      side_km: String(q.sideKm ?? 20),
+    });
+    return fetch(`/api/catalog/${encodeURIComponent(itemId)}/preview?${p}`, {
+      signal,
+    }).then(json<{ url: string; bounds: number[] }>);
+  },
   geocode(q: string, signal?: AbortSignal) {
     const p = new URLSearchParams({ q });
     return fetch(`/api/geocode?${p}`, { signal }).then(

@@ -198,3 +198,105 @@ def test_fetch_rejects_crop_clouds_above_user_limit(
         catalog.fetch_six_bands("S2A_cloudy", bbox, tmp_path / "out40", max_cloud=40)
     out = catalog.fetch_six_bands("S2A_cloudy", bbox, tmp_path / "out70", max_cloud=70)
     assert out.is_file()
+
+
+def test_render_aoi_preview_visual_and_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Preview desde asset visual; segunda llamada usa caché sin re-leer."""
+    pytest.importorskip("PIL")
+    catalog = StacCatalog()
+    bbox = (-75.0, 4.0, -74.0, 5.0)
+    calls = {"n": 0}
+
+    class FakeAsset:
+        def __init__(self, href: str) -> None:
+            self.href = href
+
+    class FakeItem:
+        id = "S2A_preview"
+        properties = {"datetime": "2023-06-15T15:00:00Z"}
+        datetime = None
+        assets = {"visual": FakeAsset("visual://fake")}
+
+    class FakeSearch:
+        def items(self):
+            return [FakeItem()]
+
+    class FakeClient:
+        def search(self, **kwargs):
+            return FakeSearch()
+
+    monkeypatch.setattr(catalog, "_client", lambda: FakeClient())
+
+    def read_rgb(href: str, bbox, res_m: float, indexes=(1, 2, 3)):
+        calls["n"] += 1
+        rgb = np.zeros((3, 32, 32), dtype=np.uint8)
+        rgb[0, 8:24, 8:24] = 180
+        rgb[1, 8:24, 8:24] = 120
+        rgb[2, 8:24, 8:24] = 80
+        valid = np.zeros((32, 32), dtype=bool)
+        valid[8:24, 8:24] = True
+        return rgb, valid
+
+    monkeypatch.setattr(catalog, "_read_rgb_window", read_rgb)
+    dest = tmp_path / "previews"
+    png1, bounds1 = catalog.render_aoi_preview("S2A_preview", bbox, dest)
+    assert png1.is_file()
+    assert bounds1 == bbox
+    assert (dest / f"{png1.stem}.json").is_file()
+    assert calls["n"] == 1
+
+    png2, bounds2 = catalog.render_aoi_preview("S2A_preview", bbox, dest)
+    assert png2 == png1
+    assert bounds2 == bbox
+    assert calls["n"] == 1  # cache hit
+
+
+def test_render_aoi_preview_falls_back_to_rgb_bands(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Sin visual: apila red/green/blue vía _read_window."""
+    pytest.importorskip("PIL")
+    catalog = StacCatalog()
+    bbox = (-75.0, 4.0, -74.0, 5.0)
+
+    class FakeAsset:
+        def __init__(self, href: str) -> None:
+            self.href = href
+
+    class FakeItem:
+        id = "S2A_rgb"
+        properties = {"datetime": "2023-06-15T15:00:00Z"}
+        datetime = None
+        assets = {
+            "red": FakeAsset("red"),
+            "green": FakeAsset("green"),
+            "blue": FakeAsset("blue"),
+        }
+
+    class FakeSearch:
+        def items(self):
+            return [FakeItem()]
+
+    class FakeClient:
+        def search(self, **kwargs):
+            return FakeSearch()
+
+    monkeypatch.setattr(catalog, "_client", lambda: FakeClient())
+
+    def read_window(href: str, bbox, res_m: float):
+        data = np.full((24, 24), 2000.0, dtype=np.float32)
+        data[0:4, :] = 0  # nodata / fuera
+        return data, None, None
+
+    monkeypatch.setattr(catalog, "_read_window", read_window)
+    png, bounds = catalog.render_aoi_preview("S2A_rgb", bbox, tmp_path / "previews")
+    assert png.is_file()
+    assert bounds == bbox
+    from PIL import Image
+
+    rgba = np.asarray(Image.open(png))
+    assert rgba.shape[2] == 4
+    assert rgba[..., 3].min() == 0  # alpha 0 fuera de cobertura
+    assert rgba[..., 3].max() == 255

@@ -103,6 +103,13 @@ class CatalogSceneSchema(BaseModel):
     thumbnail: str | None = None
 
 
+class CatalogPreviewSchema(BaseModel):
+    """PNG del recorte AOI + bounds WGS84 para ImageOverlay."""
+
+    url: str
+    bounds: list[float] = Field(description="[west, south, east, north]")
+
+
 class FusionSchema(BaseModel):
     sources: list[str]
     compared_pixels: int

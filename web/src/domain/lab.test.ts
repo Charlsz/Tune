@@ -110,7 +110,7 @@ describe("estado temporal", () => {
     expect(reducer(reselected, { type: "result", result }).result).toBeNull();
   });
 
-  it("al elegir escena enfoca el mapa y activa deslizador con el par", async () => {
+  it("al elegir escena enfoca el mapa y sustituye el preview (sin deslizador)", async () => {
     const [before] = await demoProvider.scenes(
       initialState.aoi,
       initialState.dates[0],
@@ -130,8 +130,43 @@ describe("estado temporal", () => {
 
     const both = reducer(onlyBefore, { type: "scene", index: 1, scene: after });
     expect(both.mode).toBe("after");
-    expect(both.slider).toBe(true);
+    expect(both.slider).toBe(false);
     expect(both.selected[1]?.id).toBe(after.id);
+  });
+
+  it("scenePreview actualiza URL/bounds solo si la escena sigue seleccionada", async () => {
+    const [before] = await demoProvider.scenes(
+      initialState.aoi,
+      initialState.dates[0],
+    );
+    const loading = reducer(initialState, {
+      type: "scene",
+      index: 0,
+      scene: { ...before, previewStatus: "loading" },
+    });
+    const ready = reducer(loading, {
+      type: "scenePreview",
+      index: 0,
+      sceneId: before.id,
+      patch: {
+        previewStatus: "ready",
+        mapPreviewUrl: "/api/catalog/previews/x.png",
+        mapPreviewBounds: initialState.aoi,
+      },
+    });
+    expect(ready.selected[0]?.previewStatus).toBe("ready");
+    expect(ready.selected[0]?.mapPreviewUrl).toBe("/api/catalog/previews/x.png");
+    const stale = reducer(ready, {
+      type: "scenePreview",
+      index: 0,
+      sceneId: "otra",
+      patch: {
+        previewStatus: "error",
+        mapPreviewUrl: undefined,
+        mapPreviewBounds: undefined,
+      },
+    });
+    expect(stale.selected[0]?.previewStatus).toBe("ready");
   });
 
   it("restaura un análisis del historial como activo sin duplicarlo", async () => {

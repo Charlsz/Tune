@@ -11,6 +11,10 @@ export interface Scene extends CatalogScene {
   image: string;
   water: boolean[];
   demo?: boolean;
+  /** Preview georreferenciado del AOI (servidor). */
+  mapPreviewUrl?: string;
+  mapPreviewBounds?: BBox;
+  previewStatus?: "loading" | "ready" | "error";
 }
 export interface Cell {
   bbox: BBox;
@@ -120,6 +124,15 @@ export type Action =
   | { type: "area"; bbox: BBox; label: string }
   | { type: "date"; index: 0 | 1; value: string }
   | { type: "scene"; index: 0 | 1; scene: Scene }
+  | {
+      type: "scenePreview";
+      index: 0 | 1;
+      sceneId: string;
+      patch: Pick<
+        Scene,
+        "mapPreviewUrl" | "mapPreviewBounds" | "previewStatus"
+      >;
+    }
   | { type: "step"; step: Step }
   | { type: "result"; result: Result }
   /** Reabre un Result del historial de sesión como análisis activo. */
@@ -160,16 +173,22 @@ export function reducer(s: State, a: Action): State {
     case "scene": {
       const selected: [Scene | null, Scene | null] = [...s.selected];
       selected[a.index] = a.scene;
-      const both = Boolean(selected[0] && selected[1]);
       return {
         ...s,
         selected,
         result: null,
         step: "scenes",
+        // Enfocar esa escena en el mapa (sustituye el preview; sin deslizador).
         mode: a.index === 0 ? "before" : "after",
-        // Con el par completo, deslizador para ver Antes | Después en el mapa.
-        slider: both,
+        slider: false,
       };
+    }
+    case "scenePreview": {
+      const current = s.selected[a.index];
+      if (!current || current.id !== a.sceneId) return s;
+      const selected: [Scene | null, Scene | null] = [...s.selected];
+      selected[a.index] = { ...current, ...a.patch };
+      return { ...s, selected };
     }
     case "step":
       return { ...s, step: a.step };

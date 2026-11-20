@@ -7,7 +7,7 @@ import FadeIn from "../ui/FadeIn";
 import { cn } from "../ui/cn";
 
 export default function ScenesStep() {
-  const { state, catalog, dispatch } = useMapApp();
+  const { state, catalog, dispatch, selectScene } = useMapApp();
   const emptyBoth = !catalog[0].length && !catalog[1].length;
 
   return (
@@ -20,8 +20,9 @@ export default function ScenesStep() {
         <ArrowLeft size={14} /> Semanas
       </button>
       <p className="mb-4 mt-2 text-[12px] leading-relaxed text-fg-muted">
-        Escenas disponibles en cada semana, ordenadas por poca nubosidad. El mapa
-        muestra la elegida; con Antes y Después, el deslizador compara las dos.
+        Escenas por poca nubosidad. Al elegir una, el mapa pide un preview del
+        AOI (puede tardar unos segundos la primera vez). Fuera del cuadrado no
+        hay satélite; huecos de cobertura quedan transparentes.
       </p>
       {emptyBoth && (
         <div className={`${emptyBox} mb-4 flex items-start gap-3`}>
@@ -64,13 +65,7 @@ export default function ScenesStep() {
                   )}
                   aria-pressed={chosen}
                   key={scene.id}
-                  onClick={() =>
-                    dispatch({
-                      type: "scene",
-                      index: i as 0 | 1,
-                      scene,
-                    })
-                  }
+                  onClick={() => selectScene(i as 0 | 1, scene)}
                 >
                   <img
                     src={scene.image}

@@ -15,6 +15,11 @@ export interface CatalogScene {
   thumbnail: string | null;
 }
 
+export interface CatalogPreview {
+  url: string;
+  bounds: number[];
+}
+
 export interface CatalogLimits {
   max_side_km: number;
   tasks: TaskId[];
