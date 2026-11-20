@@ -160,7 +160,16 @@ export function reducer(s: State, a: Action): State {
     case "scene": {
       const selected: [Scene | null, Scene | null] = [...s.selected];
       selected[a.index] = a.scene;
-      return { ...s, selected, result: null, step: "scenes", slider: false };
+      const both = Boolean(selected[0] && selected[1]);
+      return {
+        ...s,
+        selected,
+        result: null,
+        step: "scenes",
+        mode: a.index === 0 ? "before" : "after",
+        // Con el par completo, deslizador para ver Antes | Después en el mapa.
+        slider: both,
+      };
     }
     case "step":
       return { ...s, step: a.step };

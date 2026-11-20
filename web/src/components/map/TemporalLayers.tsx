@@ -105,18 +105,32 @@ export function TemporalLayers({
   const before = state.selected[0],
     after = state.selected[1];
   const overlays = state.result?.overlays;
+  const useApiOverlays = Boolean(overlays);
   const swipeAoi: BBox | null =
-    overlays?.bounds ?? state.result?.aoi ?? null;
+    overlays?.bounds ?? state.result?.aoi ?? state.aoi ?? null;
   const overlayBounds = overlays
     ? bboxToLatLngBounds(overlays.bounds)
     : null;
-  const showBefore = state.slider || state.mode === "before";
-  const showAfterBase =
-    state.slider ||
-    state.mode === "after" ||
-    state.mode === "change" ||
-    state.mode === "agree";
-  const useApiOverlays = Boolean(overlays);
+  // Con resultado: modos + deslizador. Sin resultado: escena elegida / par con swipe.
+  const showBefore = useApiOverlays
+    ? state.slider || state.mode === "before"
+    : Boolean(
+        before &&
+          (state.slider ||
+            state.mode === "before" ||
+            !after),
+      );
+  const showAfterBase = useApiOverlays
+    ? state.slider ||
+      state.mode === "after" ||
+      state.mode === "change" ||
+      state.mode === "agree"
+    : Boolean(
+        after &&
+          (state.slider ||
+            state.mode === "after" ||
+            !before),
+      );
   const showChange =
     state.result &&
     state.mode === "change" &&

@@ -49,7 +49,22 @@ function Controls({
   }, [map, state.variant]);
   useEffect(() => {
     map.invalidateSize({ pan: false });
-    map.fitBounds(bboxToLatLngBounds(state.aoi), {
+    const before = state.selected[0];
+    const after = state.selected[1];
+    // Sin análisis: encuadrar la escena enfocada; con ambas + slider, el AOI.
+    let focus = state.aoi;
+    if (!state.result) {
+      if (state.slider && before && after) {
+        focus = state.aoi;
+      } else if (state.mode === "before" && before?.bbox) {
+        focus = before.bbox as BBox;
+      } else if (after?.bbox) {
+        focus = after.bbox as BBox;
+      } else if (before?.bbox) {
+        focus = before.bbox as BBox;
+      }
+    }
+    map.fitBounds(bboxToLatLngBounds(focus), {
       paddingTopLeft:
         state.variant === "floating" && map.getContainer().clientWidth > 640
           ? [430, 100]
@@ -57,7 +72,15 @@ function Controls({
       paddingBottomRight: [70, 120],
       animate: false,
     });
-  }, [map, state.aoi, state.variant]);
+  }, [
+    map,
+    state.aoi,
+    state.variant,
+    state.result,
+    state.selected,
+    state.mode,
+    state.slider,
+  ]);
   useEffect(() => {
     setDraft(null);
   }, [state.aoi]);

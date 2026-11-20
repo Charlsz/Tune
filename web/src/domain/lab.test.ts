@@ -110,6 +110,30 @@ describe("estado temporal", () => {
     expect(reducer(reselected, { type: "result", result }).result).toBeNull();
   });
 
+  it("al elegir escena enfoca el mapa y activa deslizador con el par", async () => {
+    const [before] = await demoProvider.scenes(
+      initialState.aoi,
+      initialState.dates[0],
+    );
+    const [after] = await demoProvider.scenes(
+      initialState.aoi,
+      initialState.dates[1],
+    );
+    const onlyBefore = reducer(initialState, {
+      type: "scene",
+      index: 0,
+      scene: before,
+    });
+    expect(onlyBefore.mode).toBe("before");
+    expect(onlyBefore.slider).toBe(false);
+    expect(onlyBefore.selected[0]?.id).toBe(before.id);
+
+    const both = reducer(onlyBefore, { type: "scene", index: 1, scene: after });
+    expect(both.mode).toBe("after");
+    expect(both.slider).toBe(true);
+    expect(both.selected[1]?.id).toBe(after.id);
+  });
+
   it("restaura un análisis del historial como activo sin duplicarlo", async () => {
     const [before] = await demoProvider.scenes(
       initialState.aoi,

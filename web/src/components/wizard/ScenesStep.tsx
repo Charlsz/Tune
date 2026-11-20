@@ -20,8 +20,8 @@ export default function ScenesStep() {
         <ArrowLeft size={14} /> Semanas
       </button>
       <p className="mb-4 mt-2 text-[12px] leading-relaxed text-fg-muted">
-        Escenas disponibles en cada semana, ordenadas por poca nubosidad. Elige
-        una Antes y una Después para el análisis.
+        Escenas disponibles en cada semana, ordenadas por poca nubosidad. El mapa
+        muestra la elegida; con Antes y Después, el deslizador compara las dos.
       </p>
       {emptyBoth && (
         <div className={`${emptyBox} mb-4 flex items-start gap-3`}>

@@ -31,8 +31,13 @@ export default function SwipeControl() {
   drawingRef.current = drawing;
 
   const aoi: BBox | null =
-    state.result?.overlays?.bounds ?? state.result?.aoi ?? null;
-  const active = Boolean(state.result && state.slider && aoi);
+    state.result?.overlays?.bounds ??
+    state.result?.aoi ??
+    (state.selected[0] && state.selected[1] ? state.aoi : null);
+  // Con o sin análisis: deslizador si hay par Antes/Después.
+  const active = Boolean(
+    state.slider && aoi && state.selected[0] && state.selected[1],
+  );
 
   useEffect(() => {
     if (!active || !aoi) {
