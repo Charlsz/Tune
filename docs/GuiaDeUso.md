@@ -33,7 +33,7 @@ Flujo del panel: **Área → Fechas → Imágenes → Comparación → Resultado
 
 1. Elige el lugar (búsqueda, coordenadas o dibujo en el mapa).
 2. Define el **inicio de semana** Antes (línea base) y Después (pico): cada ventana son **7 días**. Las semanas no deben solaparse.
-3. Consulta Sentinel-2 en cada semana y elige una escena disponible (prioridad: poca nubosidad). Al elegir, el mapa muestra un **preview RGB del AOI** (puede tardar unos segundos la primera vez; queda en caché). Ese preview no es el análisis.
+3. Consulta Sentinel-2 en cada semana y elige una escena disponible (lista en orden de fecha, del inicio al fin de la semana). Al elegir, el mapa muestra un **preview RGB del AOI** (puede tardar unos segundos la primera vez; queda en caché). Ese preview no es el análisis.
 4. **Analizar**: Tune descarga 6 bandas + SCL y corre Prithvi en ambas; la segunda usa la primera como `history_baseline` cuando aplica.
 5. En el resultado, modos del mapa:
 

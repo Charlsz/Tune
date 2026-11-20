@@ -28,7 +28,7 @@ const STEPS = [
     n: "3",
     title: "Escenas",
     tab: "Mapa",
-    body: "Consulta Sentinel-2 en cada semana y elige una escena (ordenadas por poca nubosidad). El mapa pide un preview del AOI (unos segundos la primera vez); no es el análisis. Si la semana está vacía, mueve el inicio.",
+    body: "Consulta Sentinel-2 en cada semana y elige una escena (ordenadas por fecha, del inicio al fin de la semana). El mapa pide un preview del AOI (unos segundos la primera vez); no es el análisis. Si la semana está vacía, mueve el inicio.",
   },
   {
     n: "4",

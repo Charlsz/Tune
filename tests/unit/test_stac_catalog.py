@@ -65,7 +65,8 @@ def test_search_filters_and_orders(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(catalog, "_client", lambda: FakeClient())
     items = catalog.search(4.6, -74.1, "2024-01-01", "2024-01-10", max_cloud=40)
-    assert [i.id for i in items] == ["c", "a"]
+    # Filtra nubes ≥40 (b) y ordena por fecha ascendente dentro de la ventana.
+    assert [i.id for i in items] == ["a", "c"]
 
 
 def test_search_rejects_oversized_bbox() -> None:

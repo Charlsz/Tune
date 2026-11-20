@@ -20,14 +20,11 @@ async function ensureLimits() {
   }
 }
 
-/** Mejor imagen primero: poca nubosidad, luego más reciente. */
-export function sortScenesByCloud(scenes: Scene[]): Scene[] {
-  return [...scenes].sort((a, b) => {
-    const ca = a.cloud_cover ?? 100;
-    const cb = b.cloud_cover ?? 100;
-    if (ca !== cb) return ca - cb;
-    return (b.datetime || "").localeCompare(a.datetime || "");
-  });
+/** Orden de la semana: más antigua → más reciente. */
+export function sortScenesByDate(scenes: Scene[]): Scene[] {
+  return [...scenes].sort((a, b) =>
+    (a.datetime || "").localeCompare(b.datetime || ""),
+  );
 }
 
 function mapPhase(
@@ -75,7 +72,7 @@ export const tuneProvider: DataProvider = {
       maxCloud: q.maxCloud,
       sideKm: q.sideKm,
     });
-    return sortScenesByCloud(scenes.map(catalogSceneToUi));
+    return sortScenesByDate(scenes.map(catalogSceneToUi));
   },
 
   async analyze(aoi, before, after, onProgress) {

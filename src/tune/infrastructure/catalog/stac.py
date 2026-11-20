@@ -85,7 +85,8 @@ class StacCatalog:
                     thumbnail=thumb,
                 )
             )
-        items.sort(key=lambda s: s.datetime, reverse=True)
+        # Cronológico: inicio → fin de la ventana pedida.
+        items.sort(key=lambda s: s.datetime)
         return items
 
     def fetch_six_bands(

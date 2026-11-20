@@ -20,9 +20,10 @@ export default function ScenesStep() {
         <ArrowLeft size={14} /> Semanas
       </button>
       <p className="mb-4 mt-2 text-[12px] leading-relaxed text-fg-muted">
-        Escenas por poca nubosidad. Al elegir una, el mapa pide un preview del
-        AOI (puede tardar unos segundos la primera vez). Fuera del cuadrado no
-        hay satélite; huecos de cobertura quedan transparentes.
+        Escenas de la semana en orden de fecha (inicio → fin). Al elegir una,
+        el mapa pide un preview del AOI (puede tardar unos segundos la primera
+        vez). Fuera del cuadrado no hay satélite; huecos de cobertura quedan
+        transparentes.
       </p>
       {emptyBoth && (
         <div className={`${emptyBox} mb-4 flex items-start gap-3`}>
