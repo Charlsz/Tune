@@ -6,7 +6,6 @@ import { formatDate } from "../../domain/lab";
 import { btnPrimary, btnText } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 import AnalyzeRunning from "./AnalyzeRunning";
-import MaxCloudField from "./MaxCloudField";
 
 export default function AnalyzeStep() {
   const { state, analyze, dispatch } = useMapApp();
@@ -33,7 +32,6 @@ export default function AnalyzeStep() {
             Tune descargará las bandas Sentinel-2 y ejecutará Prithvi en ambas
             fechas para detectar agua nueva.
           </p>
-          <MaxCloudField />
           <button
             type="button"
             className={btnPrimary}
