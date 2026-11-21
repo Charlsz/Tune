@@ -75,6 +75,17 @@ export function bboxDimensionsKm(bbox: BBox): {
   return { heightKm, widthKm };
 }
 
+/** Lado más largo del rectángulo, en km. El catálogo limita este lado, no los km². */
+export function aoiLongSideKm(bbox: BBox): number {
+  const { heightKm, widthKm } = bboxDimensionsKm(bbox);
+  return Math.max(Math.abs(heightKm), Math.abs(widthKm));
+}
+
+/** Superficie del cuadrado de `sideKm` de lado. */
+export function squareKm2(sideKm: number): number {
+  return sideKm * sideKm;
+}
+
 /** Superficie del rectángulo en km² (no el agua detectada). */
 export function aoiAreaKm2(bbox: BBox): number {
   const { heightKm, widthKm } = bboxDimensionsKm(bbox);

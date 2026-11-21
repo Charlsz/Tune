@@ -59,7 +59,7 @@ export const tuneProvider: DataProvider = {
     await ensureLimits();
     if (!aoiFitsCatalogLimits(aoi, maxSideKm)) {
       throw new Error(
-        `El área supera ${maxSideKm} km. Reduce el recorte e inténtalo de nuevo.`,
+        `El lado del recorte supera ${maxSideKm} km. Reduce el área e inténtalo de nuevo.`,
       );
     }
     const q = catalogQueryFromAoi(aoi, date, maxCloud, maxSideKm);
@@ -79,7 +79,7 @@ export const tuneProvider: DataProvider = {
     await ensureLimits();
     if (!aoiFitsCatalogLimits(aoi, maxSideKm)) {
       throw new Error(
-        `El área supera ${maxSideKm} km. Reduce el recorte e inténtalo de nuevo.`,
+        `El lado del recorte supera ${maxSideKm} km. Reduce el área e inténtalo de nuevo.`,
       );
     }
     const q = catalogQueryFromAoi(

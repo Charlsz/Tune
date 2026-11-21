@@ -27,6 +27,7 @@ export default function MapChrome() {
     fullscreen,
     toggleFullscreen,
     patch,
+    maxSideKm,
   } = useMapApp();
   const navigate = useNavigate();
 
@@ -49,6 +50,7 @@ export default function MapChrome() {
         onArea={setArea}
         onError={setError}
         waterCells={provider.maskCells}
+        maxSideKm={maxSideKm}
       />
       <MapStatusBanner />
       {viewingActive ? (

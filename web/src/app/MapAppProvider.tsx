@@ -52,6 +52,8 @@ export type MapAppContextValue = {
   /** Tope de nubes del recorte (0–90). Lo usan la búsqueda y el análisis. */
   maxCloud: number;
   setMaxCloud: (n: number) => void;
+  /** Lado máximo del catálogo, en km. */
+  maxSideKm: number;
   patch: (p: ViewPatch) => void;
   setArea: (bbox: BBox, label: string) => void;
   findScenes: () => Promise<void>;
@@ -93,10 +95,12 @@ export function MapAppProvider({
   const [analyzeProgress, setAnalyzeProgress] =
     useState<AnalyzeProgressEvent | null>(null);
   const [maxCloud, setMaxCloudState] = useState(40);
+  const [maxSideKm, setMaxSideKm] = useState(30);
   const request = useRef(0);
   const analysis = useRef(0);
   const previewReq = useRef(0);
-  const maxSideKmRef = useRef(30);
+  const maxSideKmRef = useRef(maxSideKm);
+  maxSideKmRef.current = maxSideKm;
 
   const patch = useCallback((p: ViewPatch) => {
     dispatch({ type: "view", patch: p });
@@ -329,7 +333,7 @@ export function MapAppProvider({
       .catalogLimits()
       .then((limits: CatalogLimits) => {
         if (Number.isFinite(limits.max_side_km) && limits.max_side_km > 0) {
-          maxSideKmRef.current = limits.max_side_km;
+          setMaxSideKm(limits.max_side_km);
         }
       })
       .catch(() => {
@@ -373,6 +377,7 @@ export function MapAppProvider({
       analyzeProgress,
       maxCloud,
       setMaxCloud,
+      maxSideKm,
       patch,
       setArea,
       findScenes,
@@ -398,6 +403,7 @@ export function MapAppProvider({
       analyzeProgress,
       maxCloud,
       setMaxCloud,
+      maxSideKm,
       patch,
       setArea,
       findScenes,

@@ -82,11 +82,13 @@ function Controls({
   drawing,
   onArea,
   onError,
+  maxSideKm,
 }: {
   state: State;
   drawing: boolean;
   onArea: (b: BBox, l: string) => void;
   onError: (s: string) => void;
+  maxSideKm: number;
 }) {
   const map = useMap();
   const start = useRef<LatLng | null>(null);
@@ -143,7 +145,7 @@ function Controls({
       const from = start.current;
       start.current = null;
       const end = map.mouseEventToLatLng(ev);
-      const result = resolveDrawMouseUp(from, end);
+      const result = resolveDrawMouseUp(from, end, maxSideKm);
       if (result.kind === "commit") {
         setDraft(null);
         onAreaRef.current(result.bbox, result.label);
@@ -178,7 +180,7 @@ function Controls({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [drawing, map]);
+  }, [drawing, map, maxSideKm]);
 
   return draft ? (
     <Rectangle
@@ -200,12 +202,14 @@ export default function MapView({
   onArea,
   onError,
   waterCells,
+  maxSideKm = 30,
 }: {
   state: State;
   drawing: boolean;
   onArea: (b: BBox, l: string) => void;
   onError: (s: string) => void;
   waterCells: (s: Scene, a: BBox) => Cell[];
+  maxSideKm?: number;
 }) {
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
   const tileUrl = token
@@ -248,6 +252,7 @@ export default function MapView({
         drawing={drawing}
         onArea={onArea}
         onError={onError}
+        maxSideKm={maxSideKm}
       />
       <ZoomControl position="bottomright" />
       <ScaleControl position="bottomright" imperial={false} />
