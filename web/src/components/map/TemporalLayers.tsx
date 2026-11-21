@@ -26,7 +26,13 @@ export function Clip({
       }
     };
 
+    const zooming = () =>
+      Boolean((map as { _animatingZoom?: boolean })._animatingZoom);
+
     const update = () => {
+      // A mitad del zoom la foto ya se mueve y estos píxeles son del nivel
+      // destino: el recorte viejo la deja chiquita ~0,25 s. Se mide al terminar.
+      if (zooming()) return;
       if (!active || !aoi) {
         clear();
         return;
@@ -57,10 +63,17 @@ export function Clip({
       }
     };
 
+    const onMove = () => {
+      if (!zooming()) update();
+    };
     update();
-    map.on("move zoom resize moveend zoomend", update);
+    map.on("move", onMove);
+    map.on("moveend zoomend resize", update);
+    map.on("zoomanim", clear);
     return () => {
-      map.off("move zoom resize moveend zoomend", update);
+      map.off("move", onMove);
+      map.off("moveend zoomend resize", update);
+      map.off("zoomanim", clear);
       clear();
     };
   }, [map, split, active, aoi, mode]);

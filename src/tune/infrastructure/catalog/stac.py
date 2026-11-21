@@ -194,9 +194,7 @@ class StacCatalog:
         """
         dest_dir = Path(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)
-        key = _preview_cache_key(
-            item_id, bbox, res_m=res_m, max_edge=max_edge_px
-        )
+        key = _preview_cache_key(item_id, bbox, res_m=res_m, max_edge=max_edge_px)
         png_path = dest_dir / f"{key}.png"
         meta_path = dest_dir / f"{key}.json"
         if png_path.is_file() and meta_path.is_file():
