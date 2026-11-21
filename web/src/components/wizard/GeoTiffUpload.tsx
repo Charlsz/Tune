@@ -29,7 +29,7 @@ function dateLabel(report: InspectReport | undefined): string | null {
   return formatDate(day);
 }
 
-export default function GeoTiffUpload({ onBack }: { onBack: () => void }) {
+export default function GeoTiffUpload({ onBack }: { onBack?: () => void }) {
   const { analyzeUploads, analyzeProgress, error, setError } = useMapApp();
   const navigate = useNavigate();
   const [antes, setAntes] = useState<Slot | null>(null);
@@ -170,9 +170,11 @@ export default function GeoTiffUpload({ onBack }: { onBack: () => void }) {
         Analizar
         <ArrowRight size={17} />
       </button>
-      <button type="button" className={btnText} onClick={onBack}>
-        Elegir en el mapa
-      </button>
+      {onBack ? (
+        <button type="button" className={btnText} onClick={onBack}>
+          Elegir en el mapa
+        </button>
+      ) : null}
     </div>
   );
 }

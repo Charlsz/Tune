@@ -1,9 +1,10 @@
-/** Rutas de tabs MapApp + docs. */
+/** Rutas de tabs MapApp + docs + GeoTIFF. */
 
 export const paths = {
   map: "/mapa",
   results: "/resultados",
   history: "/historial",
+  geotiff: "/geotiff",
   docs: "/docs",
 } as const;
 

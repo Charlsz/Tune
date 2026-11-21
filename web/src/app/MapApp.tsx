@@ -7,6 +7,7 @@ import ResultsPanel from "../components/results/ResultsPanel";
 import SessionHistory from "../components/history/SessionHistory";
 import WizardPanel from "../components/wizard/WizardPanel";
 import DocsPage from "../pages/DocsPage";
+import GeoTiffPage from "../pages/GeoTiffPage";
 import {
   floatingChromeLeft,
   floatingColumnWidth,
@@ -31,7 +32,10 @@ function MapAppShell() {
   }
 
   const isDocs = pathname === paths.docs || pathname.startsWith(`${paths.docs}/`);
-  if (!isDocs && !MAP_TABS.has(pathname)) {
+  const isGeotiff =
+    pathname === paths.geotiff || pathname.startsWith(`${paths.geotiff}/`);
+  const isStandalone = isDocs || isGeotiff;
+  if (!isStandalone && !MAP_TABS.has(pathname)) {
     return <Navigate to={paths.map} replace />;
   }
 
@@ -39,13 +43,17 @@ function MapAppShell() {
     <div
       className={cn(
         "flex min-h-dvh flex-col font-sans text-ink",
-        isDocs ? "bg-paper" : floating ? "tune-floating" : "tune-sidebar",
+        isStandalone ? "bg-paper" : floating ? "tune-floating" : "tune-sidebar",
       )}
     >
       <AppHeader />
       {isDocs ? (
         <main className="flex-1">
           <DocsPage />
+        </main>
+      ) : isGeotiff ? (
+        <main className="flex-1 overflow-auto">
+          <GeoTiffPage />
         </main>
       ) : (
         <main

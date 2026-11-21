@@ -1,0 +1,72 @@
+name: Deploy HF Space
+
+# Publica cgalvis21/tune cuando main cambia (o a mano).
+# Requiere el secret HF_TOKEN (write) en el repositorio.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "web/**"
+      - "deploy/hf-space/**"
+      - "scripts/deploy_hf_space.py"
+      - "scripts/smoke_hf_space.py"
+      - "pyproject.toml"
+      - "examples/**"
+      - "artifacts/analyses/**"
+      - ".github/workflows/deploy-hf-space.yml"
+  workflow_dispatch:
+    inputs:
+      skip_wait:
+        description: "No esperar /health ni smoke tras el upload"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-hf-space
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deploy deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "huggingface_hub>=0.23"
+
+      - name: Build web/dist
+        working-directory: web
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_REPO: cgalvis21/tune
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "Falta el secret HF_TOKEN (write) en Settings → Secrets."
+            exit 1
+          fi
+          EXTRA=()
+          EXTRA+=(--skip-prefetch)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.skip_wait }}" = "true" ]; then
+            EXTRA+=(--skip-wait)
+          fi
+          python scripts/deploy_hf_space.py --repo-id "$HF_SPACE_REPO" "${EXTRA[@]}"
