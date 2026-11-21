@@ -82,8 +82,19 @@ def _stage(staging: Path, *, prefetch: bool) -> None:
     dist = _build_web_dist()
     shutil.copytree(dist, staging / "web" / "dist")
 
-    shutil.copytree(ROOT / "artifacts" / "analyses", staging / "artifacts" / "analyses")
-    shutil.copytree(ROOT / "examples", staging / "examples")
+    # artifacts/ está en .gitignore; en CI no existe. El Space arranca vacío.
+    analyses_src = ROOT / "artifacts" / "analyses"
+    analyses_dst = staging / "artifacts" / "analyses"
+    if analyses_src.is_dir():
+        shutil.copytree(analyses_src, analyses_dst)
+    else:
+        analyses_dst.mkdir(parents=True)
+
+    examples_src = ROOT / "examples"
+    if examples_src.is_dir():
+        shutil.copytree(examples_src, staging / "examples")
+    else:
+        (staging / "examples").mkdir(parents=True)
 
     if prefetch:
         _prefetch_model(staging)

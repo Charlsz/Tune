@@ -1,6 +1,5 @@
 <div align="center">
-  <img src="web/public/icons/tune-lightmode.svg#gh-light-mode-only" alt="Tune Logo" width="40%">
-  <img src="web/public/icons/tune-darkmode.svg#gh-dark-mode-only" alt="Tune Logo" width="40%">
+  <img src="web/public/icons/tune_icon.png" alt="Tune Logo" width="120">
 </div>
 
 # Tune
