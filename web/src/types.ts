@@ -69,6 +69,19 @@ export interface Bounds {
   north: number;
 }
 
+export interface InspectReport {
+  filename: string;
+  size_bytes: number;
+  bands: number;
+  width: number;
+  height: number;
+  acquired_at: string | null;
+  crs: string | null;
+  bounds: Bounds | null;
+  accepted: boolean;
+  detail: string | null;
+}
+
 export interface Analysis {
   id: string;
   task: TaskId;

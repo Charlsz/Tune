@@ -65,6 +65,66 @@ def test_analyze_rejects_non_tif(client):
     assert r.status_code == 400
 
 
+def _write_tif(path: Path, *, bands: int, name_box: tuple[float, float, float, float]) -> None:
+    rasterio = pytest.importorskip("rasterio")
+    np = pytest.importorskip("numpy")
+    from rasterio.transform import from_bounds
+
+    west, south, east, north = name_box
+    data = np.zeros((bands, 4, 4), dtype="uint16")
+    transform = from_bounds(west, south, east, north, 4, 4)
+    with rasterio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=4,
+        width=4,
+        count=bands,
+        dtype="uint16",
+        crs="EPSG:4326",
+        transform=transform,
+    ) as dst:
+        dst.write(data)
+
+
+def test_inspect_reads_bands_date_and_bounds(client, tmp_path: Path):
+    path = tmp_path / "S2_20220518_scene.tif"
+    _write_tif(path, bands=6, name_box=(-74.7, 8.8, -74.6, 8.9))
+    r = client.post(
+        "/api/analyze/inspect",
+        data={"task": "flood"},
+        files={"file": (path.name, path.read_bytes(), "image/tiff")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["accepted"] is True
+    assert body["bands"] == 6
+    assert body["acquired_at"] == "2022-05-18"
+    assert body["bounds"]["west"] == pytest.approx(-74.7, abs=1e-4)
+    assert body["detail"] is None
+
+
+def test_inspect_rejects_png_and_flags_short_band_count(client, tmp_path: Path):
+    png = client.post(
+        "/api/analyze/inspect",
+        data={"task": "flood"},
+        files={"file": ("foto.png", b"x", "image/png")},
+    )
+    assert png.status_code == 400
+
+    path = tmp_path / "rgb.tif"
+    _write_tif(path, bands=3, name_box=(-74.7, 8.8, -74.6, 8.9))
+    r = client.post(
+        "/api/analyze/inspect",
+        data={"task": "flood"},
+        files={"file": (path.name, path.read_bytes(), "image/tiff")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["accepted"] is False
+    assert "3 bandas" in body["detail"]
+
+
 def test_analyze_rejects_unknown_task(client):
     r = client.post(
         "/api/analyze", data={"task": "volcano"}, files={"file": ("a.tif", b"x", "image/tiff")}

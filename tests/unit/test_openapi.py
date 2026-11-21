@@ -6,6 +6,7 @@ ROUTES = (
     ("/api/tasks", "get"),
     ("/api/examples", "get"),
     ("/api/examples/{example_id}/analyze", "post"),
+    ("/api/analyze/inspect", "post"),
     ("/api/analyze", "post"),
     ("/api/geocode", "get"),
     ("/api/catalog/search", "get"),

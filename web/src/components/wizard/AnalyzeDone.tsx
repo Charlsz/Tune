@@ -25,12 +25,20 @@ export default function AnalyzeDone() {
     <FadeIn>
       <p className={`${panelLead} mb-3 font-medium text-ink`}>{caption}</p>
       <div className="mb-5 border-y border-line py-3 text-xs">
-        <p className="m-0 py-1">
-          Antes — {formatDate(result.before.datetime)}
-        </p>
-        <p className="m-0 py-1">
-          Después — {formatDate(result.after.datetime)}
-        </p>
+        {result.solo ? (
+          <p className="m-0 py-1">
+            Escena — {formatDate(result.after.datetime)}
+          </p>
+        ) : (
+          <>
+            <p className="m-0 py-1">
+              Antes — {formatDate(result.before.datetime)}
+            </p>
+            <p className="m-0 py-1">
+              Después — {formatDate(result.after.datetime)}
+            </p>
+          </>
+        )}
         <p className={`${panelMeta} py-1`}>
           {result.areaKm2.toLocaleString("es", { maximumFractionDigits: 2 })}{" "}
           km² agua nueva

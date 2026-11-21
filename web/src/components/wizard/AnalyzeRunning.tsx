@@ -5,7 +5,7 @@ import { cn } from "../ui/cn";
 
 const STEPS = [
   { id: "prepare" as const, label: "Preparar" },
-  { id: "fetch" as const, label: "Descargar bandas" },
+  { id: "fetch" as const, label: "Recibir imagen" },
   { id: "infer" as const, label: "Ejecutar modelo" },
 ];
 
@@ -32,6 +32,7 @@ export default function AnalyzeRunning() {
 
   const scene = analyzeProgress?.scene ?? "before";
   const phase = analyzeProgress?.phase ?? "prepare";
+  const total = analyzeProgress?.of ?? 2;
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250);
@@ -76,13 +77,13 @@ export default function AnalyzeRunning() {
     budget,
   );
   // Segunda escena: el presupuesto ya es por escena; si vamos por la primera, suma otra.
-  if (scene === "before") {
+  if (scene === "before" && total === 2) {
     remain += firstRun.current ? 300 : 120;
   }
 
   const activeIdx = STEPS.findIndex((s) => s.id === phase);
-  const sceneLabel = scene === "before" ? "Antes" : "Después";
-  const sceneIndex = scene === "before" ? 1 : 2;
+  const sceneLabel = total === 1 ? "Archivo" : scene === "before" ? "Antes" : "Después";
+  const sceneIndex = total === 1 ? 1 : scene === "before" ? 1 : 2;
   const fetchPct =
     phase === "fetch" && analyzeProgress?.total
       ? Math.min(
@@ -105,7 +106,7 @@ export default function AnalyzeRunning() {
         <div className="min-w-0">
           <p className="m-0 text-[13px] font-medium text-ink">Analizando…</p>
           <p className="m-0 mt-1 text-[11px] text-fg-muted">
-            Escena {sceneIndex}/2 · {sceneLabel}
+            Escena {sceneIndex}/{total} · {sceneLabel}
             {analyzeProgress?.detail ? ` — ${analyzeProgress.detail}` : ""}
           </p>
         </div>

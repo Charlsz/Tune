@@ -5,7 +5,7 @@ Informe final, noviembre de 2026. Repositorio: https://github.com/Charlsz/Tune.
 
 ## Resumen / Abstract
 
-En este proyecto construimos Tune, una aplicación que distingue el agua permanente de la inundación. El operador busca un nombre, pega coordenadas, marca un rectángulo o sube un GeoTIFF de seis bandas. Sobre esa escena, o sobre las escenas Sentinel-2 de dos fechas, el checkpoint `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` clasifica agua. La inundación es el agua nueva frente a la escena anterior del mismo lugar o, si no hay historia, frente a Global Surface Water del Joint Research Centre (JRC). Cuando Copernicus Global Flood Monitoring (GFM) cubre esa zona y fecha, el proyecto calcula el acuerdo (Intersection over Union, IoU).
+Tune distingue el agua permanente de la inundación. El operador busca un nombre, pega coordenadas, marca un rectángulo o sube un GeoTIFF de seis bandas. Sobre esa escena, o sobre las escenas Sentinel-2 de dos fechas, el checkpoint `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` clasifica agua. La inundación es el agua nueva frente a la escena anterior del mismo lugar o, si no hay historia, frente a Global Surface Water del Joint Research Centre (JRC). Cuando Copernicus Global Flood Monitoring (GFM) cubre esa zona y fecha, Tune calcula el acuerdo (Intersection over Union, IoU).
 
 La aplicación es cliente-servidor (FastAPI y MapApp en React/Leaflet) y se despliega con Docker Compose. En Sindh (Pakistán), entre mayo y septiembre de 2022, el agua pasó de 10,34 km² a 60,22 km² y la inundación fue 49,56 km². En el Bajo Magdalena la inundación fue 38,25 km² y en el Mississippi, 10,26 km² sobre un río que ya ocupaba 65,85 km². El acuerdo con GFM fue 0,20 en el pico de Sindh y 0,32 en el pico del Mississippi.
 
@@ -13,7 +13,7 @@ La aplicación es cliente-servidor (FastAPI y MapApp en React/Leaflet) y se desp
 
 ## 1. Introducción
 
-Los foundation models geoespaciales desplazaron parte del trabajo práctico desde el preentrenamiento hacia el uso de pesos ya especializados. Prithvi-EO 2.0 y el checkpoint Sen1Floods11 de IBM–National Aeronautics and Space Administration (NASA) detectan agua sobre escenas ópticas. El vacío que este proyecto aborda es una aplicación que, a partir de un lugar y dos fechas o de un GeoTIFF ya preparado, respete el procedimiento oficial de inferencia y deje un resultado interpretado y recuperable, sin presentar el cauce permanente como inundación.
+Los foundation models geoespaciales desplazaron parte del trabajo práctico desde el preentrenamiento hacia el uso de pesos ya especializados. Prithvi-EO 2.0 y el checkpoint Sen1Floods11 de IBM–National Aeronautics and Space Administration (NASA) detectan agua sobre escenas ópticas. Tune cubre ese vacío: a partir de un lugar y dos fechas, o de un GeoTIFF ya preparado, respeta el procedimiento oficial de inferencia y deja un resultado interpretado y recuperable, sin presentar el cauce permanente como inundación.
 
 El planteamiento inicial era un laboratorio de Machine Learning Operations (MLOps) de fine-tuning. La orientación del curso y la viabilidad técnica nos llevaron a fijar tarea, dataset de procedencia, modelo y criterios verificables en una aplicación de análisis. Tune materializa esa orientación: inundación como cambio hídrico, entrada por lugar, coordenada, rectángulo o GeoTIFF, y acuerdo con GFM (Global Flood Monitoring) cuando hay dato.
 
@@ -21,7 +21,7 @@ El planteamiento inicial era un laboratorio de Machine Learning Operations (MLOp
 
 ### 2.1 Raster, bandas Prithvi y segmentación
 
-Una imagen operativa es un raster georreferenciado. Prithvi-EO 2.0 espera seis bandas (azul, verde, rojo, Near-Infrared (NIR) estrecho, Short-Wave Infrared 1 (SWIR1), Short-Wave Infrared 2 (SWIR2)). En este proyecto esas bandas llegan de dos maneras: la escena Sentinel-2 del lugar elegido, o un GeoTIFF que el operador sube ya con esas seis bandas. Un archivo que no es GeoTIFF, o que no trae las bandas, no se analiza. La segmentación asigna clase por píxel; el área en km² se obtiene del tamaño de píxel por el conteo positivo, excluyendo nodata.
+Una imagen operativa es un raster georreferenciado. Prithvi-EO 2.0 espera seis bandas (azul, verde, rojo, Near-Infrared (NIR) estrecho, Short-Wave Infrared 1 (SWIR1), Short-Wave Infrared 2 (SWIR2)). Esas bandas llegan de dos maneras: la escena Sentinel-2 del lugar elegido, o un GeoTIFF que el operador sube ya con esas seis bandas. Un archivo que no es GeoTIFF, o que no trae las bandas, no se analiza. La segmentación asigna clase por píxel; el área en km² se obtiene del tamaño de píxel por el conteo positivo, excluyendo nodata.
 
 ### 2.2 Foundation model y checkpoint
 
@@ -59,7 +59,7 @@ Prithvi-EO 2.0 (Szwarcman et al., 2024) y Sen1Floods11 (Bonafilia et al., 2020) 
 
 ## 6. Solución propuesta
 
-Tune es la aplicación de análisis satelital de este proyecto. Hay dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, sube un GeoTIFF de seis bandas y el mismo análisis corre sobre ese archivo. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
+Tune analiza la inundación con dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, sube un GeoTIFF de seis bandas y el mismo análisis corre sobre ese archivo. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
 
 ## 7. Metodología de desarrollo
 
@@ -257,7 +257,7 @@ Python 3.11, FastAPI, TerraTorch/PyTorch, rasterio, pystac-client; TypeScript, R
 
 ### 11.2 Componentes
 
-Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker sobre CPU. La interfaz anterior no está montada (`web/src/legacy/README.md`). El laboratorio de entrenamiento quedó en `lab/`, fuera del núcleo del proyecto.
+Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker sobre CPU. La interfaz anterior no está montada (`web/src/legacy/README.md`). El laboratorio de entrenamiento quedó en `lab/`, fuera de Tune.
 
 ### 11.3 Integraciones
 
@@ -290,7 +290,7 @@ flowchart TB
 
 ## 13. Validación
 
-La validación del proyecto combina la suite automática del repositorio con la lectura de tres territorios. Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta 152 pruebas de backend y 21 de la interfaz ([implementation-report.md](./maintenance/implementation-report.md)). Lo que sostiene las conclusiones son los kilómetros cuadrados de los lugares.
+La validación de Tune combina la suite automática del repositorio con la lectura de tres territorios. Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta 152 pruebas de backend y 21 de la interfaz ([implementation-report.md](./maintenance/implementation-report.md)). Lo que sostiene las conclusiones son los kilómetros cuadrados de los lugares.
 
 ### 13.1 Pruebas por componentes
 
@@ -314,7 +314,7 @@ En los tres lugares el recorte mide 12 km de lado. El agua detectada es la másc
 
 ![Sindh, septiembre de 2022. Rojo: 49,56 km² de inundación. Azul: agua que ya estaba en mayo.](./assets/proof/pakistan-peak-change.png)
 
-**Bajo Magdalena.** En febrero había 21,95 km² de agua y en mayo 55,08 km². Frente a febrero, la inundación es 38,25 km² y el agua que permanece es 16,17 km². El mapa permanente del JRC, usado solo, marca 0,77 km² en ese humedal y deja 21,18 km² de febrero como si fueran nuevas. Por eso el proyecto usa la escena anterior del mismo lugar.
+**Bajo Magdalena.** En febrero había 21,95 km² de agua y en mayo 55,08 km². Frente a febrero, la inundación es 38,25 km² y el agua que permanece es 16,17 km². El mapa permanente del JRC, usado solo, marca 0,77 km² en ese humedal y deja 21,18 km² de febrero como si fueran nuevas. Por eso Tune usa la escena anterior del mismo lugar.
 
 ![Bajo Magdalena, de febrero a mayo de 2022. La inundación es 38,25 km².](./assets/proof/magdalena-dry-vs-wet.png)
 
@@ -336,15 +336,15 @@ En el pico de Sindh el acuerdo es 0,20: las dos capas coinciden en una parte de 
 
 ## 14. Resultados, discusión y conclusiones
 
-Los tres territorios responden la misma pregunta con números distintos, y esa diferencia es el resultado del proyecto. En los tres, el agua que ya estaba en el pico es mayor que cero y la inundación es menor que el agua detectada. El procedimiento no cambia. Cambia el paisaje.
+Los tres territorios responden la misma pregunta con números distintos, y esa diferencia es el resultado de Tune. En los tres, el agua que ya estaba en el pico es mayor que cero y la inundación es menor que el agua detectada. El procedimiento no cambia. Cambia el paisaje.
 
 ### 14.1 Qué dicen los tres lugares
 
-Sindh es el caso en el que la inundación se ve sin discutir el orden de magnitud. De mayo a septiembre de 2022 el agua pasó de 10,34 km² a 60,22 km² dentro de un recorte de 12 km de lado. La inundación, 49,56 km², explica casi todo ese salto. Los 10,03 km² que ya estaban en mayo siguen ahí en septiembre: el cauce no desaparece, queda debajo del desborde. Alguien podría leer 60,22 km² y llamarlos inundación. El proyecto no lo hace. Esos 60,22 km² son agua. La inundación es 49,56 km².
+Sindh es el caso en el que la inundación se ve sin discutir el orden de magnitud. De mayo a septiembre de 2022 el agua pasó de 10,34 km² a 60,22 km² dentro de un recorte de 12 km de lado. La inundación, 49,56 km², explica casi todo ese salto. Los 10,03 km² que ya estaban en mayo siguen ahí en septiembre: el cauce no desaparece, queda debajo del desborde. Alguien podría leer 60,22 km² y llamarlos inundación. Tune no lo hace. Esos 60,22 km² son agua. La inundación es 49,56 km².
 
 El Bajo Magdalena obliga a elegir la referencia con cuidado. De febrero a mayo el agua pasó de 21,95 km² a 55,08 km², y frente a febrero la inundación es 38,25 km², con 16,17 km² que permanecen. Si la referencia es solo el mapa permanente del JRC, febrero ya sale casi entero como agua nueva: 21,18 km² de 21,95 km², porque el JRC marca 0,77 km² en ese humedal. Una ciénaga no es un río de atlas. El mapa global de agua permanente, construido para el cauce que está casi siempre, se queda corto donde el agua va y viene con la temporada. Por eso la escena anterior del mismo lugar es la referencia que defendemos allí.
 
-El Mississippi es el caso incómodo, y por eso nos importa. El agua detectada apenas se mueve: 72,16 km² en septiembre de 2018 y 76,12 km² en junio de 2019. Quien mire solo ese par puede decir que no pasó nada. La inundación es 10,26 km² y el agua que ya estaba es 65,85 km². El río ocupa el recorte; la crecida es un borde. Reportar 76 km² como inundación habría sido el error que el proyecto se propuso no cometer.
+El Mississippi es el caso incómodo, y por eso nos importa. El agua detectada apenas se mueve: 72,16 km² en septiembre de 2018 y 76,12 km² en junio de 2019. Quien mire solo ese par puede decir que no pasó nada. La inundación es 10,26 km² y el agua que ya estaba es 65,85 km². El río ocupa el recorte; la crecida es un borde. Reportar 76 km² como inundación habría sido el error que Tune evita.
 
 ### 14.2 Discusiones que estos números admiten
 
@@ -358,11 +358,11 @@ El Mississippi es el caso incómodo, y por eso nos importa. El agua detectada ap
 
 ### 14.3 Limitaciones
 
-El acuerdo existe solo cuando GFM cubre la fecha y el recorte. El proyecto no estima profundidad ni caudal, no autentica usuarios y analiza un lugar a la vez. La escena óptica se nubla; el radar no. Por eso el IoU es un contraste, no una calificación del modelo. No reportamos población afectada: sumar el Global Human Settlement Layer sobre el píxel de agua nueva dio cero, también junto a ciudades, y esa cifra no se puede defender.
+El acuerdo existe solo cuando GFM cubre la fecha y el recorte. Tune no estima profundidad ni caudal, no autentica usuarios y analiza un lugar a la vez. La escena óptica se nubla; el radar no. Por eso el IoU es un contraste, no una calificación del modelo. No reportamos población afectada: sumar el Global Human Settlement Layer sobre el píxel de agua nueva dio cero, también junto a ciudades, y esa cifra no se puede defender.
 
 ### 14.4 Conclusión
 
-En este proyecto la inundación dejó de ser "toda el agua que ve el modelo". En Sindh son 49,56 km² de un salto de 10,34 a 60,22. En el Bajo Magdalena son 38,25 km², siempre que la referencia sea el propio febrero y no un mapa que casi no ve el humedal. En el Mississippi son 10,26 km² al lado de un río de 65,85 km² que ya estaba. Las tres lecturas salen del mismo lugar en el mapa, o del GeoTIFF de esas escenas, y se pueden volver a abrir.
+Con Tune, la inundación dejó de ser "toda el agua que ve el modelo". En Sindh son 49,56 km² de un salto de 10,34 a 60,22. En el Bajo Magdalena son 38,25 km², siempre que la referencia sea el propio febrero y no un mapa que casi no ve el humedal. En el Mississippi son 10,26 km² al lado de un río de 65,85 km² que ya estaba. Las tres lecturas salen del mismo lugar en el mapa, o del GeoTIFF de esas escenas, y se pueden volver a abrir.
 
 ## 15. Trabajo futuro
 

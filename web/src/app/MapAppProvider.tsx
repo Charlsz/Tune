@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "../api/client";
-import { catalogQueryFromAoi } from "../data/apiBridge";
+import { catalogQueryFromAoi, uploadsToResult } from "../data/apiBridge";
 import {
   initialState,
   reducer,
@@ -21,6 +21,7 @@ import {
 } from "../domain/lab";
 import { tuneProvider } from "../data/tuneProvider";
 import type { BBox } from "../domain/aoi";
+import type { AnalyzePhase } from "../api/client";
 import type { CatalogLimits } from "../types";
 
 type ViewPatch = Partial<
@@ -52,6 +53,8 @@ export type MapAppContextValue = {
   setArea: (bbox: BBox, label: string) => void;
   findScenes: () => Promise<void>;
   analyze: () => Promise<boolean>;
+  /** GeoTIFF: uno, o Antes y luego Después. */
+  analyzeUploads: (before: File, after: File | null) => Promise<boolean>;
   /** Reabre un análisis del historial de sesión como activo. */
   restoreAnalysis: (id: string) => boolean;
   /** Elige escena Antes/Después y pide preview AOI al servidor. */
@@ -167,6 +170,56 @@ export function MapAppProvider({
       return false;
     }
   }, [provider, state.aoi, state.selected]);
+
+  const analyzeUploads = useCallback(async (before: File, after: File | null) => {
+    const token = ++analysis.current;
+    const total: 1 | 2 = after ? 2 : 1;
+    setError("");
+    setAnalyzeProgress({
+      scene: "before",
+      phase: "prepare",
+      of: total,
+      detail: before.name,
+    });
+    const watch =
+      (scene: "before" | "after") => (phase: AnalyzePhase) => {
+        if (token !== analysis.current) return;
+        const mapped =
+          phase.phase === "upload" || phase.phase === "fetch"
+            ? "fetch"
+            : phase.phase === "infer"
+              ? "infer"
+              : "prepare";
+        setAnalyzeProgress({
+          scene: total === 1 ? "after" : scene,
+          phase: mapped,
+          of: total,
+          loaded: "loaded" in phase ? phase.loaded : undefined,
+          total: "total" in phase ? phase.total : undefined,
+          detail: "detail" in phase ? phase.detail : undefined,
+        });
+      };
+    try {
+      const first = await api.analyze(before, "flood", watch("before"));
+      const second = after
+        ? await api.analyze(after, "flood", watch("after"))
+        : null;
+      if (token !== analysis.current) return false;
+      const names = second ? `${before.name} → ${after?.name}` : before.name;
+      setAnalyzeProgress(null);
+      dispatch({
+        type: "uploadResult",
+        result: uploadsToResult(first, second, names),
+      });
+      return true;
+    } catch (err) {
+      if (token === analysis.current) {
+        setAnalyzeProgress(null);
+        setError(errorMessage(err, "No se pudo analizar el GeoTIFF."));
+      }
+      return false;
+    }
+  }, []);
 
   const restoreAnalysis = useCallback(
     (id: string) => {
@@ -312,6 +365,7 @@ export function MapAppProvider({
       setArea,
       findScenes,
       analyze,
+      analyzeUploads,
       restoreAnalysis,
       selectScene,
       dispatch,
@@ -334,6 +388,7 @@ export function MapAppProvider({
       setArea,
       findScenes,
       analyze,
+      analyzeUploads,
       restoreAnalysis,
       selectScene,
       bumpTokens,

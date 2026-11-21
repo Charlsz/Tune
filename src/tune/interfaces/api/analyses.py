@@ -43,6 +43,7 @@ from tune.interfaces.api.schemas import (
     CatalogSceneSchema,
     ChangeSchema,
     ExampleInfo,
+    InspectResponse,
     SectorSchema,
     SeriesPointSchema,
     TaskInfo,
@@ -256,6 +257,112 @@ def _example_stream(scene, dest_dir: Path, use_case: AnalyzeUseCase) -> Streamin
         status_code=200,
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _bands_ok(count: int, task: HazardTask) -> bool:
+    card = MODEL_CARDS[task]
+    if count == 6:
+        return True
+    return bool(card.wide_input_indices and count > max(card.wide_input_indices))
+
+
+def _inspect_geotiff(path: Path, task: HazardTask) -> InspectResponse:
+    """Abre el raster y describe bandas, caja y fecha. No carga Prithvi."""
+    import rasterio
+
+    from tune.infrastructure.inference.prithvi import _bounds_wgs84, parse_acquired_at
+
+    with rasterio.open(path) as src:
+        bands = int(src.count)
+        width, height = int(src.width), int(src.height)
+        tags = {str(k): str(v) for k, v in (src.tags() or {}).items()}
+        try:
+            tags.update({str(k): str(v) for k, v in (src.tags(1) or {}).items()})
+        except Exception:
+            log.debug("Sin tags de banda 1 en %s", path.name)
+        acquired = parse_acquired_at(tags, path.name)
+        crs = src.crs.to_string() if src.crs else None
+        bounds = None
+        if src.crs is not None:
+            box = _bounds_wgs84(src)
+            bounds = BoundsSchema(
+                west=box.west, south=box.south, east=box.east, north=box.north
+            )
+    too_big = width * height > 64_000_000
+    ok = _bands_ok(bands, task) and not too_big
+    detail = None
+    if too_big:
+        detail = f"La imagen es demasiado grande ({width}×{height} px)."
+    elif not _bands_ok(bands, task):
+        detail = (
+            f"El raster tiene {bands} bandas; se esperan 6 bandas Prithvi "
+            "o un Sentinel-2 L1C amplio."
+        )
+    elif crs is None:
+        detail = (
+            "Sin georreferencia: Tune puede leer la máscara, "
+            "pero no ubicarla en el mapa ni compararla con otra fecha."
+        )
+    return InspectResponse(
+        filename=path.name,
+        size_bytes=path.stat().st_size,
+        bands=bands,
+        width=width,
+        height=height,
+        acquired_at=acquired,
+        crs=crs,
+        bounds=bounds,
+        accepted=ok,
+        detail=detail,
+    )
+
+
+async def _spool_geotiff(file: UploadFile) -> tuple[tempfile.TemporaryDirectory[str], Path]:
+    if not file.filename or not file.filename.lower().endswith((".tif", ".tiff")):
+        raise HTTPException(400, "Se espera un GeoTIFF (.tif/.tiff)")
+    tmp = tempfile.TemporaryDirectory()
+    dest = Path(tmp.name) / Path(file.filename).name
+    written = 0
+    try:
+        with dest.open("wb") as fh:
+            while chunk := await file.read(_CHUNK):
+                written += len(chunk)
+                if written > _MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"Archivo mayor a {_MAX_UPLOAD_MB} MB")
+                fh.write(chunk)
+    except HTTPException:
+        tmp.cleanup()
+        raise
+    return tmp, dest
+
+
+@router.post(
+    "/analyze/inspect",
+    response_model=InspectResponse,
+    summary="Revisar un GeoTIFF sin analizarlo",
+    description=(
+        "Lee bandas, extensión, fecha y caja geográfica. "
+        "No descarga pesos ni guarda un análisis."
+    ),
+    responses={
+        400: {"description": "El archivo no termina en .tif o .tiff"},
+        413: {"description": "Supera 200 MB"},
+        422: {"description": "El raster no se puede abrir"},
+    },
+)
+async def inspect_analyze(
+    file: UploadFile = File(description="GeoTIFF .tif o .tiff, hasta 200 MB"),
+    task: HazardTask = Form(default=HazardTask.FLOOD),
+) -> InspectResponse:
+    tmp, dest = await _spool_geotiff(file)
+    try:
+        return await run_in_threadpool(_inspect_geotiff, dest, task)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(422, f"GeoTIFF no válido: {exc}") from exc
+    finally:
+        tmp.cleanup()
 
 
 @router.post(

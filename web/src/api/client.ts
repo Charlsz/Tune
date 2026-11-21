@@ -3,6 +3,7 @@ import type {
   CatalogLimits,
   CatalogScene,
   ExampleScene,
+  InspectReport,
   Place,
   SeriesPoint,
   TaskId,
@@ -191,6 +192,15 @@ export const api = {
         onPhase({ phase: "infer" });
       }
     });
+  },
+
+  inspect(file: File, task: TaskId = "flood"): Promise<InspectReport> {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("task", task);
+    return fetch("/api/analyze/inspect", { method: "POST", body }).then((res) =>
+      json<InspectReport>(res),
+    );
   },
 
   analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
