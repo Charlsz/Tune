@@ -1,12 +1,23 @@
-import { ArrowRight, MapPin, Scan } from "lucide-react";
+import { ArrowRight, FileUp, MapPin, Scan } from "lucide-react";
+import { useState } from "react";
 import { useMapApp } from "../../app/MapAppProvider";
 import { formatAoiCaption } from "../../domain/aoi";
 import { btnOutline, btnOutlineSelected, btnPrimary } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
+import GeoTiffUpload from "./GeoTiffUpload";
 
 export default function AreaStep() {
   const { state, drawing, setDrawing, dispatch } = useMapApp();
+  const [upload, setUpload] = useState(false);
   const coords = formatAoiCaption(undefined, state.aoi);
+
+  if (upload) {
+    return (
+      <FadeIn>
+        <GeoTiffUpload onBack={() => setUpload(false)} />
+      </FadeIn>
+    );
+  }
 
   return (
     <FadeIn>
@@ -33,6 +44,10 @@ export default function AreaStep() {
       >
         <Scan size={17} />
         {drawing ? "Cancelar dibujo" : "Dibujar en el mapa"}
+      </button>
+      <button type="button" className={`${btnOutline} mt-3`} onClick={() => setUpload(true)}>
+        <FileUp size={17} />
+        Subir GeoTIFF
       </button>
       <button
         type="button"

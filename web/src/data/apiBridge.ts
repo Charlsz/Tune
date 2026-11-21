@@ -132,6 +132,36 @@ export function analysesToResult(
   };
 }
 
+function sceneFromUpload(analysis: Analysis, fallback: BBox): Scene {
+  const bbox = boundsFromAnalysis(analysis, fallback);
+  return {
+    id: analysis.id,
+    datetime: analysis.acquired_at ?? analysis.created_at,
+    cloud_cover: 0,
+    bbox,
+    thumbnail: analysis.artifacts.preview_png ?? null,
+    image: analysis.artifacts.preview_png ?? "",
+    water: [],
+  };
+}
+
+/** Un GeoTIFF, o un par Antes/Después, al mismo Result del mapa. */
+export function uploadsToResult(
+  beforeAnalysis: Analysis,
+  afterAnalysis: Analysis | null,
+  label: string,
+): Result {
+  const after = afterAnalysis ?? beforeAnalysis;
+  const aoi = boundsFromAnalysis(after, boundsFromAnalysis(beforeAnalysis, [0, 0, 0, 0]));
+  const beforeScene = sceneFromUpload(beforeAnalysis, aoi);
+  const afterScene = sceneFromUpload(after, aoi);
+  return {
+    ...analysesToResult(aoi, beforeScene, afterScene, beforeAnalysis, after),
+    label,
+    solo: afterAnalysis == null,
+  };
+}
+
 /** Comprueba que el lado del AOI cabe en el tope del catálogo. */
 export function aoiFitsCatalogLimits(aoi: BBox, maxSideKm: number): boolean {
   const { heightKm, widthKm } = bboxDimensionsKm(aoi);

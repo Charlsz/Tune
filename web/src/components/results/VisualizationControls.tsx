@@ -18,6 +18,7 @@ export default function VisualizationControls({
 }) {
   const result = s.result;
   if (!result) return null;
+  const solo = Boolean(result.solo);
 
   return (
     <div>
@@ -37,7 +38,9 @@ export default function VisualizationControls({
             ["change", "Cambio"],
             ["agree", "Acuerdo"],
           ] as const
-        ).map(([mode, label]) => {
+        )
+          .filter(([mode]) => !(solo && mode === "before"))
+          .map(([mode, label]) => {
           const agreeDisabled = mode === "agree" && !result.overlays?.fusion;
           const pressed = s.mode === mode && !s.slider;
           return (
@@ -118,24 +121,28 @@ export default function VisualizationControls({
         </label>
       </div>
 
-      <button
-        type="button"
-        className={cn(
-          s.slider ? btnOutlineSelected : btnOutline,
-          "mt-0",
-        )}
-        aria-pressed={s.slider}
-        onClick={() => onView({ slider: !s.slider })}
-      >
-        <SlidersHorizontal size={17} />
-        {s.slider ? "Cerrar deslizador" : "Deslizador"}
-      </button>
-      {s.slider ? (
-        <p className="mb-0 mt-2 text-[11px] leading-snug text-fg-soft">
-          Izquierda: agua que ya había (azul). Derecha: inundación = agua nueva
-          (rojo) frente a la referencia.
-        </p>
-      ) : null}
+      {solo ? null : (
+        <>
+          <button
+            type="button"
+            className={cn(
+              s.slider ? btnOutlineSelected : btnOutline,
+              "mt-0",
+            )}
+            aria-pressed={s.slider}
+            onClick={() => onView({ slider: !s.slider })}
+          >
+            <SlidersHorizontal size={17} />
+            {s.slider ? "Cerrar deslizador" : "Deslizador"}
+          </button>
+          {s.slider ? (
+            <p className="mb-0 mt-2 text-[11px] leading-snug text-fg-soft">
+              Izquierda: agua que ya había (azul). Derecha: inundación = agua
+              nueva (rojo) frente a la referencia.
+            </p>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

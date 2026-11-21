@@ -61,6 +61,8 @@ export interface Result {
   aoi: BBox;
   /** Nombre del lugar o “Coordenadas” al momento del análisis. */
   label?: string;
+  /** Un solo GeoTIFF: no hay par Antes/Después. */
+  solo?: boolean;
   overlays?: ResultOverlays;
   metrics?: ResultMetrics;
 }
@@ -68,6 +70,8 @@ export interface Result {
 export type AnalyzeProgressEvent = {
   scene: "before" | "after";
   phase: "prepare" | "fetch" | "infer";
+  /** 1 si solo hay un archivo; 2 en un par. */
+  of?: 1 | 2;
   loaded?: number;
   total?: number;
   detail?: string;
@@ -135,6 +139,7 @@ export type Action =
     }
   | { type: "step"; step: Step }
   | { type: "result"; result: Result }
+  | { type: "uploadResult"; result: Result }
   /** Reabre un Result del historial de sesión como análisis activo. */
   | { type: "restore"; id: string }
   | {
@@ -192,6 +197,24 @@ export function reducer(s: State, a: Action): State {
     }
     case "step":
       return { ...s, step: a.step };
+    case "uploadResult": {
+      const labeled: Result = {
+        ...a.result,
+        label: a.result.label?.trim() || s.label,
+      };
+      return {
+        ...s,
+        result: labeled,
+        history: [labeled, ...s.history],
+        aoi: [...labeled.aoi] as BBox,
+        label: labeled.label?.trim() || s.label,
+        selected: [labeled.before, labeled.after],
+        step: "results",
+        mode: "change",
+        mask: true,
+        slider: false,
+      };
+    }
     case "result":
       if (
         !s.selected[0] ||

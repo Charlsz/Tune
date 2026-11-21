@@ -15,7 +15,7 @@ sequenceDiagram
   participant P as Prithvi
   participant R as Historial/JRC
   participant G as GFM (EODC)
-  participant X as WorldCover/GHSL
+  participant X as WorldCover
   participant D as artifacts/
 
   Op->>UI: Área + fechas Antes/Después

@@ -1,0 +1,202 @@
+{
+  "sites": [
+    {
+      "id": "spain",
+      "kind": "example",
+      "runs": [
+        {
+          "group": "example",
+          "analysis_id": "a456af7b75a1",
+          "affected_km2": 5.6154087868068014,
+          "new_km2": 0.0,
+          "persistent_km2": 5.6154087868068014,
+          "reference_source": "history_baseline",
+          "fusion_iou": null,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 189.35364292000003
+        }
+      ]
+    },
+    {
+      "id": "india",
+      "kind": "example",
+      "runs": [
+        {
+          "group": "example",
+          "analysis_id": "29c781ac88cf",
+          "affected_km2": 10.992762698665041,
+          "new_km2": 10.832554273684497,
+          "persistent_km2": 0.15074237534401272,
+          "reference_source": "jrc_gsw_v1_4",
+          "fusion_iou": null,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 33.653483015000006
+        }
+      ]
+    },
+    {
+      "id": "magdalena",
+      "kind": "catalog",
+      "runs": [
+        {
+          "group": "dry",
+          "target_date": "2022-02-22",
+          "scene_id": "S2B_18PWQ_20220222_0_L2A",
+          "analysis_id": "4112dd743eb5",
+          "affected_km2": 21.946,
+          "new_km2": 21.1756,
+          "persistent_km2": 0.7704,
+          "reference_source": "jrc_gsw_v1_4",
+          "fusion_iou": null,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 124.789185181
+        },
+        {
+          "group": "peak",
+          "target_date": "2022-05-08",
+          "scene_id": "S2A_18PWQ_20220508_0_L2A",
+          "analysis_id": "f43f387ee456",
+          "affected_km2": 55.0804,
+          "new_km2": 38.2524,
+          "persistent_km2": 16.174,
+          "reference_source": "history_baseline",
+          "fusion_iou": null,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 193.97003408899997
+        }
+      ]
+    },
+    {
+      "id": "pakistan",
+      "kind": "catalog",
+      "runs": [
+        {
+          "group": "pre",
+          "target_date": "2022-05-18",
+          "scene_id": "S2B_42RVR_20220518_0_L2A",
+          "analysis_id": "f8dc0d546727",
+          "affected_km2": 10.3436,
+          "new_km2": 7.062,
+          "persistent_km2": 3.2704,
+          "reference_source": "jrc_gsw_v1_4",
+          "fusion_iou": null,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 179.46933033200003
+        },
+        {
+          "group": "peak",
+          "target_date": "2022-09-05",
+          "scene_id": "S2B_42RVR_20220905_0_L2A",
+          "analysis_id": "8cf25b2454e0",
+          "affected_km2": 60.2228,
+          "new_km2": 49.5556,
+          "persistent_km2": 10.0304,
+          "reference_source": "history_baseline",
+          "fusion_iou": 0.20368864650470997,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 196.94175954699995
+        }
+      ]
+    },
+    {
+      "id": "mississippi",
+      "kind": "catalog",
+      "runs": [
+        {
+          "group": "pre",
+          "target_date": "2018-09-18",
+          "scene_id": "S2B_16SBF_20180918_0_L2A",
+          "analysis_id": "9f848a436212",
+          "affected_km2": 72.1604,
+          "new_km2": 51.3188,
+          "persistent_km2": 20.8284,
+          "reference_source": "jrc_gsw_v1_4",
+          "fusion_iou": 0.0,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 238.4532526500002
+        },
+        {
+          "group": "peak",
+          "target_date": "2019-06-10",
+          "scene_id": "S2A_16SBF_20190610_0_L2A",
+          "analysis_id": "63e4ca323471",
+          "affected_km2": 76.1192,
+          "new_km2": 10.2628,
+          "persistent_km2": 65.8452,
+          "reference_source": "history_baseline",
+          "fusion_iou": 0.3163745234543345,
+          "fusion_sources": [
+            "prithvi",
+            "gfm"
+          ],
+          "population_exposed": 0.0,
+          "latency_s": 260.35370657800013
+        }
+      ]
+    }
+  ],
+  "controls": {
+    "spain_river": {
+      "persistent_km2": 5.6154087868068014,
+      "new_km2": 0,
+      "affected_km2": 5.6154087868068014,
+      "passed": true
+    },
+    "river_dry": {
+      "ratios": [
+        0.9648956529663719
+      ],
+      "max_allowed": 0.15,
+      "passed": false,
+      "note": "En humedales JRC suele fallar este control; el pico con baseline sí vale."
+    },
+    "magdalena_peak_change": {
+      "runs": [
+        {
+          "new_km2": 38.2524,
+          "persistent_km2": 16.174,
+          "reference_source": "history_baseline"
+        }
+      ],
+      "passed": true
+    },
+    "pakistan_peak_change": {
+      "runs": [
+        {
+          "new_km2": 49.5556,
+          "persistent_km2": 10.0304,
+          "reference_source": "history_baseline"
+        }
+      ],
+      "passed": true
+    }
+  }
+}

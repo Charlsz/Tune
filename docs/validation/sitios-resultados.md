@@ -1,30 +1,28 @@
-# Resultados de validación — Sindh (Pakistán) 2022
+# Resultados de validación multi-sitio
 
-AOI: lat 27.70, lon 68.85, side_km 12 · task=flood · max_cloud=40  
-Modelo: `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11`
+Corrida 2026-11-20 con `scripts/validate_sites.py` contra `http://127.0.0.1:8000`.
+Ocho análisis, todos HTTP 201. Estos sitios son controles de calidad, no el
+alcance geográfico del producto.
 
-| Fase | Catalog ID | Análisis | Detectado (km²) | Nueva (km²) | Persistente (km²) | Recedida (km²) | Población expuesta | Referencia cambio |
-|------|------------|----------|-----------------|-------------|-------------------|----------------|--------------------|-------------------|
-| Pre (2022-05-18) | `S2B_42RVR_20220518_0_L2A` | `a4c7b4c0480f` | 10.34 | 7.06 | 3.27 | 0.62 | 0.0 | JRC GSW v1.4 |
-| Peak (2022-09-05) | `S2B_42RVR_20220905_0_L2A` | `dd5b7490e5b2` | 60.22 | 49.56 | 10.03 | 0.29 | 0.0 | history_baseline → pre |
+Leyenda de la tabla generada: **S1** = agua detectada (km²), **S2** = agua nueva (km²), **ratio** = S2/S1, **IoU** = acuerdo con GFM (nulo si no hubo píxeles comparables), **pop** = población GHSL, **s** = latencia.
 
-**Δ agua detectada:** 10.34 → 60.22 km² (+49.88 km²). En el pico, nueva (49.56) ≫ persistente (10.03).
+JSON: [sitios-resultados.json](./sitios-resultados.json). Lectura para el informe: [InformeFinal.md](../InformeFinal.md) §13.4.
 
-Artefactos API (prefijo `http://127.0.0.1:8000`):
+| Sitio | Grupo | S1 km² | S2 km² | ratio | IoU | pop | s |
+|---|---|---|---|---|---|---|---|
+| spain | example | 5.615 | 0.000 | 0.000 | — | 0.000 | 189.354 |
+| india | example | 10.993 | 10.833 | 0.985 | — | 0.000 | 33.653 |
+| magdalena | dry | 21.946 | 21.176 | 0.965 | — | 0.000 | 124.789 |
+| magdalena | peak | 55.080 | 38.252 | 0.694 | — | 0.000 | 193.970 |
+| pakistan | pre | 10.344 | 7.062 | 0.683 | — | 0.000 | 179.469 |
+| pakistan | peak | 60.223 | 49.556 | 0.823 | 0.204 | 0.000 | 196.942 |
+| mississippi | pre | 72.160 | 51.319 | 0.711 | 0.000 | 0.000 | 238.453 |
+| mississippi | peak | 76.119 | 10.263 | 0.135 | 0.316 | 0.000 | 260.354 |
 
-- Pre preview/mask/change: `/api/analyses/a4c7b4c0480f/{preview_png,mask_png,change_png}`
-- Peak preview/mask/change: `/api/analyses/dd5b7490e5b2/{preview_png,mask_png,change_png}`
+## Controles
 
-JSON completo: `docs/validation/sitios-resultados-pakistan.json`
+- **spain_river**: pasó — `{"persistent_km2": 5.6154087868068014, "new_km2": 0, "affected_km2": 5.6154087868068014, "passed": true}`
+- **river_dry**: no pasó — `{"ratios": [0.9648956529663719], "max_allowed": 0.15, "passed": false, "note": "En humedales JRC suele fallar este control; el pico con baseline sí vale."}`
+- **magdalena_peak_change**: pasó — `{"runs": [{"new_km2": 38.2524, "persistent_km2": 16.174, "reference_source": "history_baseline"}], "passed": true}`
+- **pakistan_peak_change**: pasó — `{"runs": [{"new_km2": 49.5556, "persistent_km2": 10.0304, "reference_source": "history_baseline"}], "passed": true}`
 
-## Evidencia visual
-
-| Archivo | Contenido |
-|---------|-----------|
-| `docs/assets/proof/pakistan-pre-mask.png` | Máscara pre (poca agua) |
-| `docs/assets/proof/pakistan-peak-mask.png` | Máscara peak (inundación amplia) |
-| `docs/assets/proof/pakistan-peak-change.png` | Cambio peak vs history_baseline |
-| `docs/assets/proof/pakistan-pre-preview.png` / `pakistan-peak-preview.png` | Previews RGB |
-| `docs/assets/proof/pakistan-ui-aoi-map.png` | UI mapa AOI Sindh (sin overlay; historial local vacío) |
-
-**Nota UI:** Los análisis vía API quedan en el servidor (`GET /api/analyses` lista ambos), pero el historial del front es local — Resultados/Historial aparecen vacíos hasta analizar desde la UI.

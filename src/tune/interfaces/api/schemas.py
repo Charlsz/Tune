@@ -248,3 +248,18 @@ class AnalysisResponse(BaseModel):
             fusion=fusion,
             exposure=exposure,
         )
+
+
+class InspectResponse(BaseModel):
+    """Lectura barata de un GeoTIFF: no corre el modelo ni guarda un análisis."""
+
+    filename: str
+    size_bytes: int
+    bands: int
+    width: int
+    height: int
+    acquired_at: str | None = None
+    crs: str | None = None
+    bounds: BoundsSchema | None = None
+    accepted: bool
+    detail: str | None = None
