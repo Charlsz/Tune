@@ -5,6 +5,7 @@ import { cn } from "../ui/cn";
 
 const TABS = [
   { to: paths.map, label: "Mapa" },
+  { to: paths.geotiff, label: "GeoTIFF" },
   { to: paths.results, label: "Resultados" },
   { to: paths.history, label: "Historial" },
 ] as const;
