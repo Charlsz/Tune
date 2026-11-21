@@ -43,9 +43,9 @@ Prototipo académico (sin multi-tenancy, Open Authorization (OAuth) ni Service L
 
 ### 3.3 Alcance
 
-**Incluye:** búsqueda por lugar, coordenadas o rectángulo; subida de un GeoTIFF de seis bandas; escenas Sentinel-2; inferencia Prithvi de agua; cambio frente al historial o al JRC; acuerdo con GFM; cobertura del suelo; Application Programming Interface (API); MapApp (área, fechas, escenas, Antes/Después/Cambio/Acuerdo); Docker; validación en tres territorios. Cicatriz de incendio como tarea auxiliar.
+**Incluye:** búsqueda por lugar, coordenadas o rectángulo; subida de un GeoTIFF de seis bandas (pestaña dedicada `/geotiff` o desde el paso Área del mapa); escenas Sentinel-2; inferencia Prithvi de agua; cambio frente al historial o al JRC; acuerdo con GFM; cobertura del suelo; Application Programming Interface (API); MapApp (área, fechas, escenas, Antes/Después/Cambio/Acuerdo); Docker; validación en tres territorios. Cicatriz de incendio como tarea auxiliar.
 
-**Excluye:** reentrenamiento como entregable, autenticación, colas, PostGIS (extensión espacial de PostgreSQL), anclar el producto a un solo territorio, User Interface (UI) legacy con router (conservada en código no montado).
+**Excluye:** reentrenamiento como entregable, autenticación, colas, PostGIS (extensión espacial de PostgreSQL), anclar el producto a un solo territorio, la SPA anterior con router (sustituida por MapApp).
 
 ## 4. Objetivos
 
@@ -59,7 +59,7 @@ Prithvi-EO 2.0 (Szwarcman et al., 2024) y Sen1Floods11 (Bonafilia et al., 2020) 
 
 ## 6. Solución propuesta
 
-Tune analiza la inundación con dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, sube un GeoTIFF de seis bandas y el mismo análisis corre sobre ese archivo. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
+Tune analiza la inundación con dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, usa la pestaña **GeoTIFF** (`/geotiff`) —o «Subir GeoTIFF» dentro de Área— para cargar uno o dos archivos de seis bandas sin dibujar AOI; el mismo análisis corre sobre ese archivo. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
 
 ## 7. Metodología de desarrollo
 
@@ -71,10 +71,10 @@ Prototipado iterativo: cada ciclo dejó contrato, puerto, prueba o Architecture 
 
 - Listar tarea inundación con id Hugging Face.
 - Buscar un lugar por nombre, coordenadas o rectángulo dibujado, y listar escenas Sentinel-2 de dos fechas.
-- Aceptar un GeoTIFF de seis bandas Prithvi y rechazar un archivo que no lo sea, o que supere el tamaño máximo.
+- Aceptar un GeoTIFF de seis bandas Prithvi (pestaña GeoTIFF o desde Área) y rechazar un archivo que no lo sea, o que supere el tamaño máximo.
 - Persistir el análisis con máscara, áreas, sistema de referencia y el identificador del modelo.
 - Incluir agua nueva, permanente y retirada cuando hay referencia, y el acuerdo cuando GFM responde.
-- MapApp: modos Antes, Después, Cambio y Acuerdo, con las áreas en km².
+- MapApp: pestañas Mapa, GeoTIFF, Resultados e Historial; modos Antes, Después, Cambio y Acuerdo, con las áreas en km².
 - No publicar un acuerdo si GFM no cubre la zona y la fecha. El recorte que supera el máximo no se analiza.
 
 ### 8.2 No funcionales
@@ -101,7 +101,7 @@ Un solo `AnalyzeUseCase` sirve API y MapApp. Inferencia en proceso (sin cola). P
 
 | Componente | Responsabilidad |
 |---|---|
-| MapApp | Flujo área→fechas→escenas; overlays; métricas; historial de sesión |
+| MapApp | Flujo área→fechas→escenas; pestaña GeoTIFF; overlays; métricas; historial de sesión |
 | eo-api | Validación Hypertext Transfer Protocol (HTTP), catálogo, orquestación |
 | PrithviSegmenter | Ventanas 512×512, máscara |
 | ReferenceProvider | Historial antes que JRC (Joint Research Centre) |
@@ -257,7 +257,7 @@ Python 3.11, FastAPI, TerraTorch/PyTorch, rasterio, pystac-client; TypeScript, R
 
 ### 11.2 Componentes
 
-Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker sobre CPU. La interfaz anterior no está montada (`web/src/legacy/README.md`). El laboratorio de entrenamiento quedó en `lab/`, fuera de Tune.
+Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker sobre CPU. La SPA anterior con router quedó fuera del árbol activo: MapApp es la única interfaz montada. El laboratorio de entrenamiento quedó en `lab/`, fuera de Tune.
 
 ### 11.3 Integraciones
 
@@ -290,7 +290,7 @@ flowchart TB
 
 ## 13. Validación
 
-La validación de Tune combina la suite automática del repositorio con la lectura de tres territorios. Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta 152 pruebas de backend y 21 de la interfaz ([implementation-report.md](./maintenance/implementation-report.md)). Lo que sostiene las conclusiones son los kilómetros cuadrados de los lugares.
+La validación de Tune combina la suite automática del repositorio con la lectura de tres territorios. Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta **158** pruebas de backend (`pytest -m "not gpu"`) y **36** de la interfaz (`vitest`). Lo que sostiene las conclusiones son los kilómetros cuadrados de los lugares.
 
 ### 13.1 Pruebas por componentes
 
@@ -300,7 +300,11 @@ Las pruebas unitarias revisan el cambio hídrico, el IoU y la cobertura del suel
 
 MapApp busca el lugar, lista las escenas Sentinel-2 de las dos fechas y guarda el análisis: máscara, agua nueva y, cuando GFM cubre la zona, el acuerdo. Sindh, el Bajo Magdalena y el Mississippi recorrieron ese camino. Los valores están en [sitios-resultados.json](./validation/sitios-resultados.json).
 
-### 13.3 Resultados por territorio
+### 13.3 Pruebas de usabilidad
+
+El guion de uso cubre los dos caminos de entrada sin autenticación. **Mapa:** abrir la web, buscar un lugar o pegar coordenadas, dibujar el AOI si hace falta, elegir fechas y escenas, lanzar el análisis y leer Antes/Después/Cambio/Acuerdo en Resultados. **GeoTIFF:** abrir la pestaña GeoTIFF (`/geotiff`), subir uno o dos `.tif`/`.tiff` de seis bandas (mismo lugar si son dos), validar bandas, analizar y abrir Resultados; no hace falta dibujar área ni consultar el catálogo. Criterios de aceptación: el operador completa el flujo sin salir de MapApp; un archivo inválido o demasiado grande se rechaza con mensaje claro; tras un análisis correcto se ven las áreas en km². La evidencia de recorrido está en las capturas de [assets/proof/](./assets/proof/) y en la [Guía de uso](./GuiaDeUso.md).
+
+### 13.4 Resultados por territorio
 
 En los tres lugares el recorte mide 12 km de lado. El agua detectada es la máscara del modelo. La inundación es el agua nueva respecto a la fecha anterior del mismo lugar. El agua permanente es la que ya estaba en esa fecha anterior.
 
