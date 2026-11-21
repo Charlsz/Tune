@@ -21,7 +21,7 @@ export default function AppHeader() {
         onClick={() => setPanelOpen(true)}
       >
         <span className="flex size-8">
-          <img src="/icons/tune-icon.svg" alt="" width={32} height={32} />
+          <img src="/icons/tune_icon.png" alt="" width={32} height={32} />
         </span>
         Tune
       </NavLink>
