@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useMapApp } from "../../app/MapAppProvider";
-import { formatRemain, remainingSeconds } from "../../lib/eta";
+import {
+  formatRemain,
+  loadEtaMemory,
+  rememberEta,
+  remainingSeconds,
+  type EtaMemory,
+} from "../../lib/eta";
 import { cn } from "../ui/cn";
 
 const STEPS = [
@@ -23,6 +29,7 @@ export default function AnalyzeRunning() {
   const [now, setNow] = useState(t0);
   const [phaseStarted, setPhaseStarted] = useState(t0);
   const [phaseKey, setPhaseKey] = useState("");
+  const [memory, setMemory] = useState<EtaMemory>(() => loadEtaMemory());
   const budget = useRef(0);
   const firstRun = useRef(
     typeof sessionStorage !== "undefined"
@@ -41,12 +48,18 @@ export default function AnalyzeRunning() {
 
   useEffect(() => {
     const key = `${scene}:${phase}`;
-    if (key !== phaseKey) {
-      setPhaseKey(key);
-      setPhaseStarted(Date.now());
-      if (phase === "infer") budget.current = 0;
+    if (key === phaseKey) return;
+    if (phaseKey) {
+      const prevName = phaseKey.split(":")[1];
+      const dur = (Date.now() - phaseStarted) / 1000;
+      if (prevName === "fetch" || prevName === "infer") {
+        setMemory(rememberEta(prevName, dur));
+      }
     }
-  }, [scene, phase, phaseKey]);
+    setPhaseKey(key);
+    setPhaseStarted(Date.now());
+    budget.current = 0;
+  }, [scene, phase, phaseKey, phaseStarted]);
 
   useEffect(() => {
     return () => {
@@ -58,7 +71,6 @@ export default function AnalyzeRunning() {
     };
   }, []);
 
-  const elapsedS = (now - t0) / 1000;
   const phaseElapsedS = (now - phaseStarted) / 1000;
   const etaPhase =
     phase === "fetch"
@@ -69,17 +81,15 @@ export default function AnalyzeRunning() {
         }
       : { phase: phase === "prepare" ? ("check" as const) : ("infer" as const) };
 
-  let remain = remainingSeconds(
+  const scenesAfter = scene === "before" && total === 2 ? 1 : 0;
+  const remain = remainingSeconds(
     etaPhase,
-    elapsedS,
     phaseElapsedS,
     firstRun.current,
+    scenesAfter,
+    memory,
     budget,
   );
-  // Segunda escena: el presupuesto ya es por escena; si vamos por la primera, suma otra.
-  if (scene === "before" && total === 2) {
-    remain += firstRun.current ? 300 : 120;
-  }
 
   const activeIdx = STEPS.findIndex((s) => s.id === phase);
   const sceneLabel = total === 1 ? "Archivo" : scene === "before" ? "Antes" : "Después";

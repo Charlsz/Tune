@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aoiAreaKm2, aoiFillPercent, aoiHeadline, formatAoiKm2 } from "./aoi";
+import {
+  aoiAreaKm2,
+  aoiFillPercent,
+  aoiHeadline,
+  formatAoiKm2,
+  imageClip,
+} from "./aoi";
 
 const sindh: [number, number, number, number] = [67.845, 27.01, 68.055, 27.19];
 
@@ -30,6 +36,23 @@ describe("aoiFillPercent", () => {
   it("es 0 si no se tocan", () => {
     expect(aoiFillPercent(aoi, [0, 0, 1, 1])).toBe(0);
     expect(aoiFillPercent(aoi, [])).toBe(0);
+  });
+});
+
+describe("imageClip", () => {
+  const box: [number, number, number, number] = [0, 0, 2, 2];
+
+  it("no recorta cuando la imagen es el AOI", () => {
+    expect(imageClip(box, box, "mask", 50, "full")).toBe("inset(0% 0% 0% 0%)");
+  });
+
+  it("parte el deslizador por la mitad sin depender del zoom", () => {
+    expect(imageClip(box, box, "swipe", 50, "before")).toBe(
+      "inset(0% 50% 0% 0%)",
+    );
+    expect(imageClip(box, box, "swipe", 50, "after")).toBe(
+      "inset(0% 0% 0% 50%)",
+    );
   });
 });
 

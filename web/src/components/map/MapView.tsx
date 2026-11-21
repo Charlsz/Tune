@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   MapContainer,
   TileLayer,
@@ -17,11 +18,23 @@ import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
 
 /** Contorno del AOI; con `pulsing` anima fill/stroke vía setStyle (CSS no gana a Leaflet). */
-function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
+function AoiOutline({
+  aoi,
+  pulsing,
+  slow = false,
+}: {
+  aoi: BBox;
+  pulsing: boolean;
+  slow?: boolean;
+}) {
   const [layer, setLayer] = useState<LeafletRectangle | null>(null);
 
   useEffect(() => {
     if (!layer) return;
+
+    const reduced =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (!pulsing) {
       layer.setStyle({
@@ -32,21 +45,31 @@ function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
       return;
     }
 
+    if (reduced) {
+      layer.setStyle({
+        fillOpacity: slow ? 0.08 : 0.14,
+        opacity: 0.85,
+        weight: 2,
+      });
+      return;
+    }
+
+    const period = slow ? 2400 : 1150;
     let raf = 0;
     const start = performance.now();
     const loop = (now: number) => {
-      const t = ((now - start) % 1150) / 1150;
+      const t = ((now - start) % period) / period;
       const wave = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
       layer.setStyle({
-        fillOpacity: 0.05 + wave * 0.26,
-        opacity: 0.35 + wave * 0.65,
+        fillOpacity: slow ? 0.03 + wave * 0.1 : 0.05 + wave * 0.26,
+        opacity: slow ? 0.35 + wave * 0.4 : 0.35 + wave * 0.65,
         weight: 2,
       });
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [layer, pulsing, aoi]);
+  }, [layer, pulsing, slow, aoi]);
 
   return (
     <Rectangle
@@ -192,6 +215,65 @@ function Controls({
   ) : null;
 }
 
+/** Raya que recorre el AOI mientras corre el análisis. No captura el ratón. */
+function AoiScan({ active, aoi }: { active: boolean; aoi: BBox }) {
+  const map = useMap();
+  const [box, setBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      setBox(null);
+      return;
+    }
+    const update = () => {
+      if ((map as { _animatingZoom?: boolean })._animatingZoom) return;
+      const [west, south, east, north] = aoi;
+      const sw = map.latLngToContainerPoint([south, west]);
+      const ne = map.latLngToContainerPoint([north, east]);
+      const left = Math.min(sw.x, ne.x);
+      const top = Math.min(sw.y, ne.y);
+      const width = Math.abs(ne.x - sw.x);
+      const height = Math.abs(ne.y - sw.y);
+      if (width < 8 || height < 8) {
+        setBox(null);
+        return;
+      }
+      setBox({ left, top, width, height });
+    };
+    update();
+    map.on("move", update);
+    map.on("moveend zoomend resize", update);
+    return () => {
+      map.off("move", update);
+      map.off("moveend zoomend resize", update);
+    };
+  }, [map, active, aoi]);
+
+  if (!active || !box) return null;
+
+  return createPortal(
+    <div
+      className="tune-aoi-scan"
+      style={{
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        height: box.height,
+      }}
+      aria-hidden
+    >
+      <div className="tune-aoi-scan-wash" />
+      <div className="tune-aoi-scan-line" />
+    </div>,
+    map.getContainer(),
+  );
+}
+
 function mapboxTileUrl(token: string) {
   return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}?access_token=${token}`;
 }
@@ -221,6 +303,7 @@ export default function MapView({
   const previewLoading = state.selected.some(
     (s) => s?.previewStatus === "loading",
   );
+  const analyzing = state.step === "running";
 
   return (
     <MapContainer
@@ -245,7 +328,12 @@ export default function MapView({
         name="selection"
         style={{ zIndex: 450, pointerEvents: drawing ? "none" : "auto" }}
       >
-        <AoiOutline aoi={state.aoi} pulsing={previewLoading} />
+        <AoiOutline
+          aoi={state.aoi}
+          pulsing={previewLoading || analyzing}
+          slow={analyzing}
+        />
+        <AoiScan active={analyzing} aoi={state.aoi} />
       </Pane>
       <Controls
         state={state}

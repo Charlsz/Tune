@@ -233,6 +233,39 @@ export function coverageRatio(aoi: BBox, scene: number[]): number {
   return Math.max(0, Math.min(1, ((ie - iw) * (inorth - is)) / aoiArea));
 }
 
+/**
+ * Recorte CSS en % de la imagen. No depende del zoom: la foto lo arrastra consigo.
+ * `swipe` parte el AOI en Antes (oeste) y Después (este).
+ */
+export function imageClip(
+  image: BBox,
+  aoi: BBox,
+  mode: "mask" | "swipe",
+  split: number,
+  side: "before" | "after" | "full",
+): string {
+  const [iw, is, ie, inn] = image;
+  const [aw, as, ae, an] = aoi;
+  const width = ie - iw;
+  const height = inn - is;
+  if (width <= 0 || height <= 0) return "inset(100%)";
+  let left = Math.max(aw, iw);
+  let right = Math.min(ae, ie);
+  let south = Math.max(as, is);
+  let north = Math.min(an, inn);
+  if (mode === "swipe" && side !== "full") {
+    const cut = aw + ((ae - aw) * split) / 100;
+    if (side === "before") right = Math.min(right, cut);
+    else left = Math.max(left, cut);
+  }
+  if (right <= left || north <= south) return "inset(100%)";
+  const top = ((inn - north) / height) * 100;
+  const bottom = ((south - is) / height) * 100;
+  const leftP = ((left - iw) / width) * 100;
+  const rightP = ((ie - right) / width) * 100;
+  return `inset(${top}% ${rightP}% ${bottom}% ${leftP}%)`;
+}
+
 /** Porcentaje del recorte que cae dentro del bbox de la escena (0–100). */
 export function aoiFillPercent(aoi: BBox, scene: number[]): number {
   return Math.round(coverageRatio(aoi, scene) * 100);

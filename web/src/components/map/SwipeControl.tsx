@@ -45,10 +45,17 @@ export default function SwipeControl() {
       return;
     }
     const update = () => setBox(aoiContainerBox(map, aoi));
+    const zooming = () =>
+      Boolean((map as { _animatingZoom?: boolean })._animatingZoom);
+    const onMove = () => {
+      if (!zooming()) update();
+    };
     update();
-    map.on("move zoom resize moveend zoomend", update);
+    map.on("move", onMove);
+    map.on("moveend zoomend resize", update);
     return () => {
-      map.off("move zoom resize moveend zoomend", update);
+      map.off("move", onMove);
+      map.off("moveend zoomend resize", update);
     };
   }, [map, active, aoi]);
 
@@ -77,6 +84,15 @@ export default function SwipeControl() {
     window.addEventListener("pointerup", unlock);
     window.addEventListener("blur", unlock);
 
+    const wheel = (e: WheelEvent) => {
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target?.closest("input")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      map.setZoom(map.getZoom() + (e.deltaY > 0 ? -1 : 1));
+    };
+    el.addEventListener("wheel", wheel, { capture: true, passive: false });
+
     return () => {
       for (const ev of startEvents) {
         DomEvent.off(el, ev, lock);
@@ -85,6 +101,7 @@ export default function SwipeControl() {
       window.removeEventListener("touchend", unlock);
       window.removeEventListener("pointerup", unlock);
       window.removeEventListener("blur", unlock);
+      el.removeEventListener("wheel", wheel, { capture: true });
       if (!drawingRef.current) map.dragging.enable();
     };
   }, [map, active, box]);

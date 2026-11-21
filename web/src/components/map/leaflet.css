@@ -134,6 +134,51 @@
   right: 8px;
 }
 
+.tune-aoi-scan {
+  pointer-events: none;
+  position: absolute;
+  /* Por encima de los panes de imagen (el mapa entero es z-index 400). */
+  z-index: 800;
+  overflow: hidden;
+}
+
+.tune-aoi-scan-wash {
+  position: absolute;
+  inset: 0;
+  background: #111111;
+  animation: tune-aoi-wash 2.4s ease-in-out infinite;
+}
+
+.tune-aoi-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #111111;
+  box-shadow: 0 0 0 1px #ffffff;
+  animation: tune-aoi-scan 2.4s ease-in-out infinite;
+}
+
+@keyframes tune-aoi-wash {
+  0%,
+  100% {
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.16;
+  }
+}
+
+@keyframes tune-aoi-scan {
+  0%,
+  100% {
+    top: 0;
+  }
+  50% {
+    top: calc(100% - 1px);
+  }
+}
+
 @media (max-width: 640px) {
   .leaflet-control-zoom {
     margin: 0 12px 58px 0 !important;
