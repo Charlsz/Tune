@@ -3,7 +3,7 @@
 Cliente-servidor en dos contenedores. MapApp (nginx :8080) habla con eo-api
 (FastAPI :8000). El caso de uso orquesta Prithvi y proveedores externos detrás
 de puertos: Joint Research Centre (JRC), Global Flood Monitoring (GFM),
-WorldCover / Global Human Settlement Layer (GHSL), Earth Search
+WorldCover, Earth Search
 (SpatioTemporal Asset Catalog (STAC)). Persistencia en disco (`artifacts/`).
 
 ```mermaid
@@ -19,7 +19,7 @@ flowchart TB
     SEG["PrithviSegmenter<br/>TerraTorch"]
     REF["ReferenceProvider<br/>historial → JRC (Joint Research Centre)"]
     OBS["ObservationProvider<br/>GFM (Global Flood Monitoring) ±10 d"]
-    EXP["ExposureProvider<br/>WorldCover + GHSL"]
+    EXP["ExposureProvider<br/>WorldCover"]
     CAT["SceneCatalog<br/>Earth Search L2A (STAC)"]
     REPO["AnalysisRepository<br/>filesystem"]
   end
@@ -29,7 +29,7 @@ flowchart TB
     ES[Earth Search STAC]
     JRC["JRC GSW<br/>(Global Surface Water)"]
     GFM["EODC GFM<br/>(Earth Observation Data Centre)"]
-    WC["WorldCover / GHSL<br/>(Global Human Settlement Layer)"]
+    WC["WorldCover"]
   end
 
   subgraph Disco
