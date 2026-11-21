@@ -143,10 +143,15 @@ function Mask({
 export function TemporalLayers({
   state,
   waterCells,
+  drawing = false,
 }: {
   state: State;
   waterCells: (scene: Scene, aoi: BBox) => Cell[];
+  /** Mientras se traza un AOI nuevo, la imagen anterior no debe tapar el gesto. */
+  drawing?: boolean;
 }) {
+  if (drawing) return null;
+
   const before = state.selected[0],
     after = state.selected[1];
   const overlays = state.result?.overlays;

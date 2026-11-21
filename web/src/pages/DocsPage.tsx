@@ -16,7 +16,7 @@ const STEPS = [
     n: "1",
     title: "Área",
     tab: "Mapa",
-    body: "Busca un nombre (Nominatim), pega coordenadas lat, lon (ej. 27.1, 67.95) o dibuja un rectángulo. Ese AOI es el recorte del catálogo. También puedes abrir Subir GeoTIFF dentro de Área.",
+    body: "Busca un nombre (Nominatim), pega coordenadas lat, lon (ej. 27.1, 67.95) o dibuja un rectángulo. Ese AOI es el recorte del catálogo.",
   },
   {
     n: "2",

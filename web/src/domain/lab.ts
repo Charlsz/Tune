@@ -80,12 +80,13 @@ export type AnalyzeProgressEvent = {
 export interface DataProvider {
   places: { label: string; bbox: BBox }[];
   maskCells(scene: Scene, aoi: BBox): Cell[];
-  scenes(aoi: BBox, date: string): Promise<Scene[]>;
+  scenes(aoi: BBox, date: string, maxCloud?: number): Promise<Scene[]>;
   analyze(
     aoi: BBox,
     before: Scene,
     after: Scene,
     onProgress?: (e: AnalyzeProgressEvent) => void,
+    maxCloud?: number,
   ): Promise<Result>;
 }
 export interface State {

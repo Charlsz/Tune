@@ -1,13 +1,21 @@
-import { ArrowLeftRight, ArrowRight, FileUp, X } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, FileUp, Map as MapIcon, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../../api/client";
 import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
-import { preferEarlierFirst, sameTerritory, type Box } from "../../domain/territory";
+import {
+  boxToBBox,
+  boxesClose,
+  canPlaceOnMap,
+  preferEarlierFirst,
+  sameTerritory,
+  unionBox,
+  type Box,
+} from "../../domain/territory";
 import { formatDate } from "../../domain/lab";
 import type { InspectReport } from "../../types";
-import { btnPrimary, btnText, emptyBox } from "../ui/classes";
+import { btnOutline, btnPrimary, btnText, emptyBox } from "../ui/classes";
 import AnalyzeRunning from "./AnalyzeRunning";
 
 const MAX_BYTES = 200 * 1024 * 1024;
@@ -29,8 +37,9 @@ function dateLabel(report: InspectReport | undefined): string | null {
   return formatDate(day);
 }
 
-export default function GeoTiffUpload({ onBack }: { onBack?: () => void }) {
-  const { analyzeUploads, analyzeProgress, error, setError } = useMapApp();
+export default function GeoTiffUpload() {
+  const { analyzeUploads, analyzeProgress, error, setError, setArea, state } =
+    useMapApp();
   const navigate = useNavigate();
   const [antes, setAntes] = useState<Slot | null>(null);
   const [despues, setDespues] = useState<Slot | null>(null);
@@ -50,6 +59,25 @@ export default function GeoTiffUpload({ onBack }: { onBack?: () => void }) {
       ? ""
       : "Estos archivos no cubren el mismo lugar. Sube dos recortes del mismo terreno.";
   }, [antes, despues]);
+
+  const placeable = useMemo(() => {
+    const busy =
+      antes?.status === "checking" || despues?.status === "checking";
+    const slots = [antes, despues].filter(
+      (s): s is Slot => s?.status === "ok" && canPlaceOnMap(s.report?.bounds),
+    );
+    const filled = [antes, despues].filter((s) => s?.status === "ok");
+    if (busy || overlapProblem || !filled.length || slots.length !== filled.length) {
+      return null;
+    }
+    const boxes = slots.map((s) => s.report!.bounds as Box);
+    const box = boxes.length === 2 ? unionBox(boxes[0]!, boxes[1]!) : boxes[0]!;
+    return {
+      box,
+      targets: [boxToBBox(box), ...boxes.map(boxToBBox)],
+      label: slots.map((s) => s.file.name).join(" → "),
+    };
+  }, [antes, despues, overlapProblem]);
 
   const ready =
     !running &&
@@ -113,6 +141,16 @@ export default function GeoTiffUpload({ onBack }: { onBack?: () => void }) {
     setNote("");
   }
 
+  function showOnMap() {
+    if (!placeable) return;
+    const current = state.result?.overlays?.bounds ?? state.result?.aoi;
+    const alreadyThere =
+      current != null &&
+      placeable.targets.some((target) => boxesClose(current, target));
+    if (!alreadyThere) setArea(boxToBBox(placeable.box), placeable.label);
+    navigate(paths.map);
+  }
+
   async function run() {
     const filled = [antes, despues].filter((s): s is Slot => s?.status === "ok");
     if (!filled.length || overlapProblem) return;
@@ -170,9 +208,10 @@ export default function GeoTiffUpload({ onBack }: { onBack?: () => void }) {
         Analizar
         <ArrowRight size={17} />
       </button>
-      {onBack ? (
-        <button type="button" className={btnText} onClick={onBack}>
-          Elegir en el mapa
+      {placeable ? (
+        <button type="button" className={`${btnOutline} mt-3`} onClick={showOnMap}>
+          <MapIcon size={17} />
+          Mostrar en el mapa
         </button>
       ) : null}
     </div>

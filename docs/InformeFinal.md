@@ -59,7 +59,7 @@ Prithvi-EO 2.0 (Szwarcman et al., 2024) y Sen1Floods11 (Bonafilia et al., 2020) 
 
 ## 6. Solución propuesta
 
-Tune analiza la inundación con dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, usa la pestaña **GeoTIFF** (`/geotiff`) —o «Subir GeoTIFF» dentro de Área— para cargar uno o dos archivos de seis bandas sin dibujar AOI; el mismo análisis corre sobre ese archivo. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
+Tune analiza la inundación con dos entradas. En el mapa, el operador busca un lugar, pega coordenadas o dibuja el rectángulo, elige dos fechas y las escenas Sentinel-2. Si ya tiene la imagen preparada, usa la pestaña **GeoTIFF** (`/geotiff`) para cargar uno o dos archivos de seis bandas sin dibujar AOI; el mismo análisis corre sobre ese archivo. Si el raster trae georreferencia, se puede ubicar en el mapa. MapApp muestra la máscara, el cambio (rojo = inundación, azul = agua que ya estaba) y el acuerdo con GFM cuando hay capa. El valor frente a un script suelto es esa lectura, guardada y repetible.
 
 ## 7. Metodología de desarrollo
 

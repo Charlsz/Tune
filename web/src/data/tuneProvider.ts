@@ -55,14 +55,14 @@ export const tuneProvider: DataProvider = {
 
   maskCells: () => [],
 
-  async scenes(aoi, date) {
+  async scenes(aoi, date, maxCloud = 40) {
     await ensureLimits();
     if (!aoiFitsCatalogLimits(aoi, maxSideKm)) {
       throw new Error(
         `El área supera ${maxSideKm} km. Reduce el recorte e inténtalo de nuevo.`,
       );
     }
-    const q = catalogQueryFromAoi(aoi, date, 40, maxSideKm);
+    const q = catalogQueryFromAoi(aoi, date, maxCloud, maxSideKm);
     const { start, end } = weekWindow(date);
     const scenes = await api.catalogSearch({
       lat: q.lat,
@@ -75,7 +75,7 @@ export const tuneProvider: DataProvider = {
     return sortScenesByDate(scenes.map(catalogSceneToUi));
   },
 
-  async analyze(aoi, before, after, onProgress) {
+  async analyze(aoi, before, after, onProgress, maxCloud = 40) {
     await ensureLimits();
     if (!aoiFitsCatalogLimits(aoi, maxSideKm)) {
       throw new Error(
@@ -85,7 +85,7 @@ export const tuneProvider: DataProvider = {
     const q = catalogQueryFromAoi(
       aoi,
       before.datetime.slice(0, 10),
-      40,
+      maxCloud,
       maxSideKm,
     );
     const place = { lat: q.lat, lon: q.lon };

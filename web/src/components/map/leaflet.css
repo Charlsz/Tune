@@ -40,8 +40,20 @@
   padding: 6px 10px;
 }
 
-.drawing-map {
-  cursor: crosshair;
+/* Cruz fina: gana a .leaflet-grab y a .leaflet-interactive. El zoom conserva pointer. */
+.leaflet-container.drawing-map,
+.leaflet-container.drawing-map.leaflet-grab,
+.leaflet-container.drawing-map .leaflet-pane,
+.leaflet-container.drawing-map .leaflet-interactive {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M12 4.5v15M4.5 12h15' stroke='%23111111' stroke-width='1'/%3E%3C/svg%3E")
+    12 12,
+    crosshair;
+}
+
+.leaflet-container.drawing-map .leaflet-control,
+.leaflet-container.drawing-map .leaflet-control a {
+  cursor: pointer;
 }
 
 /* Al dibujar, el AOI no debe capturar el gesto (queda el del buscador). */

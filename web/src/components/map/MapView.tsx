@@ -23,24 +23,11 @@ function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
   useEffect(() => {
     if (!layer) return;
 
-    const reduced =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
     if (!pulsing) {
       layer.setStyle({
         fillOpacity: 0,
         opacity: 1,
         weight: 1.5,
-      });
-      return;
-    }
-
-    if (reduced) {
-      layer.setStyle({
-        fillOpacity: 0.16,
-        opacity: 0.9,
-        weight: 2,
       });
       return;
     }
@@ -77,6 +64,17 @@ function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
       }}
     />
   );
+}
+
+/** MapContainer congela className al montar; la clase de dibujo hay que togglearla. */
+function DrawingCursor({ drawing }: { drawing: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    el.classList.toggle("drawing-map", drawing);
+    return () => el.classList.remove("drawing-map");
+  }, [map, drawing]);
+  return null;
 }
 
 function Controls({
@@ -226,14 +224,18 @@ export default function MapView({
       zoom={9}
       zoomControl={false}
       maxZoom={token ? 22 : 19}
-      className={drawing ? "drawing-map" : ""}
     >
+      <DrawingCursor drawing={drawing} />
       <TileLayer
         url={tileUrl}
         attribution={attribution}
         {...(token ? { tileSize: 512, zoomOffset: -1, maxZoom: 22 } : {})}
       />
-      <TemporalLayers state={state} waterCells={waterCells} />
+      <TemporalLayers
+        state={state}
+        waterCells={waterCells}
+        drawing={drawing}
+      />
       <SwipeControl />
       <Pane
         name="selection"
