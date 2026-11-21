@@ -8,7 +8,7 @@ import {
 import { useNavigate } from "react-router";
 import { useMapApp } from "../../app/MapAppProvider";
 import { paths } from "../../app/paths";
-import { formatAoiCaption } from "../../domain/aoi";
+import { aoiHeadline, formatAoiCaption, formatAoiKm2 } from "../../domain/aoi";
 import { cn } from "../ui/cn";
 import MapLegend from "./MapLegend";
 import MapStatusBanner from "./MapStatusBanner";
@@ -30,9 +30,9 @@ export default function MapChrome() {
   } = useMapApp();
   const navigate = useNavigate();
 
-  const mapCaption = formatAoiCaption(state.label, state.aoi);
-  const showName =
-    Boolean(state.label?.trim()) && !/^coordenadas$/i.test(state.label.trim());
+  const headline = aoiHeadline(state.label, state.aoi);
+  const km2 = formatAoiKm2(state.aoi);
+  const mapCaption = `${headline} · ${km2}`;
   const viewingActive =
     Boolean(state.result) &&
     (state.step === "results" || state.step === "ready");
@@ -81,17 +81,11 @@ export default function MapChrome() {
         className="absolute bottom-6 left-1/2 z-[600] flex max-w-[min(90%,28rem)] -translate-x-1/2 items-center gap-2 truncate rounded-sm border border-line bg-[#ffffffef] px-3 py-2 text-[9px] text-fg-muted max-lg:hidden"
         title={mapCaption}
       >
-        {showName && (
-          <>
-            <span className="truncate text-fg">{state.label}</span>
-            <span className="shrink-0 text-fg-soft" aria-hidden>
-              ·
-            </span>
-          </>
-        )}
-        <span className="shrink-0 tabular-nums">
-          {formatAoiCaption(undefined, state.aoi)}
+        <span className="truncate text-fg">{headline}</span>
+        <span className="shrink-0 text-fg-soft" aria-hidden>
+          ·
         </span>
+        <span className="shrink-0 tabular-nums">{km2}</span>
       </div>
       <div className="absolute top-6 right-6 z-[710] flex flex-col gap-3 max-sm:top-4 max-sm:right-3 max-sm:gap-2.5">
         <button

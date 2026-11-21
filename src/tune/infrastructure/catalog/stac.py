@@ -23,8 +23,8 @@ RGB_KEYS = ("red", "green", "blue")
 SCL_CLOUD = {3, 8, 9, 10, 11}
 OFFSET_CUTOFF = date(2022, 1, 25)
 TARGET_RES_M = 20.0
-PREVIEW_RES_M = 40.0
-PREVIEW_MAX_EDGE = 768
+PREVIEW_RES_M = 10.0
+PREVIEW_MAX_EDGE = 2048
 
 
 class CatalogError(RuntimeError):
@@ -192,7 +192,9 @@ class StacCatalog:
         """
         dest_dir = Path(dest_dir)
         dest_dir.mkdir(parents=True, exist_ok=True)
-        key = _preview_cache_key(item_id, bbox)
+        key = _preview_cache_key(
+            item_id, bbox, res_m=res_m, max_edge=max_edge_px
+        )
         png_path = dest_dir / f"{key}.png"
         meta_path = dest_dir / f"{key}.json"
         if png_path.is_file() and meta_path.is_file():
@@ -303,7 +305,7 @@ class StacCatalog:
                         src_crs=src.crs,
                         dst_transform=new_tf,
                         dst_crs=src.crs,
-                        resampling=Resampling.bilinear,
+                        resampling=Resampling.lanczos,
                     )
                     return dst, new_tf, src.crs
                 return data, transform, src.crs
@@ -348,7 +350,7 @@ class StacCatalog:
                             src_crs=src.crs,
                             dst_transform=new_tf,
                             dst_crs=src.crs,
-                            resampling=Resampling.bilinear,
+                            resampling=Resampling.lanczos,
                         )
                     data = dst
                 valid = np.any(data > 0, axis=0)
@@ -378,9 +380,17 @@ class StacCatalog:
             )
 
 
-def _preview_cache_key(item_id: str, bbox: tuple[float, float, float, float]) -> str:
+def _preview_cache_key(
+    item_id: str,
+    bbox: tuple[float, float, float, float],
+    *,
+    res_m: float = PREVIEW_RES_M,
+    max_edge: int = PREVIEW_MAX_EDGE,
+) -> str:
+    """Incluye resolución y tope: un PNG de 40 m no se reutiliza como si fuera de 10 m."""
     safe_id = re.sub(r"[^\w.-]+", "_", item_id)[:120]
-    digest = hashlib.sha1(",".join(f"{x:.6f}" for x in bbox).encode("utf-8")).hexdigest()[:12]
+    raw = f"{','.join(f'{x:.6f}' for x in bbox)}|{res_m:.1f}|{max_edge}"
+    digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:12]
     return f"{safe_id}_{digest}"
 
 
@@ -407,7 +417,7 @@ def _resize_rgb(rgb: np.ndarray, height: int, width: int) -> np.ndarray:
     planes = []
     for i in range(rgb.shape[0]):
         img = Image.fromarray(rgb[i], mode="L")
-        planes.append(np.asarray(img.resize((width, height), Image.Resampling.BILINEAR)))
+        planes.append(np.asarray(img.resize((width, height), Image.Resampling.LANCZOS)))
     return np.stack(planes, axis=0)
 
 

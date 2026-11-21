@@ -75,6 +75,38 @@ export function bboxDimensionsKm(bbox: BBox): {
   return { heightKm, widthKm };
 }
 
+/** Superficie del rectángulo en km² (no el agua detectada). */
+export function aoiAreaKm2(bbox: BBox): number {
+  const { heightKm, widthKm } = bboxDimensionsKm(bbox);
+  return Math.abs(heightKm * widthKm);
+}
+
+/** «412 km²» o «12,4 km²». Un decimal por debajo de 100. */
+export function formatAoiKm2(bbox: BBox): string {
+  const km2 = aoiAreaKm2(bbox);
+  const digits = km2 >= 100 ? 0 : 1;
+  const text = km2.toLocaleString("es", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
+  return `${text} km²`;
+}
+
+const GENERIC_AOI_LABEL = /^(coordenadas|área dibujada)$/i;
+
+/** Nombre del lugar, o el centro si el rótulo no nombra un sitio. */
+export function aoiHeadline(
+  label: string | undefined,
+  bbox: BBox,
+  digits = 4,
+): string {
+  const name = (label ?? "").trim();
+  if (!name || GENERIC_AOI_LABEL.test(name)) {
+    return formatPlaceCoords(bboxCenter(bbox), digits);
+  }
+  return name;
+}
+
 export function formatBbox(bbox: BBox, digits = 5): string {
   return bbox.map((n) => n.toFixed(digits)).join(",");
 }

@@ -1,23 +1,24 @@
 import { ArrowRight, MapPin, Scan } from "lucide-react";
 import { useMapApp } from "../../app/MapAppProvider";
-import { formatAoiCaption } from "../../domain/aoi";
+import { aoiHeadline, formatAoiKm2 } from "../../domain/aoi";
 import { btnOutline, btnOutlineSelected, btnPrimary } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 
 export default function AreaStep() {
   const { state, drawing, setDrawing, dispatch } = useMapApp();
-  const coords = formatAoiCaption(undefined, state.aoi);
+  const headline = aoiHeadline(state.label, state.aoi);
+  const km2 = formatAoiKm2(state.aoi);
 
   return (
     <FadeIn>
       <div className="mb-4 flex items-start gap-3 text-fg-muted">
         <MapPin size={18} className="mt-0.5 shrink-0" />
-        <div className="min-w-0">
-          <strong className="block text-sm font-medium text-fg">
-            {state.label}
+        <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+          <strong className="min-w-0 truncate text-sm font-medium text-fg">
+            {headline}
           </strong>
-          <span className="mt-1 block text-[11px] tabular-nums text-fg-soft">
-            {coords}
+          <span className="shrink-0 tabular-nums text-[11px] text-fg-muted">
+            {km2}
           </span>
         </div>
       </div>
