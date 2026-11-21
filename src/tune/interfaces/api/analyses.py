@@ -285,9 +285,7 @@ def _inspect_geotiff(path: Path, task: HazardTask) -> InspectResponse:
         bounds = None
         if src.crs is not None:
             box = _bounds_wgs84(src)
-            bounds = BoundsSchema(
-                west=box.west, south=box.south, east=box.east, north=box.north
-            )
+            bounds = BoundsSchema(west=box.west, south=box.south, east=box.east, north=box.north)
     too_big = width * height > 64_000_000
     ok = _bands_ok(bands, task) and not too_big
     detail = None
@@ -341,8 +339,7 @@ async def _spool_geotiff(file: UploadFile) -> tuple[tempfile.TemporaryDirectory[
     response_model=InspectResponse,
     summary="Revisar un GeoTIFF sin analizarlo",
     description=(
-        "Lee bandas, extensión, fecha y caja geográfica. "
-        "No descarga pesos ni guarda un análisis."
+        "Lee bandas, extensión, fecha y caja geográfica. No descarga pesos ni guarda un análisis."
     ),
     responses={
         400: {"description": "El archivo no termina en .tif o .tiff"},

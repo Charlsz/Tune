@@ -336,33 +336,11 @@ En el pico de Sindh el acuerdo es 0,20: las dos capas coinciden en una parte de 
 
 ## 14. Resultados, discusión y conclusiones
 
-Los tres territorios responden la misma pregunta con números distintos, y esa diferencia es el resultado de Tune. En los tres, el agua que ya estaba en el pico es mayor que cero y la inundación es menor que el agua detectada. El procedimiento no cambia. Cambia el paisaje.
+Se cumplió el objetivo de servir un análisis de inundación como agua nueva, con API, MapApp, degradación parcial y evidencia empírica en tres sitios con pesos reales y tabla documentada. Las tres lecturas están implementadas: agua detectada, agua nueva y acuerdo externo. GFM se consulta en cada análisis y se muestra cuando existe capa.
 
-### 14.1 Qué dicen los tres lugares
+**Limitaciones.** El acuerdo con GFM es condicional: depende de la cobertura, la fecha y el catálogo, y no sustituye al agua nueva. Hay desfase entre la escena óptica y el radar (Synthetic Aperture Radar, SAR). La población expuesta quedó en 0 en los recortes medidos, así que no forma parte del resultado. El historial de MapApp es de la sesión y no lista aún `GET /api/analyses`. No hay autenticación ni escala multi-usuario.
 
-Sindh es el caso en el que la inundación se ve sin discutir el orden de magnitud. De mayo a septiembre de 2022 el agua pasó de 10,34 km² a 60,22 km² dentro de un recorte de 12 km de lado. La inundación, 49,56 km², explica casi todo ese salto. Los 10,03 km² que ya estaban en mayo siguen ahí en septiembre: el cauce no desaparece, queda debajo del desborde. Alguien podría leer 60,22 km² y llamarlos inundación. Tune no lo hace. Esos 60,22 km² son agua. La inundación es 49,56 km².
-
-El Bajo Magdalena obliga a elegir la referencia con cuidado. De febrero a mayo el agua pasó de 21,95 km² a 55,08 km², y frente a febrero la inundación es 38,25 km², con 16,17 km² que permanecen. Si la referencia es solo el mapa permanente del JRC, febrero ya sale casi entero como agua nueva: 21,18 km² de 21,95 km², porque el JRC marca 0,77 km² en ese humedal. Una ciénaga no es un río de atlas. El mapa global de agua permanente, construido para el cauce que está casi siempre, se queda corto donde el agua va y viene con la temporada. Por eso la escena anterior del mismo lugar es la referencia que defendemos allí.
-
-El Mississippi es el caso incómodo, y por eso nos importa. El agua detectada apenas se mueve: 72,16 km² en septiembre de 2018 y 76,12 km² en junio de 2019. Quien mire solo ese par puede decir que no pasó nada. La inundación es 10,26 km² y el agua que ya estaba es 65,85 km². El río ocupa el recorte; la crecida es un borde. Reportar 76 km² como inundación habría sido el error que Tune evita.
-
-### 14.2 Discusiones que estos números admiten
-
-**El recorte no es el desastre.** 49,56 km² en Sindh no son la inundación de Pakistán en 2022. Son la inundación dentro del cuadrado que marcamos, de 12 km de lado, entre dos fechas. Lo mismo vale para 38,25 km² en el Magdalena y 10,26 km² en el Mississippi. El número es verificable porque el lugar, la fecha y el lado están fijos. Deja de serlo si se lee como el área oficial del evento.
-
-**Un IoU bajo no anula el agua nueva.** En el pico de Sindh el acuerdo con GFM es 0,20 y en el pico del Mississippi es 0,32. Una lectura posible es que el modelo falla. La lectura que sostenemos es otra: GFM cartografía extensión de crecida con radar, y Tune cartografía agua con una escena óptica. En Sindh, además, GFM no cubre toda la grilla, así que el 0,20 describe solo la zona donde las dos capas se pueden comparar. La inundación del recorte sigue siendo 49,56 km². En el Mississippi de 2018 el acuerdo es 0,00: GFM no marca crecida y Tune mide el río, 72,16 km². Ese cero nos parece coherente. Un producto de inundación que no pinta el cauce en una fecha seca no contradice un modelo que sí ve el agua. En el Magdalena no hubo capa comparable. Allí no inventamos un acuerdo.
-
-**La fecha seca también tiene agua.** En febrero el Magdalena ya mostraba 21,95 km². Si esa escena no era del todo seca, los 38,25 km² de mayo son inundación respecto a febrero, no respecto a un suelo vacío. Lo decimos así a propósito. La línea base es una fecha, no un ideal de sequía.
-
-**La repetición en Sindh.** Las mismas escenas, analizadas de nuevo, devolvieron las mismas áreas al centésimo de km². No es una prueba estadística grande. Sí alcanza para decir que el kilómetro cuadrado de Sindh no depende del azar de una sola ejecución.
-
-### 14.3 Limitaciones
-
-El acuerdo existe solo cuando GFM cubre la fecha y el recorte. Tune no estima profundidad ni caudal, no autentica usuarios y analiza un lugar a la vez. La escena óptica se nubla; el radar no. Por eso el IoU es un contraste, no una calificación del modelo. No reportamos población afectada: sumar el Global Human Settlement Layer sobre el píxel de agua nueva dio cero, también junto a ciudades, y esa cifra no se puede defender.
-
-### 14.4 Conclusión
-
-Con Tune, la inundación dejó de ser "toda el agua que ve el modelo". En Sindh son 49,56 km² de un salto de 10,34 a 60,22. En el Bajo Magdalena son 38,25 km², siempre que la referencia sea el propio febrero y no un mapa que casi no ve el humedal. En el Mississippi son 10,26 km² al lado de un río de 65,85 km² que ya estaba. Las tres lecturas salen del mismo lugar en el mapa, o del GeoTIFF de esas escenas, y se pueden volver a abrir.
+**Conclusión.** Tune demuestra que un checkpoint publicado, interpretado con una referencia permanente y un contraste opcional con GFM, produce una lectura defendible de inundación. Es un prototipo reproducible, distinto de un laboratorio de entrenamiento y de un Geographic Information System (GIS) operativo completo.
 
 ## 15. Trabajo futuro
 
