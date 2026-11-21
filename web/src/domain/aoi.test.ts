@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aoiAreaKm2, aoiHeadline, formatAoiKm2 } from "./aoi";
+import { aoiAreaKm2, aoiFillPercent, aoiHeadline, formatAoiKm2 } from "./aoi";
 
 const sindh: [number, number, number, number] = [67.845, 27.01, 68.055, 27.19];
 
@@ -13,6 +13,23 @@ describe("aoiAreaKm2", () => {
     expect(formatAoiKm2(sindh)).toMatch(/^\d+ km²$/);
     const thin: [number, number, number, number] = [68, 27, 68.02, 27.02];
     expect(formatAoiKm2(thin)).toMatch(/^\d+,\d km²$/);
+  });
+});
+
+describe("aoiFillPercent", () => {
+  const aoi: [number, number, number, number] = [68, 27, 68.2, 27.2];
+
+  it("es 100 cuando la escena envuelve el recorte", () => {
+    expect(aoiFillPercent(aoi, [67, 26, 69, 28])).toBe(100);
+  });
+
+  it("es la fracción del recorte que sí cae en la escena", () => {
+    expect(aoiFillPercent(aoi, [68.1, 27, 69, 27.2])).toBe(50);
+  });
+
+  it("es 0 si no se tocan", () => {
+    expect(aoiFillPercent(aoi, [0, 0, 1, 1])).toBe(0);
+    expect(aoiFillPercent(aoi, [])).toBe(0);
   });
 });
 

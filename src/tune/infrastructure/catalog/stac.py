@@ -76,13 +76,15 @@ class StacCatalog:
             if "thumbnail" in item.assets:
                 thumb = item.assets["thumbnail"].href
             bb = item.bbox or bbox
+            scene_bbox = (float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3]))
             items.append(
                 SceneItem(
                     id=item.id,
                     datetime=str(dt)[:19],
                     cloud_cover=cloud,
-                    bbox=(float(bb[0]), float(bb[1]), float(bb[2]), float(bb[3])),
+                    bbox=scene_bbox,
                     thumbnail=thumb,
+                    aoi_cover=footprint_cover(bbox, getattr(item, "geometry", None)),
                 )
             )
         # Cronológico: inicio → fin de la ventana pedida.
@@ -378,6 +380,104 @@ class StacCatalog:
                 ACQUISITION_DATE=acquired.isoformat(),
                 SENSING_TIME=acquired.isoformat() + "T12:00:00",
             )
+
+
+def footprint_cover(
+    aoi: tuple[float, float, float, float],
+    geometry: dict | None,
+) -> float | None:
+    """Fracción del recorte que pisa la huella (polígono), no el bbox que la envuelve.
+
+    Un Sentinel-2 cabe en un rectángulo casi completo y aun así deja fuera del
+    recorte la franja que no fotografió. Sin geometría no hay cifra honesta.
+    """
+    rings = _footprint_rings(geometry)
+    if not rings:
+        return None
+    west, south, east, north = aoi
+    aoi_area = _ring_area([(west, south), (east, south), (east, north), (west, north)])
+    if aoi_area <= 0:
+        return None
+    covered = 0.0
+    for ring in rings:
+        covered += _ring_area(_clip_to_rect(ring, west, south, east, north))
+    return max(0.0, min(1.0, covered / aoi_area))
+
+
+def _footprint_rings(geometry: dict | None) -> list[list[tuple[float, float]]]:
+    if not isinstance(geometry, dict):
+        return []
+    kind = geometry.get("type")
+    coords = geometry.get("coordinates")
+    if kind == "Polygon" and coords:
+        return [_ring(coords[0])]
+    if kind == "MultiPolygon" and coords:
+        return [_ring(poly[0]) for poly in coords if poly]
+    return []
+
+
+def _ring(raw) -> list[tuple[float, float]]:
+    points = [(float(x), float(y)) for x, y in raw]
+    if len(points) > 1 and points[0] == points[-1]:
+        points = points[:-1]
+    return points
+
+
+def _ring_area(ring: list[tuple[float, float]]) -> float:
+    if len(ring) < 3:
+        return 0.0
+    area = 0.0
+    for i, (x1, y1) in enumerate(ring):
+        x2, y2 = ring[(i + 1) % len(ring)]
+        area += x1 * y2 - x2 * y1
+    return abs(area) / 2.0
+
+
+def _clip_to_rect(
+    ring: list[tuple[float, float]],
+    west: float,
+    south: float,
+    east: float,
+    north: float,
+) -> list[tuple[float, float]]:
+    """Sutherland–Hodgman. El recorte es convexo; la huella puede no serlo."""
+
+    def clip(points, inside, cross):
+        if not points:
+            return []
+        out: list[tuple[float, float]] = []
+        prev = points[-1]
+        prev_in = inside(prev)
+        for cur in points:
+            cur_in = inside(cur)
+            if cur_in:
+                if not prev_in:
+                    out.append(cross(prev, cur))
+                out.append(cur)
+            elif prev_in:
+                out.append(cross(prev, cur))
+            prev, prev_in = cur, cur_in
+        return out
+
+    def hit_x(a, b, x):
+        dx = b[0] - a[0]
+        if abs(dx) < 1e-15:
+            return (x, a[1])
+        t = (x - a[0]) / dx
+        return (x, a[1] + t * (b[1] - a[1]))
+
+    def hit_y(a, b, y):
+        dy = b[1] - a[1]
+        if abs(dy) < 1e-15:
+            return (a[0], y)
+        t = (y - a[1]) / dy
+        return (a[0] + t * (b[0] - a[0]), y)
+
+    pts = clip(ring, lambda p: p[0] >= west - 1e-12, lambda a, b: hit_x(a, b, west))
+    pts = clip(pts, lambda p: p[0] <= east + 1e-12, lambda a, b: hit_x(a, b, east))
+    pts = clip(pts, lambda p: p[1] >= south - 1e-12, lambda a, b: hit_y(a, b, south))
+    pts = clip(pts, lambda p: p[1] <= north + 1e-12, lambda a, b: hit_y(a, b, north))
+    return pts
 
 
 def _preview_cache_key(

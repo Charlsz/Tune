@@ -59,6 +59,16 @@ export default function ScenesStep() {
               const selected = state.selected[i];
               const chosen = selected?.id === scene.id;
               const previewLoading = chosen && selected?.previewStatus === "loading";
+              const fill =
+                scene.aoi_cover == null ? null : Math.round(scene.aoi_cover * 100);
+              const fills = scenes
+                .map((s) => (s.aoi_cover == null ? null : Math.round(s.aoi_cover * 100)))
+                .filter((n): n is number => n != null);
+              const best = fills.length ? Math.max(...fills) : null;
+              const coversMost =
+                fill != null && best != null && fill === best && fills.some((n) => n !== best);
+              const cloud =
+                scene.cloud_cover != null ? Math.round(scene.cloud_cover) : null;
               return (
                 <button
                   type="button"
@@ -71,39 +81,26 @@ export default function ScenesStep() {
                   key={scene.id}
                   onClick={() => selectScene(i as 0 | 1, scene)}
                 >
-                  <span className="relative size-12 shrink-0 overflow-hidden rounded-sm">
-                    <img
-                      src={scene.image}
-                      alt=""
-                      className={cn(
-                        "size-12 object-cover",
-                        previewLoading && "opacity-45",
-                      )}
-                    />
-                    {previewLoading && (
-                      <span
-                        className="absolute inset-0 flex items-center justify-center bg-paper/55"
-                        aria-hidden
-                      >
-                        <span className="tune-spinner tune-spinner-sm" />
-                      </span>
-                    )}
-                  </span>
+                  <img
+                    src={scene.image}
+                    alt=""
+                    className="size-12 shrink-0 rounded-sm object-cover"
+                  />
                   <div className="min-w-0">
                     <strong className="text-[11px] font-medium">
                       {formatDate(scene.datetime)}
                     </strong>
-                    {previewLoading ? (
-                      <span className="mt-0.5 block text-[10px] text-fg-muted">
-                        Cargando preview…
-                      </span>
-                    ) : (
-                      scene.cloud_cover != null && (
-                        <span className="mt-0.5 block text-[10px] text-fg-soft">
-                          Nubes {Math.round(scene.cloud_cover)}%
-                        </span>
-                      )
-                    )}
+                    <span className="mt-0.5 block text-[10px] tabular-nums text-fg-soft">
+                      {cloud != null ? `Nubes ${cloud}%` : "Nubes —"}
+                      {fill != null ? (
+                        <>
+                          <span aria-hidden> · </span>
+                          <span className={coversMost ? "font-medium text-fg" : undefined}>
+                            Recorte {fill}%
+                          </span>
+                        </>
+                      ) : null}
+                    </span>
                   </div>
                   <span className="ml-auto flex size-4 shrink-0 items-center justify-center rounded-full border border-line">
                     {chosen && !previewLoading && <Check size={12} />}

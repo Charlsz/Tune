@@ -13,6 +13,8 @@ export interface CatalogScene {
   cloud_cover: number;
   bbox: number[];
   thumbnail: string | null;
+  /** Fracción 0–1 de la huella real sobre el recorte. Null si el catálogo no trae geometría. */
+  aoi_cover?: number | null;
 }
 
 export interface CatalogPreview {

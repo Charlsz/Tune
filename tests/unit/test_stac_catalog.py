@@ -7,7 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tune.infrastructure.catalog.stac import CatalogError, StacCatalog, bbox_from_point
+from tune.infrastructure.catalog.stac import (
+    CatalogError,
+    StacCatalog,
+    bbox_from_point,
+    footprint_cover,
+)
 
 
 def test_bbox_from_point_is_centered() -> None:
@@ -26,6 +31,22 @@ def test_bbox_from_point_side_length_approx_km() -> None:
     polar_w, _, polar_e, _ = bbox_from_point(80.0, 0.0, side)
     equator_w, _, equator_e, _ = bbox_from_point(0.0, 0.0, side)
     assert (polar_e - polar_w) > (equator_e - equator_w)
+
+
+def test_footprint_cover_uses_the_swath_not_the_bbox() -> None:
+    """Un triángulo cabe en el cuadrado entero, pero solo pisa la mitad."""
+    aoi = (0.0, 0.0, 1.0, 1.0)
+    triangle = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [0.0, 0.0]]],
+    }
+    assert footprint_cover(aoi, triangle) == pytest.approx(0.5)
+    assert footprint_cover(aoi, None) is None
+    full = {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]],
+    }
+    assert footprint_cover(aoi, full) == pytest.approx(1.0)
 
 
 def test_search_propagates_catalog_client_errors(monkeypatch: pytest.MonkeyPatch) -> None:

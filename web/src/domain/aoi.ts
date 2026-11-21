@@ -222,6 +222,11 @@ export function coverageRatio(aoi: BBox, scene: number[]): number {
   return Math.max(0, Math.min(1, ((ie - iw) * (inorth - is)) / aoiArea));
 }
 
+/** Porcentaje del recorte que cae dentro del bbox de la escena (0–100). */
+export function aoiFillPercent(aoi: BBox, scene: number[]): number {
+  return Math.round(coverageRatio(aoi, scene) * 100);
+}
+
 export function boundsOverlap(
   a: { west: number; south: number; east: number; north: number },
   b: BBox,

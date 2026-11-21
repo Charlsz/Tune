@@ -131,6 +131,8 @@ class SceneItem:
     cloud_cover: float
     bbox: tuple[float, float, float, float]  # west, south, east, north
     thumbnail: str | None = None
+    # Fracción 0–1 del recorte cubierta por la huella real, no por el bbox.
+    aoi_cover: float | None = None
 
 
 @dataclass(frozen=True)
