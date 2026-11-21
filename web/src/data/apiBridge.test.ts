@@ -28,10 +28,17 @@ describe("compatibilidad AOI UI ↔ backend", () => {
     expect(q.end).toBe("2022-05-18");
     expect(q.sideKm).toBeGreaterThanOrEqual(1);
     expect(q.sideKm).toBeLessThanOrEqual(50);
+    expect(q.maxCloud).toBe(40);
     expect(q.lat).toBeGreaterThanOrEqual(-90);
     expect(q.lat).toBeLessThanOrEqual(90);
     expect(q.lon).toBeGreaterThanOrEqual(-180);
     expect(q.lon).toBeLessThanOrEqual(180);
+  });
+
+  it("catalogQueryFromAoi reenvía un maxCloud distinto de 40", () => {
+    const aoi: [number, number, number, number] = [67.65, 26.8, 68.25, 27.4];
+    const q = catalogQueryFromAoi(aoi, "2022-09-05", 49, 50);
+    expect(q.maxCloud).toBe(49);
   });
 
   it("respeta max_side_km del catálogo", () => {

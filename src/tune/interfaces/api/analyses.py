@@ -870,6 +870,7 @@ def catalog_search(
             cloud_cover=i.cloud_cover,
             bbox=list(i.bbox),
             thumbnail=i.thumbnail,
+            aoi_cover=i.aoi_cover,
         )
         for i in items
     ]

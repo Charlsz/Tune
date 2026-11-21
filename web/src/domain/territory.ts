@@ -21,6 +21,39 @@ export function sameTerritory(a: Box, b: Box): boolean {
   return shared / smaller >= 0.5;
 }
 
+/** Caja WGS84 usable como ImageOverlay: finita y con área. */
+export function canPlaceOnMap(bounds: Box | null | undefined): bounds is Box {
+  if (!bounds) return false;
+  const { west, south, east, north } = bounds;
+  return (
+    [west, south, east, north].every((n) => Number.isFinite(n)) &&
+    west < east &&
+    south < north
+  );
+}
+
+export function unionBox(a: Box, b: Box): Box {
+  return {
+    west: Math.min(a.west, b.west),
+    south: Math.min(a.south, b.south),
+    east: Math.max(a.east, b.east),
+    north: Math.max(a.north, b.north),
+  };
+}
+
+export function boxToBBox(box: Box): [number, number, number, number] {
+  return [box.west, box.south, box.east, box.north];
+}
+
+export function boxesClose(
+  a: readonly number[],
+  b: readonly number[],
+  eps = 1e-5,
+): boolean {
+  if (a.length < 4 || b.length < 4) return false;
+  return a.slice(0, 4).every((n, i) => Math.abs(n - b[i]!) < eps);
+}
+
 export function preferEarlierFirst<T extends { acquiredAt: string | null }>(
   first: T,
   second: T,

@@ -16,7 +16,7 @@ const STEPS = [
     n: "1",
     title: "Área",
     tab: "Mapa",
-    body: "Busca un nombre (Nominatim), pega coordenadas lat, lon (ej. 27.1, 67.95) o dibuja un rectángulo. Ese AOI es el recorte del catálogo. También puedes abrir Subir GeoTIFF dentro de Área.",
+    body: "Busca un nombre (Nominatim), pega coordenadas lat, lon (ej. 27.1, 67.95) o dibuja un rectángulo. Ese AOI es el recorte del catálogo.",
   },
   {
     n: "2",
@@ -56,28 +56,61 @@ const STEPS = [
   },
 ] as const;
 
-const SOURCES = [
+const SOURCE_LINK =
+  "underline underline-offset-2 text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+
+type SourcePart = { text: string; href?: string };
+
+const SOURCES: { parts: SourcePart[]; role: string }[] = [
   {
-    name: "Sentinel-2",
+    parts: [
+      {
+        text: "Sentinel-2",
+        href: "https://dataspace.copernicus.eu/explore-data/data-collections/sentinel-data/sentinel-2",
+      },
+    ],
     role: "Imágenes ópticas Antes / Después vía catálogo STAC.",
   },
   {
-    name: "Prithvi-EO 2.0",
+    parts: [
+      {
+        text: "Prithvi-EO 2.0",
+        href: "https://huggingface.co/ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+      },
+    ],
     role: "Detección de agua (Sen1Floods11) sobre el AOI.",
   },
   {
-    name: "JRC / historial",
+    parts: [
+      {
+        text: "JRC",
+        href: "https://global-surface-water.appspot.com/",
+      },
+      { text: " / historial" },
+    ],
     role: "Línea base de agua permanente o previa del territorio.",
   },
   {
-    name: "GFM (Copernicus)",
+    parts: [
+      {
+        text: "GFM (Copernicus)",
+        href: "https://www.globalfloods.eu/",
+      },
+    ],
     role: "Capa de observación para acuerdo (IoU) cuando existe ítem.",
   },
   {
-    name: "WorldCover / GHSL",
+    parts: [
+      { text: "WorldCover", href: "https://esa-worldcover.org/en" },
+      { text: " / " },
+      {
+        text: "GHSL",
+        href: "https://human-settlement.emergency.copernicus.eu/",
+      },
+    ],
     role: "Exposición: cobertura y población estimada sobre agua nueva.",
   },
-] as const;
+];
 
 export default function DocsPage() {
   return (
@@ -154,11 +187,25 @@ export default function DocsPage() {
           <ul className="m-0 list-none space-y-0 border-t border-line p-0">
             {SOURCES.map((s) => (
               <li
-                key={s.name}
+                key={s.parts.map((p) => p.text).join("")}
                 className="flex flex-col gap-0.5 border-b border-line py-3 sm:flex-row sm:items-baseline sm:gap-4"
               >
                 <strong className="min-w-[9rem] text-[13px] font-medium text-ink">
-                  {s.name}
+                  {s.parts.map((part) =>
+                    part.href ? (
+                      <a
+                        key={part.text}
+                        href={part.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={SOURCE_LINK}
+                      >
+                        {part.text}
+                      </a>
+                    ) : (
+                      <span key={part.text}>{part.text}</span>
+                    ),
+                  )}
                 </strong>
                 <span className="text-[13px] text-fg-muted">{s.role}</span>
               </li>

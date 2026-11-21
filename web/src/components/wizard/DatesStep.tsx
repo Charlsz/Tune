@@ -6,6 +6,7 @@ import { btnPrimary } from "../ui/classes";
 import FadeIn from "../ui/FadeIn";
 import { CatalogSkeleton } from "../ui/Skeleton";
 import { cn } from "../ui/cn";
+import MaxCloudField from "./MaxCloudField";
 
 export default function DatesStep() {
   const { state, loading, setLoading, dispatch, bumpTokens, findScenes } =
@@ -78,6 +79,7 @@ export default function DatesStep() {
           solaparse).
         </p>
       )}
+      <MaxCloudField />
       <button
         type="button"
         className={cn(btnPrimary)}

@@ -49,6 +49,11 @@ export type MapAppContextValue = {
   setPanelOpen: (v: boolean) => void;
   fullscreen: boolean;
   analyzeProgress: AnalyzeProgressEvent | null;
+  /** Tope de nubes del recorte (0–90). Lo usan la búsqueda y el análisis. */
+  maxCloud: number;
+  setMaxCloud: (n: number) => void;
+  /** Lado máximo del catálogo, en km. */
+  maxSideKm: number;
   patch: (p: ViewPatch) => void;
   setArea: (bbox: BBox, label: string) => void;
   findScenes: () => Promise<void>;
@@ -89,13 +94,21 @@ export function MapAppProvider({
   const [fullscreen, setFullscreen] = useState(false);
   const [analyzeProgress, setAnalyzeProgress] =
     useState<AnalyzeProgressEvent | null>(null);
+  const [maxCloud, setMaxCloudState] = useState(40);
+  const [maxSideKm, setMaxSideKm] = useState(30);
   const request = useRef(0);
   const analysis = useRef(0);
   const previewReq = useRef(0);
-  const maxSideKmRef = useRef(30);
+  const maxSideKmRef = useRef(maxSideKm);
+  maxSideKmRef.current = maxSideKm;
 
   const patch = useCallback((p: ViewPatch) => {
     dispatch({ type: "view", patch: p });
+  }, []);
+
+  const setMaxCloud = useCallback((n: number) => {
+    if (!Number.isFinite(n)) return;
+    setMaxCloudState(Math.min(90, Math.max(0, Math.round(n))));
   }, []);
 
   const bumpTokens = useCallback(() => {
@@ -125,7 +138,7 @@ export function MapAppProvider({
     setError("");
     try {
       const scenes = await Promise.all(
-        state.dates.map((d) => provider.scenes(state.aoi, d)),
+        state.dates.map((d) => provider.scenes(state.aoi, d, maxCloud)),
       );
       if (token === request.current) {
         setCatalog(scenes as [Scene[], Scene[]]);
@@ -138,7 +151,7 @@ export function MapAppProvider({
     } finally {
       if (token === request.current) setLoading(false);
     }
-  }, [provider, state.aoi, state.dates]);
+  }, [provider, state.aoi, state.dates, maxCloud]);
 
   const analyze = useCallback(async () => {
     if (!state.selected[0] || !state.selected[1]) return false;
@@ -154,6 +167,7 @@ export function MapAppProvider({
         (e) => {
           if (token === analysis.current) setAnalyzeProgress(e);
         },
+        maxCloud,
       );
       if (token === analysis.current) {
         setAnalyzeProgress(null);
@@ -169,7 +183,7 @@ export function MapAppProvider({
       }
       return false;
     }
-  }, [provider, state.aoi, state.selected]);
+  }, [provider, state.aoi, state.selected, maxCloud]);
 
   const analyzeUploads = useCallback(async (before: File, after: File | null) => {
     const token = ++analysis.current;
@@ -254,7 +268,7 @@ export function MapAppProvider({
       const q = catalogQueryFromAoi(
         state.aoi,
         scene.datetime.slice(0, 10),
-        40,
+        maxCloud,
         maxSideKmRef.current,
       );
       void api
@@ -297,7 +311,7 @@ export function MapAppProvider({
           });
         });
     },
-    [state.aoi],
+    [state.aoi, maxCloud],
   );
 
   const toggleFullscreen = useCallback(async () => {
@@ -319,7 +333,7 @@ export function MapAppProvider({
       .catalogLimits()
       .then((limits: CatalogLimits) => {
         if (Number.isFinite(limits.max_side_km) && limits.max_side_km > 0) {
-          maxSideKmRef.current = limits.max_side_km;
+          setMaxSideKm(limits.max_side_km);
         }
       })
       .catch(() => {
@@ -361,6 +375,9 @@ export function MapAppProvider({
       setPanelOpen,
       fullscreen,
       analyzeProgress,
+      maxCloud,
+      setMaxCloud,
+      maxSideKm,
       patch,
       setArea,
       findScenes,
@@ -384,6 +401,9 @@ export function MapAppProvider({
       panelOpen,
       fullscreen,
       analyzeProgress,
+      maxCloud,
+      setMaxCloud,
+      maxSideKm,
       patch,
       setArea,
       findScenes,

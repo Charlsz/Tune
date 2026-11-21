@@ -1,70 +1,57 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ImageOverlay, Pane, Rectangle, useMap } from "react-leaflet";
+import type { ImageOverlay as LeafletImage } from "leaflet";
 import type { BBox } from "../../domain/aoi";
-import { bboxToLatLngBounds } from "../../domain/aoi";
+import { bboxToLatLngBounds, imageClip } from "../../domain/aoi";
 import type { Cell, Scene, State } from "../../domain/lab";
 
-/** Clip de panes before/after al AOI (máscara) o al deslizador (swipe). */
-export function Clip({
-  split,
-  active,
-  aoi,
-  mode = "swipe",
-}: {
-  split: number;
-  active: boolean;
-  aoi: BBox | null;
-  /** mask = solo dentro del AOI; swipe = Antes|Después dentro del AOI */
-  mode?: "swipe" | "mask";
-}) {
+/** Quita un clip en píxeles que un zoom anterior haya dejado en el pane. */
+function ClearPaneClip() {
   const map = useMap();
   useEffect(() => {
-    const clear = () => {
-      for (const name of ["before", "after"]) {
-        const pane = map.getPane(name);
-        if (pane) pane.style.clipPath = "none";
-      }
-    };
-
-    const update = () => {
-      if (!active || !aoi) {
-        clear();
-        return;
-      }
-      const [west, south, east, north] = aoi;
-      const sw = map.latLngToLayerPoint([south, west]);
-      const ne = map.latLngToLayerPoint([north, east]);
-      const left = Math.min(sw.x, ne.x);
-      const right = Math.max(sw.x, ne.x);
-      const top = Math.min(sw.y, ne.y);
-      const bottom = Math.max(sw.y, ne.y);
-      if (right - left < 2 || bottom - top < 2) {
-        clear();
-        return;
-      }
-      const splitX = left + ((right - left) * split) / 100;
-
-      for (const name of ["before", "after"] as const) {
-        const pane = map.getPane(name);
-        if (!pane) continue;
-        if (mode === "mask") {
-          pane.style.clipPath = `polygon(${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px)`;
-          continue;
-        }
-        const x0 = name === "before" ? left : splitX;
-        const x1 = name === "before" ? splitX : right;
-        pane.style.clipPath = `polygon(${x0}px ${top}px, ${x1}px ${top}px, ${x1}px ${bottom}px, ${x0}px ${bottom}px)`;
-      }
-    };
-
-    update();
-    map.on("move zoom resize moveend zoomend", update);
-    return () => {
-      map.off("move zoom resize moveend zoomend", update);
-      clear();
-    };
-  }, [map, split, active, aoi, mode]);
+    for (const name of ["before", "after", "change", "agree"]) {
+      const pane = map.getPane(name);
+      if (pane) pane.style.clipPath = "";
+    }
+  }, [map]);
   return null;
+}
+
+function ClippedImage({
+  url,
+  bounds,
+  opacity,
+  clip,
+}: {
+  url: string;
+  bounds: BBox;
+  opacity: number;
+  clip: string;
+}) {
+  const layerRef = useRef<LeafletImage | null>(null);
+  const clipRef = useRef(clip);
+  clipRef.current = clip;
+
+  const apply = (layer: LeafletImage | null) => {
+    const el = layer?.getElement();
+    if (el) el.style.clipPath = clipRef.current;
+  };
+
+  useEffect(() => {
+    apply(layerRef.current);
+  }, [clip, url]);
+
+  return (
+    <ImageOverlay
+      ref={(layer) => {
+        layerRef.current = layer;
+        apply(layer);
+      }}
+      url={url}
+      bounds={bboxToLatLngBounds(bounds)}
+      opacity={opacity}
+    />
+  );
 }
 
 const WATER_FILL = "#2563eb";
@@ -79,17 +66,20 @@ function maskUrl(url: string) {
 function ScenePickOverlay({
   scene,
   show,
+  clip,
 }: {
   scene: Scene;
   show: boolean;
+  clip: string;
 }) {
   if (!show) return null;
   if (scene.previewStatus === "ready" && scene.mapPreviewUrl && scene.mapPreviewBounds) {
     return (
-      <ImageOverlay
+      <ClippedImage
         url={scene.mapPreviewUrl}
-        bounds={bboxToLatLngBounds(scene.mapPreviewBounds)}
+        bounds={scene.mapPreviewBounds}
         opacity={1}
+        clip={clip}
       />
     );
   }
@@ -143,19 +133,30 @@ function Mask({
 export function TemporalLayers({
   state,
   waterCells,
+  drawing = false,
 }: {
   state: State;
   waterCells: (scene: Scene, aoi: BBox) => Cell[];
+  /** Mientras se traza un AOI nuevo, la imagen anterior no debe tapar el gesto. */
+  drawing?: boolean;
 }) {
+  if (drawing) return null;
+
   const before = state.selected[0],
     after = state.selected[1];
   const overlays = state.result?.overlays;
   const useApiOverlays = Boolean(overlays);
   const swipeAoi: BBox | null =
     overlays?.bounds ?? state.result?.aoi ?? state.aoi ?? null;
-  const overlayBounds = overlays
-    ? bboxToLatLngBounds(overlays.bounds)
-    : null;
+  const overlayBox = overlays?.bounds ?? null;
+  const clipFor = (image: BBox, side: "before" | "after" | "full") =>
+    imageClip(
+      image,
+      swipeAoi ?? image,
+      state.slider && side !== "full" ? "swipe" : "mask",
+      state.split,
+      side,
+    );
   // Con resultado: modos + deslizador. Sin resultado: solo la escena enfocada (sustituye).
   const showBefore = useApiOverlays
     ? state.slider || state.mode === "before"
@@ -181,31 +182,42 @@ export function TemporalLayers({
   return (
     <>
       <Pane name="before" style={{ zIndex: 410 }}>
-        {useApiOverlays && overlayBounds ? (
+        {useApiOverlays && overlayBox ? (
           <>
-            {showBefore && overlays?.beforePreview && (
-              <ImageOverlay
+            {showBefore && overlays?.beforePreview && overlayBox && (
+              <ClippedImage
                 url={overlays.beforePreview}
-                bounds={overlayBounds}
+                bounds={overlayBox}
                 opacity={1}
+                clip={clipFor(overlayBox, "before")}
               />
             )}
             {state.result &&
               state.mask &&
               showBefore &&
               (state.slider || state.mode === "before") &&
-              overlays?.beforeMask && (
-                <ImageOverlay
+              overlays?.beforeMask &&
+              overlayBox && (
+                <ClippedImage
                   url={maskUrl(overlays.beforeMask)}
-                  bounds={overlayBounds}
+                  bounds={overlayBox}
                   opacity={state.opacity}
+                  clip={clipFor(overlayBox, "before")}
                 />
               )}
           </>
         ) : (
           <>
             {before && (
-              <ScenePickOverlay scene={before} show={showBefore} />
+              <ScenePickOverlay
+                scene={before}
+                show={showBefore}
+                clip={
+                  before.mapPreviewBounds
+                    ? clipFor(before.mapPreviewBounds, "before")
+                    : "none"
+                }
+              />
             )}
             {state.result &&
               state.mask &&
@@ -221,42 +233,55 @@ export function TemporalLayers({
         )}
       </Pane>
       <Pane name="after" style={{ zIndex: 411 }}>
-        {useApiOverlays && overlayBounds ? (
+        {useApiOverlays && overlayBox ? (
           <>
-            {showAfterBase && overlays?.afterPreview && (
-              <ImageOverlay
+            {showAfterBase && overlays?.afterPreview && overlayBox && (
+              <ClippedImage
                 url={overlays.afterPreview}
-                bounds={overlayBounds}
+                bounds={overlayBox}
                 opacity={1}
+                clip={clipFor(overlayBox, "after")}
               />
             )}
             {/* Deslizador: Después = inundación (change). Modo Después: agua detectada. */}
             {state.result &&
               state.mask &&
               state.slider &&
-              overlays?.change && (
-                <ImageOverlay
+              overlays?.change &&
+              overlayBox && (
+                <ClippedImage
                   url={overlays.change}
-                  bounds={overlayBounds}
+                  bounds={overlayBox}
                   opacity={state.opacity}
+                  clip={clipFor(overlayBox, "after")}
                 />
               )}
             {state.result &&
               state.mask &&
               !state.slider &&
               state.mode === "after" &&
-              overlays?.afterMask && (
-                <ImageOverlay
+              overlays?.afterMask &&
+              overlayBox && (
+                <ClippedImage
                   url={maskUrl(overlays.afterMask)}
-                  bounds={overlayBounds}
+                  bounds={overlayBox}
                   opacity={state.opacity}
+                  clip={clipFor(overlayBox, "after")}
                 />
               )}
           </>
         ) : (
           <>
             {after && (
-              <ScenePickOverlay scene={after} show={showAfterBase} />
+              <ScenePickOverlay
+                scene={after}
+                show={showAfterBase}
+                clip={
+                  after.mapPreviewBounds
+                    ? clipFor(after.mapPreviewBounds, "after")
+                    : "none"
+                }
+              />
             )}
             {state.result &&
               state.mask &&
@@ -281,12 +306,13 @@ export function TemporalLayers({
         )}
       </Pane>
       {showChange &&
-        (useApiOverlays && overlayBounds && overlays?.change ? (
+        (useApiOverlays && overlayBox && overlays?.change ? (
           <Pane name="change" style={{ zIndex: 420 }}>
-            <ImageOverlay
+            <ClippedImage
               url={overlays.change}
-              bounds={overlayBounds}
+              bounds={overlayBox}
               opacity={state.opacity}
+              clip={clipFor(overlayBox, "full")}
             />
           </Pane>
         ) : (
@@ -298,24 +324,17 @@ export function TemporalLayers({
             />
           </Pane>
         ))}
-      {showAgree && overlayBounds && overlays?.fusion && (
+      {showAgree && overlayBox && overlays?.fusion && (
         <Pane name="agree" style={{ zIndex: 421 }}>
-          <ImageOverlay
+          <ClippedImage
             url={overlays.fusion}
-            bounds={overlayBounds}
+            bounds={overlayBox}
             opacity={state.opacity}
+            clip={clipFor(overlayBox, "full")}
           />
         </Pane>
       )}
-      <Clip
-        split={state.split}
-        active={
-          Boolean(swipeAoi) &&
-          (state.slider || (!useApiOverlays && (showBefore || showAfterBase)))
-        }
-        aoi={swipeAoi}
-        mode={state.slider ? "swipe" : "mask"}
-      />
+      <ClearPaneClip />
     </>
   );
 }

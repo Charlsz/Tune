@@ -75,6 +75,49 @@ export function bboxDimensionsKm(bbox: BBox): {
   return { heightKm, widthKm };
 }
 
+/** Lado más largo del rectángulo, en km. El catálogo limita este lado, no los km². */
+export function aoiLongSideKm(bbox: BBox): number {
+  const { heightKm, widthKm } = bboxDimensionsKm(bbox);
+  return Math.max(Math.abs(heightKm), Math.abs(widthKm));
+}
+
+/** Superficie del cuadrado de `sideKm` de lado. */
+export function squareKm2(sideKm: number): number {
+  return sideKm * sideKm;
+}
+
+/** Superficie del rectángulo en km² (no el agua detectada). */
+export function aoiAreaKm2(bbox: BBox): number {
+  const { heightKm, widthKm } = bboxDimensionsKm(bbox);
+  return Math.abs(heightKm * widthKm);
+}
+
+/** «412 km²» o «12,4 km²». Un decimal por debajo de 100. */
+export function formatAoiKm2(bbox: BBox): string {
+  const km2 = aoiAreaKm2(bbox);
+  const digits = km2 >= 100 ? 0 : 1;
+  const text = km2.toLocaleString("es", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits,
+  });
+  return `${text} km²`;
+}
+
+const GENERIC_AOI_LABEL = /^(coordenadas|área dibujada)$/i;
+
+/** Nombre del lugar, o el centro si el rótulo no nombra un sitio. */
+export function aoiHeadline(
+  label: string | undefined,
+  bbox: BBox,
+  digits = 4,
+): string {
+  const name = (label ?? "").trim();
+  if (!name || GENERIC_AOI_LABEL.test(name)) {
+    return formatPlaceCoords(bboxCenter(bbox), digits);
+  }
+  return name;
+}
+
 export function formatBbox(bbox: BBox, digits = 5): string {
   return bbox.map((n) => n.toFixed(digits)).join(",");
 }
@@ -188,6 +231,44 @@ export function coverageRatio(aoi: BBox, scene: number[]): number {
   if (ie <= iw || inorth <= is) return 0;
   const aoiArea = Math.max(1e-12, (ae - aw) * (an - as));
   return Math.max(0, Math.min(1, ((ie - iw) * (inorth - is)) / aoiArea));
+}
+
+/**
+ * Recorte CSS en % de la imagen. No depende del zoom: la foto lo arrastra consigo.
+ * `swipe` parte el AOI en Antes (oeste) y Después (este).
+ */
+export function imageClip(
+  image: BBox,
+  aoi: BBox,
+  mode: "mask" | "swipe",
+  split: number,
+  side: "before" | "after" | "full",
+): string {
+  const [iw, is, ie, inn] = image;
+  const [aw, as, ae, an] = aoi;
+  const width = ie - iw;
+  const height = inn - is;
+  if (width <= 0 || height <= 0) return "inset(100%)";
+  let left = Math.max(aw, iw);
+  let right = Math.min(ae, ie);
+  let south = Math.max(as, is);
+  let north = Math.min(an, inn);
+  if (mode === "swipe" && side !== "full") {
+    const cut = aw + ((ae - aw) * split) / 100;
+    if (side === "before") right = Math.min(right, cut);
+    else left = Math.max(left, cut);
+  }
+  if (right <= left || north <= south) return "inset(100%)";
+  const top = ((inn - north) / height) * 100;
+  const bottom = ((south - is) / height) * 100;
+  const leftP = ((left - iw) / width) * 100;
+  const rightP = ((ie - right) / width) * 100;
+  return `inset(${top}% ${rightP}% ${bottom}% ${leftP}%)`;
+}
+
+/** Porcentaje del recorte que cae dentro del bbox de la escena (0–100). */
+export function aoiFillPercent(aoi: BBox, scene: number[]): number {
+  return Math.round(coverageRatio(aoi, scene) * 100);
 }
 
 export function boundsOverlap(

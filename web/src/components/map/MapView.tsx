@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   MapContainer,
   TileLayer,
@@ -17,7 +18,15 @@ import SwipeControl from "./SwipeControl";
 import { TemporalLayers } from "./TemporalLayers";
 
 /** Contorno del AOI; con `pulsing` anima fill/stroke vía setStyle (CSS no gana a Leaflet). */
-function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
+function AoiOutline({
+  aoi,
+  pulsing,
+  slow = false,
+}: {
+  aoi: BBox;
+  pulsing: boolean;
+  slow?: boolean;
+}) {
   const [layer, setLayer] = useState<LeafletRectangle | null>(null);
 
   useEffect(() => {
@@ -38,28 +47,29 @@ function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
 
     if (reduced) {
       layer.setStyle({
-        fillOpacity: 0.16,
-        opacity: 0.9,
+        fillOpacity: slow ? 0.08 : 0.14,
+        opacity: 0.85,
         weight: 2,
       });
       return;
     }
 
+    const period = slow ? 2400 : 1150;
     let raf = 0;
     const start = performance.now();
     const loop = (now: number) => {
-      const t = ((now - start) % 1150) / 1150;
+      const t = ((now - start) % period) / period;
       const wave = 0.5 - 0.5 * Math.cos(t * Math.PI * 2);
       layer.setStyle({
-        fillOpacity: 0.05 + wave * 0.26,
-        opacity: 0.35 + wave * 0.65,
+        fillOpacity: slow ? 0.03 + wave * 0.1 : 0.05 + wave * 0.26,
+        opacity: slow ? 0.35 + wave * 0.4 : 0.35 + wave * 0.65,
         weight: 2,
       });
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [layer, pulsing, aoi]);
+  }, [layer, pulsing, slow, aoi]);
 
   return (
     <Rectangle
@@ -79,16 +89,29 @@ function AoiOutline({ aoi, pulsing }: { aoi: BBox; pulsing: boolean }) {
   );
 }
 
+/** MapContainer congela className al montar; la clase de dibujo hay que togglearla. */
+function DrawingCursor({ drawing }: { drawing: boolean }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    el.classList.toggle("drawing-map", drawing);
+    return () => el.classList.remove("drawing-map");
+  }, [map, drawing]);
+  return null;
+}
+
 function Controls({
   state,
   drawing,
   onArea,
   onError,
+  maxSideKm,
 }: {
   state: State;
   drawing: boolean;
   onArea: (b: BBox, l: string) => void;
   onError: (s: string) => void;
+  maxSideKm: number;
 }) {
   const map = useMap();
   const start = useRef<LatLng | null>(null);
@@ -145,7 +168,7 @@ function Controls({
       const from = start.current;
       start.current = null;
       const end = map.mouseEventToLatLng(ev);
-      const result = resolveDrawMouseUp(from, end);
+      const result = resolveDrawMouseUp(from, end, maxSideKm);
       if (result.kind === "commit") {
         setDraft(null);
         onAreaRef.current(result.bbox, result.label);
@@ -180,7 +203,7 @@ function Controls({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [drawing, map]);
+  }, [drawing, map, maxSideKm]);
 
   return draft ? (
     <Rectangle
@@ -190,6 +213,65 @@ function Controls({
       pathOptions={{ color: "#111111", weight: 1, fillOpacity: 0.05 }}
     />
   ) : null;
+}
+
+/** Raya que recorre el AOI mientras corre el análisis. No captura el ratón. */
+function AoiScan({ active, aoi }: { active: boolean; aoi: BBox }) {
+  const map = useMap();
+  const [box, setBox] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!active) {
+      setBox(null);
+      return;
+    }
+    const update = () => {
+      if ((map as { _animatingZoom?: boolean })._animatingZoom) return;
+      const [west, south, east, north] = aoi;
+      const sw = map.latLngToContainerPoint([south, west]);
+      const ne = map.latLngToContainerPoint([north, east]);
+      const left = Math.min(sw.x, ne.x);
+      const top = Math.min(sw.y, ne.y);
+      const width = Math.abs(ne.x - sw.x);
+      const height = Math.abs(ne.y - sw.y);
+      if (width < 8 || height < 8) {
+        setBox(null);
+        return;
+      }
+      setBox({ left, top, width, height });
+    };
+    update();
+    map.on("move", update);
+    map.on("moveend zoomend resize", update);
+    return () => {
+      map.off("move", update);
+      map.off("moveend zoomend resize", update);
+    };
+  }, [map, active, aoi]);
+
+  if (!active || !box) return null;
+
+  return createPortal(
+    <div
+      className="tune-aoi-scan"
+      style={{
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        height: box.height,
+      }}
+      aria-hidden
+    >
+      <div className="tune-aoi-scan-wash" />
+      <div className="tune-aoi-scan-line" />
+    </div>,
+    map.getContainer(),
+  );
 }
 
 function mapboxTileUrl(token: string) {
@@ -202,12 +284,14 @@ export default function MapView({
   onArea,
   onError,
   waterCells,
+  maxSideKm = 30,
 }: {
   state: State;
   drawing: boolean;
   onArea: (b: BBox, l: string) => void;
   onError: (s: string) => void;
   waterCells: (s: Scene, a: BBox) => Cell[];
+  maxSideKm?: number;
 }) {
   const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined;
   const tileUrl = token
@@ -219,6 +303,7 @@ export default function MapView({
   const previewLoading = state.selected.some(
     (s) => s?.previewStatus === "loading",
   );
+  const analyzing = state.step === "running";
 
   return (
     <MapContainer
@@ -226,26 +311,36 @@ export default function MapView({
       zoom={9}
       zoomControl={false}
       maxZoom={token ? 22 : 19}
-      className={drawing ? "drawing-map" : ""}
     >
+      <DrawingCursor drawing={drawing} />
       <TileLayer
         url={tileUrl}
         attribution={attribution}
         {...(token ? { tileSize: 512, zoomOffset: -1, maxZoom: 22 } : {})}
       />
-      <TemporalLayers state={state} waterCells={waterCells} />
+      <TemporalLayers
+        state={state}
+        waterCells={waterCells}
+        drawing={drawing}
+      />
       <SwipeControl />
       <Pane
         name="selection"
         style={{ zIndex: 450, pointerEvents: drawing ? "none" : "auto" }}
       >
-        <AoiOutline aoi={state.aoi} pulsing={previewLoading} />
+        <AoiOutline
+          aoi={state.aoi}
+          pulsing={previewLoading || analyzing}
+          slow={analyzing}
+        />
+        <AoiScan active={analyzing} aoi={state.aoi} />
       </Pane>
       <Controls
         state={state}
         drawing={drawing}
         onArea={onArea}
         onError={onError}
+        maxSideKm={maxSideKm}
       />
       <ZoomControl position="bottomright" />
       <ScaleControl position="bottomright" imperial={false} />

@@ -101,6 +101,12 @@ class CatalogSceneSchema(BaseModel):
     cloud_cover: float
     bbox: list[float]
     thumbnail: str | None = None
+    aoi_cover: float | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description="Fracción del recorte cubierta por la huella de la escena, no por su bbox",
+    )
 
 
 class CatalogPreviewSchema(BaseModel):
