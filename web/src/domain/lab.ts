@@ -48,6 +48,10 @@ export interface ResultMetrics {
   fusionIou: number | null;
   fusionSources: string[];
   observation: PipelineLayerStatus | null;
+  /** Origen de la referencia de cambio (history_baseline, history, jrc…). */
+  referenceSource: string | null;
+  referenceId: string | null;
+  referenceDates: string[];
 }
 
 export interface Result {

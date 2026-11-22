@@ -86,7 +86,13 @@ describe("mapeo CatalogScene / Analysis → UI", () => {
       id: "a2",
       created_at: "2022-09-05T12:00:00Z",
       model_id: "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
-      change: { new_area_km2: 12.5, persistent_area_km2: 3.1 },
+      change: {
+        new_area_km2: 12.5,
+        persistent_area_km2: 3.1,
+        reference_source: "history_baseline",
+        reference_id: "a1",
+        reference_dates: ["2022-05-18T10:30:00Z"],
+      },
       affected_area_km2: 20,
       exposure: {
         population_exposed: 1250,
@@ -121,6 +127,9 @@ describe("mapeo CatalogScene / Analysis → UI", () => {
     expect(result.metrics?.fusionIou).toBe(0.61);
     expect(result.metrics?.fusionSources).toEqual(["gfm"]);
     expect(result.metrics?.observation).toBe("ok");
+    expect(result.metrics?.referenceSource).toBe("history_baseline");
+    expect(result.metrics?.referenceId).toBe("a1");
+    expect(result.metrics?.referenceDates).toEqual(["2022-05-18T10:30:00Z"]);
     expect(result.overlays?.beforePreview).toBe("/api/a1/preview.png");
     expect(result.overlays?.afterPreview).toBe("/api/a2/preview.png");
   });

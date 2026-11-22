@@ -216,7 +216,7 @@ export function MapAppProvider({
     try {
       const first = await api.analyze(before, "flood", watch("before"));
       const second = after
-        ? await api.analyze(after, "flood", watch("after"))
+        ? await api.analyze(after, "flood", watch("after"), first.id)
         : null;
       if (token !== analysis.current) return false;
       const names = second ? `${before.name} → ${after?.name}` : before.name;

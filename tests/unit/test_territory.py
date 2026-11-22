@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from tune.application.territory import covers, same_territory, timeline, when
+import pytest
+
+from tune.application.territory import bounds_iou, covers, same_territory, timeline, when
 from tune.domain.analysis import Analysis, GeoBounds, HazardTask
 
 BOX = GeoBounds(west=-75.0, south=4.0, east=-74.0, north=5.0)
@@ -57,6 +59,15 @@ def test_same_territory_is_symmetric_for_a_small_box_inside() -> None:
     chip = GeoBounds(west=-74.2, south=4.2, east=-74.1, north=4.3)
     assert same_territory(BOX, chip)
     assert same_territory(chip, BOX)
+
+
+def test_bounds_iou_identity_and_partial() -> None:
+    assert bounds_iou(BOX, BOX) == pytest.approx(1.0)
+    half = GeoBounds(west=-74.5, south=4.0, east=-73.5, north=5.0)
+    # Intersección 0.5×1; unión 1.5 → IoU = 1/3
+    assert bounds_iou(BOX, half) == pytest.approx(1.0 / 3.0)
+    far = GeoBounds(west=0.0, south=0.0, east=1.0, north=1.0)
+    assert bounds_iou(BOX, far) == 0.0
 
 
 def test_timeline_orders_by_acquisition_and_falls_back_to_created_at() -> None:

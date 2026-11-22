@@ -37,3 +37,26 @@ class CompositeReferenceProvider:
             if layer is not None:
                 return layer
         return None
+
+    def pinned(
+        self,
+        analysis_id: str,
+        grid: RasterGrid,
+        *,
+        task: HazardTask | None = None,
+    ) -> ReferenceLayer | None:
+        """Delega al primer proveedor que implemente ``pinned`` (historial)."""
+        for provider in self.providers:
+            fn = getattr(provider, "pinned", None)
+            if not callable(fn):
+                continue
+            try:
+                layer = fn(analysis_id, grid, task=task)
+            except TypeError:
+                layer = fn(analysis_id, grid)
+            except Exception as exc:
+                log.warning("Pin en %s falló: %s", type(provider).__name__, exc)
+                continue
+            if layer is not None:
+                return layer
+        return None

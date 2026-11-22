@@ -116,6 +116,7 @@ export const api = {
     sideKm: number,
     maxCloud: number,
     onPhase?: (p: AnalyzePhase) => void,
+    referenceAnalysisId?: string | null,
   ): Promise<Analysis> {
     onPhase?.({ phase: "prepare", detail: "Preparando descarga del catálogo…" });
     const body = new FormData();
@@ -124,6 +125,9 @@ export const api = {
     body.append("lon", String(place.lon));
     body.append("side_km", String(sideKm));
     body.append("max_cloud", String(maxCloud));
+    if (referenceAnalysisId) {
+      body.append("reference_analysis_id", referenceAnalysisId);
+    }
     const res = await fetch(
       `/api/catalog/${encodeURIComponent(itemId)}/analyze?stream=true`,
       {
@@ -203,7 +207,12 @@ export const api = {
     );
   },
 
-  analyze(file: File, task: TaskId, onPhase: (p: AnalyzePhase) => void): Promise<Analysis> {
+  analyze(
+    file: File,
+    task: TaskId,
+    onPhase: (p: AnalyzePhase) => void,
+    referenceAnalysisId?: string | null,
+  ): Promise<Analysis> {
     return new Promise((resolve, reject) => {
       onPhase({
         phase: "prepare",
@@ -212,6 +221,9 @@ export const api = {
       const body = new FormData();
       body.append("file", file);
       body.append("task", task);
+      if (referenceAnalysisId) {
+        body.append("reference_analysis_id", referenceAnalysisId);
+      }
       const xhr = new XMLHttpRequest();
       xhr.open("POST", "/api/analyze");
       xhr.responseType = "json";

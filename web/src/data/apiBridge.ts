@@ -137,6 +137,9 @@ export function analysesToResult(
       fusionIou: afterAnalysis.fusion?.iou ?? null,
       fusionSources: afterAnalysis.fusion?.sources ?? [],
       observation,
+      referenceSource: afterAnalysis.change?.reference_source ?? null,
+      referenceId: afterAnalysis.change?.reference_id ?? null,
+      referenceDates: afterAnalysis.change?.reference_dates ?? [],
     },
   };
 }

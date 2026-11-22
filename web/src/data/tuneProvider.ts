@@ -93,6 +93,7 @@ export const tuneProvider: DataProvider = {
     const run = async (
       scene: AnalyzeProgressEvent["scene"],
       id: string,
+      referenceAnalysisId?: string | null,
     ) => {
       onProgress?.({ scene, phase: "prepare", detail: "Preparando petición…" });
       return api.catalogAnalyze(
@@ -105,11 +106,12 @@ export const tuneProvider: DataProvider = {
           const mapped = mapPhase(scene, p);
           if (mapped) onProgress?.(mapped);
         },
+        referenceAnalysisId,
       );
     };
 
     const beforeAnalysis = await run("before", before.id);
-    const afterAnalysis = await run("after", after.id);
+    const afterAnalysis = await run("after", after.id, beforeAnalysis.id);
     if (!afterAnalysis.model_id.includes("Prithvi")) {
       throw new Error(`Modelo inesperado: ${afterAnalysis.model_id}`);
     }

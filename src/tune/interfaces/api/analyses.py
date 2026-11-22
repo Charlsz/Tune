@@ -377,6 +377,10 @@ async def inspect_analyze(
 async def analyze(
     file: UploadFile = File(description="GeoTIFF .tif o .tiff, hasta 200 MB"),
     task: HazardTask = Form(description="flood o burn_scar"),
+    reference_analysis_id: str | None = Form(
+        None,
+        description="Id del análisis Antes a usar como history_baseline (par MapApp)",
+    ),
     use_case: AnalyzeUseCase = Depends(get_use_case),
 ) -> AnalysisResponse:
     """Corre el checkpoint Prithvi de la tarea y guarda máscara, preview y estadísticas.
@@ -399,7 +403,11 @@ async def analyze(
             with _inference_slot():
                 await run_in_threadpool(_validate_geotiff_bands, dest, task)
                 analysis = await run_in_threadpool(
-                    use_case.execute, dest, task, filename=file.filename
+                    use_case.execute,
+                    dest,
+                    task,
+                    filename=file.filename,
+                    reference_analysis_id=reference_analysis_id,
                 )
         except HTTPException:
             raise
@@ -966,6 +974,10 @@ async def catalog_analyze(
         20.0, ge=1, le=50, description="Lado del recorte en km (tope en /api/catalog/limits)"
     ),
     max_cloud: float = Form(40.0, ge=0, le=100),
+    reference_analysis_id: str | None = Form(
+        None,
+        description="Id del análisis Antes a usar como history_baseline (par MapApp)",
+    ),
     stream: bool = Query(
         False,
         description="Si true, responde NDJSON: download (bandas), infer, done (HTTP 200)",
@@ -992,7 +1004,16 @@ async def catalog_analyze(
     dest = get_settings().tune_artifacts_dir / "catalog"
 
     if stream:
-        return _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task)
+        return _catalog_stream(
+            catalog,
+            use_case,
+            item_id,
+            bbox,
+            dest,
+            max_cloud,
+            task,
+            reference_analysis_id=reference_analysis_id,
+        )
 
     try:
         with _inference_slot():
@@ -1003,7 +1024,13 @@ async def catalog_analyze(
                 dest,
                 max_cloud=max_cloud,
             )
-            analysis = await run_in_threadpool(use_case.execute, path, task, filename=path.name)
+            analysis = await run_in_threadpool(
+                use_case.execute,
+                path,
+                task,
+                filename=path.name,
+                reference_analysis_id=reference_analysis_id,
+            )
     except CatalogError as exc:
         raise HTTPException(422, str(exc)) from exc
     except HTTPException:
@@ -1013,7 +1040,17 @@ async def catalog_analyze(
     return AnalysisResponse.from_domain(analysis)
 
 
-def _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task) -> StreamingResponse:
+def _catalog_stream(
+    catalog,
+    use_case,
+    item_id,
+    bbox,
+    dest,
+    max_cloud,
+    task,
+    *,
+    reference_analysis_id: str | None = None,
+) -> StreamingResponse:
     """NDJSON: download (bandas 1..7) → infer → done."""
 
     async def events():
@@ -1039,7 +1076,12 @@ def _catalog_stream(catalog, use_case, item_id, bbox, dest, max_cloud, task) -> 
                     item_id, bbox, dest, max_cloud=max_cloud, on_progress=on_progress
                 )
                 loop.call_soon_threadsafe(queue.put_nowait, {"phase": "infer"})
-                analysis = use_case.execute(path, task, filename=path.name)
+                analysis = use_case.execute(
+                    path,
+                    task,
+                    filename=path.name,
+                    reference_analysis_id=reference_analysis_id,
+                )
                 payload = AnalysisResponse.from_domain(analysis).model_dump(mode="json")
                 loop.call_soon_threadsafe(
                     queue.put_nowait,

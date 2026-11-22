@@ -1,4 +1,8 @@
 import type { ResultMetrics as Metrics } from "../../domain/lab";
+import { panelCallout } from "../ui/classes";
+
+/** km² de agua detectada sin cobertura de referencia comparable. */
+const GAP_KM2_WARN = 1;
 
 function km(n: number | null | undefined) {
   if (n == null) return "—";
@@ -13,6 +17,34 @@ function observationLabel(status: Metrics["observation"]) {
   return null;
 }
 
+function referenceLabel(metrics: Metrics): string | null {
+  const src = metrics.referenceSource;
+  if (!src) return null;
+  if (src === "history_baseline") {
+    const day = metrics.referenceDates[0]?.slice(0, 10);
+    return day
+      ? `Referencia: escena previa (${day})`
+      : "Referencia: escena previa del par";
+  }
+  if (src === "history") {
+    const n = metrics.referenceDates.length;
+    return n > 0
+      ? `Referencia: historial (${n} fechas)`
+      : "Referencia: historial del territorio";
+  }
+  if (src === "jrc_gsw_v1_4") return "Referencia: agua permanente JRC";
+  return `Referencia: ${src}`;
+}
+
+function unclassifiedGapKm2(metrics: Metrics): number | null {
+  const detected = metrics.detectedKm2;
+  if (detected == null) return null;
+  const classified =
+    (metrics.newKm2 ?? 0) + (metrics.persistentKm2 ?? 0);
+  const gap = detected - classified;
+  return gap > GAP_KM2_WARN ? gap : null;
+}
+
 export default function ResultMetrics({ metrics }: { metrics?: Metrics }) {
   if (!metrics) return null;
   const pop =
@@ -20,6 +52,8 @@ export default function ResultMetrics({ metrics }: { metrics?: Metrics }) {
       ? null
       : Math.round(metrics.population).toLocaleString("es");
   const gfmNote = observationLabel(metrics.observation);
+  const refNote = referenceLabel(metrics);
+  const gapKm2 = unclassifiedGapKm2(metrics);
   const iou =
     metrics.fusionIou == null
       ? null
@@ -60,6 +94,14 @@ export default function ResultMetrics({ metrics }: { metrics?: Metrics }) {
           </dd>
         </div>
       </dl>
+      {refNote && <p className="mt-2.5 text-xs text-muted">{refNote}</p>}
+      {gapKm2 != null && (
+        <p className={`${panelCallout} mt-3 text-xs leading-snug`}>
+          Hay {gapKm2.toLocaleString("es", { maximumFractionDigits: 1 })} km² de
+          agua detectada sin cobertura de referencia comparable: no cuentan como
+          inundación en Cambio ni en el deslizador.
+        </p>
+      )}
       {gfmNote && <p className="mt-2.5 text-xs text-muted">{gfmNote}</p>}
       {metrics.cover.length > 0 && (
         <ul className="mt-3.5 list-none border-t border-line p-0">

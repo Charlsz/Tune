@@ -39,7 +39,14 @@ class AnalyzeUseCase:
     observation: ObservationProvider | None = None
     exposure: ExposureProvider | None = None
 
-    def execute(self, geotiff: Path, task: HazardTask, *, filename: str | None = None) -> Analysis:
+    def execute(
+        self,
+        geotiff: Path,
+        task: HazardTask,
+        *,
+        filename: str | None = None,
+        reference_analysis_id: str | None = None,
+    ) -> Analysis:
         t0 = time.perf_counter()
         output = self.segmenter.segment(geotiff, task)
         stats = compute_stats(output)
@@ -71,7 +78,9 @@ class AnalyzeUseCase:
         }
         if self.reference is not None:
             try:
-                change, layers = self._against_reference(task, output)
+                change, layers = self._against_reference(
+                    task, output, reference_analysis_id=reference_analysis_id
+                )
                 pipeline["reference"] = "ok" if change is not None else "empty"
             except Exception as exc:
                 log.warning("Referencia no disponible: %s", exc)
@@ -112,11 +121,26 @@ class AnalyzeUseCase:
             analysis, output, geotiff, change_layers=layers, fusion_layers=fused
         )
 
-    def _against_reference(self, task: HazardTask, output: SegmentationOutput):
+    def _against_reference(
+        self,
+        task: HazardTask,
+        output: SegmentationOutput,
+        *,
+        reference_analysis_id: str | None = None,
+    ):
         grid = grid_from_meta(output.raster_meta)
         if grid is None or self.reference is None:
             return None, None
-        layer = self.reference.reference(task, grid, exclude_id=None, as_of=output.acquired_at)
+        layer = None
+        if reference_analysis_id:
+            layer = self._pinned_reference(task, grid, reference_analysis_id)
+            if layer is None:
+                log.warning(
+                    "Pin %s no usable; se cae al proveedor de referencia",
+                    reference_analysis_id,
+                )
+        if layer is None:
+            layer = self.reference.reference(task, grid, exclude_id=None, as_of=output.acquired_at)
         if layer is None:
             return None, None
         summary = compare(
@@ -134,6 +158,16 @@ class AnalyzeUseCase:
             output.mask, output.valid, output.positive_class, layer.mask, layer.valid
         )
         return summary, layers
+
+    def _pinned_reference(self, task: HazardTask, grid, analysis_id: str):
+        """Construye history_baseline desde un análisis concreto (par MapApp)."""
+        pinned = getattr(self.reference, "pinned", None)
+        if not callable(pinned):
+            return None
+        try:
+            return pinned(analysis_id, grid, task=task)
+        except TypeError:
+            return pinned(analysis_id, grid)
 
     def _against_observation(self, task: HazardTask, output: SegmentationOutput):
         grid = grid_from_meta(output.raster_meta)

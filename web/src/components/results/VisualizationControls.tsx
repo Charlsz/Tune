@@ -137,8 +137,8 @@ export default function VisualizationControls({
           </button>
           {s.slider ? (
             <p className="mb-0 mt-2 text-[11px] leading-snug text-fg-soft">
-              Izquierda: agua que ya había (azul). Derecha: inundación = agua
-              nueva (rojo) frente a la referencia.
+              Izquierda: agua detectada en Antes (azul). Derecha: capa de cambio
+              (rojo = inundación / agua nueva; no es el agua total de Después).
             </p>
           ) : null}
         </>

@@ -37,6 +37,17 @@ def same_territory(a: GeoBounds, b: GeoBounds) -> bool:
     return shared / smaller >= 0.5
 
 
+def bounds_iou(a: GeoBounds, b: GeoBounds) -> float:
+    """Intersection-over-union de dos cajas WGS84 (0 si no solapan)."""
+    shared = _intersection(a, b)
+    if shared == 0:
+        return 0.0
+    union = _area(a) + _area(b) - shared
+    if union <= 0:
+        return 1.0
+    return shared / union
+
+
 def when(analysis: Analysis) -> str:
     """Fecha para ordenar: la de la toma, o la del análisis si el TIFF no la trae."""
     return analysis.acquired_at or analysis.created_at

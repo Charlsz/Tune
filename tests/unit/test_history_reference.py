@@ -179,3 +179,71 @@ def test_history_exclude_id(tmp_path: Path) -> None:
     layer = provider.reference(HazardTask.FLOOD, grid, exclude_id=ids[0])
     # Aún quedan 2, debe funcionar
     assert layer is not None
+
+
+def test_history_dedupes_same_date_to_baseline(tmp_path: Path) -> None:
+    """Varias corridas el mismo día no deben activar history multi-fecha."""
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    for _ in range(4):
+        mask = np.zeros((10, 10), dtype=np.uint8)
+        mask[0:4, 0:4] = 1
+        _save_analysis(repo, tmp_path, mask, date="2020-01-01")
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
+    grid = RasterGrid(
+        crs="EPSG:32618",
+        transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),
+        width=10,
+        height=10,
+    )
+    layer = provider.reference(HazardTask.FLOOD, grid)
+    assert layer is not None
+    assert layer.source == "history_baseline"
+    assert len(layer.reference_dates) == 1
+
+
+def test_history_rejects_low_iou_prior(tmp_path: Path) -> None:
+    """Un prior con IoU < 0.9 no entra aunque same_territory (≥50 %) pase."""
+    from tune.application.territory import bounds_iou, same_territory
+    from tune.infrastructure.raster.grid import bounds_wgs84
+
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    mask = np.ones((10, 10), dtype=np.uint8)
+    prior = _save_analysis(repo, tmp_path, mask, date="2020-01-01")
+    assert prior.bounds is not None
+
+    # Desplazamiento ~15 % del lado: same_territory sí, IoU < 0.9
+    grid = RasterGrid(
+        crs="EPSG:32618",
+        transform=(30.0, 0.0, 500_045.0, 0.0, -30.0, 500_300.0),
+        width=10,
+        height=10,
+    )
+    target = bounds_wgs84(grid)
+    assert same_territory(prior.bounds, target)
+    assert bounds_iou(prior.bounds, target) < 0.9
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
+    assert provider.reference(HazardTask.FLOOD, grid) is None
+
+
+def test_history_pinned_forces_baseline(tmp_path: Path) -> None:
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+    early = np.zeros((10, 10), dtype=np.uint8)
+    early[0:3, 0:3] = 1
+    late = np.zeros((10, 10), dtype=np.uint8)
+    late[6:9, 6:9] = 1
+    prior = _save_analysis(repo, tmp_path, early, date="2020-01-01")
+    _save_analysis(repo, tmp_path, late, date="2020-06-01")
+    provider = HistoryReferenceProvider(repo, tmp_path / "analyses", min_scenes=1)
+    grid = RasterGrid(
+        crs="EPSG:32618",
+        transform=(30.0, 0.0, 500_000.0, 0.0, -30.0, 500_300.0),
+        width=10,
+        height=10,
+    )
+    layer = provider.pinned(prior.id, grid, task=HazardTask.FLOOD)
+    assert layer is not None
+    assert layer.source == "history_baseline"
+    assert layer.reference_id == prior.id
+    pmask = np.asarray(layer.mask)
+    assert pmask[1, 1]
+    assert not pmask[7, 7]

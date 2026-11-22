@@ -130,16 +130,22 @@ def test_repository_get_missing_raises(tmp_path: Path) -> None:
 
 
 class FakeReferenceProvider:
-    def __init__(self, layer=None, *, boom: bool = False) -> None:
+    def __init__(self, layer=None, *, boom: bool = False, pinned_layer=None) -> None:
         self.layer = layer
+        self.pinned_layer = pinned_layer
         self.boom = boom
         self.calls = 0
+        self.pin_calls: list[str] = []
 
     def reference(self, task, grid, *, exclude_id=None, as_of=None):
         self.calls += 1
         if self.boom:
             raise RuntimeError("referencia caída")
         return self.layer
+
+    def pinned(self, analysis_id, grid, *, task=None):
+        self.pin_calls.append(analysis_id)
+        return self.pinned_layer
 
 
 def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
@@ -185,6 +191,58 @@ def test_use_case_attaches_change_from_reference(tmp_path: Path) -> None:
     assert a.change.reference_source == "history"
     assert a.change.new_pixels + a.change.persistent_pixels == a.affected_pixels
     assert "change_png" in a.artifacts
+
+
+def test_use_case_pins_reference_analysis_id(tmp_path: Path) -> None:
+    """El par MapApp fuerza history_baseline del Antes pinneado."""
+    import numpy as np
+
+    from tune.domain.analysis import RasterGrid, ReferenceLayer
+
+    src = tmp_path / "scene.tif"
+    src.write_bytes(b"x")
+    out = fake_output()
+    h, w = 4, 5
+    ref = np.zeros((h, w), dtype=bool)
+    ref[0, :] = True  # toda la fila de agua del After es permanente
+    pinned = ReferenceLayer(
+        mask=ref,
+        valid=np.ones((h, w), dtype=bool),
+        source="history_baseline",
+        reference_id="before-id",
+        reference_dates=("2022-05-18",),
+    )
+    fallback = ReferenceLayer(
+        mask=np.zeros((h, w), dtype=bool),
+        valid=np.ones((h, w), dtype=bool),
+        source="jrc_gsw_v1_4",
+    )
+    provider = FakeReferenceProvider(fallback, pinned_layer=pinned)
+    repo = FileAnalysisRepository(tmp_path / "analyses")
+
+    import tune.application.analyze as analyze_mod
+
+    real_grid = analyze_mod.grid_from_meta
+
+    def fake_grid(meta):
+        return RasterGrid(crs="EPSG:32618", transform=(30, 0, 0, 0, -30, 0), width=w, height=h)
+
+    analyze_mod.grid_from_meta = fake_grid  # type: ignore[assignment]
+    try:
+        a = AnalyzeUseCase(FakeSegmenter(out), repo, reference=provider).execute(
+            src, HazardTask.FLOOD, reference_analysis_id="before-id"
+        )
+    finally:
+        analyze_mod.grid_from_meta = real_grid  # type: ignore[assignment]
+
+    assert provider.pin_calls == ["before-id"]
+    assert provider.calls == 0  # no cae al historial/JRC
+    assert a.change is not None
+    assert a.change.reference_source == "history_baseline"
+    assert a.change.reference_id == "before-id"
+    assert a.change.new_pixels + a.change.persistent_pixels == a.affected_pixels
+    assert a.change.persistent_pixels == 5  # fila positiva ∩ ref
+    assert a.change.new_pixels == 0
 
 
 def test_use_case_survives_reference_failure(tmp_path: Path) -> None:

@@ -7,18 +7,23 @@ from pathlib import Path
 
 import numpy as np
 
-from tune.application.territory import same_territory
-from tune.domain.analysis import HazardTask, RasterGrid, ReferenceLayer
+from tune.application.territory import bounds_iou, same_territory
+from tune.domain.analysis import Analysis, HazardTask, RasterGrid, ReferenceLayer
 from tune.domain.ports import AnalysisRepository
 from tune.infrastructure.raster.grid import bounds_wgs84, reproject_mask
 
 log = logging.getLogger(__name__)
 
+# Solape mínimo (IoU) para aceptar un prior como comparable al AOI actual.
+# same_territory (≥50 % de la caja chica) sigue filtrando candidatos lejanos;
+# este umbral evita baselines parciales que dejan reference_valid=False a un lado.
+DEFAULT_MIN_IOU = 0.9
+
 
 class HistoryReferenceProvider:
     """Referencia P desde análisis previos del mismo territorio.
 
-    - ≥ ``min_scenes_permanent`` fechas: agua con ocurrencia ≥ ``min_fraction``
+    - ≥ ``min_scenes_permanent`` *fechas distintas*: agua con ocurrencia ≥ ``min_fraction``
       (permanente estable; default 2 fechas, como ADR 010).
     - Exactamente 1 fecha previa: esa máscara es la **línea base**
       (``source=history_baseline``). Así seca→pico distingue cauce/humedal
@@ -34,6 +39,7 @@ class HistoryReferenceProvider:
         min_scenes_permanent: int = 2,
         min_fraction: float = 0.75,
         positive_class: int = 1,
+        min_iou: float = DEFAULT_MIN_IOU,
     ) -> None:
         self.repo = repo
         self.root = Path(root)
@@ -41,6 +47,7 @@ class HistoryReferenceProvider:
         self.min_scenes_permanent = min_scenes_permanent
         self.min_fraction = min_fraction
         self.positive_class = positive_class
+        self.min_iou = min_iou
 
     def reference(
         self,
@@ -58,7 +65,7 @@ class HistoryReferenceProvider:
 
         as_of_key = _date_key(as_of) if as_of else None
 
-        candidates = []
+        scored: list[tuple[float, Analysis]] = []
         for analysis in self.repo.list(limit=10_000):
             if analysis.task is not task:
                 continue
@@ -68,6 +75,9 @@ class HistoryReferenceProvider:
                 continue
             if not same_territory(analysis.bounds, target_bounds):
                 continue
+            iou = bounds_iou(analysis.bounds, target_bounds)
+            if iou < self.min_iou:
+                continue
             stamp = analysis.acquired_at or analysis.created_at
             if as_of_key is not None:
                 prior_key = _date_key(stamp)
@@ -76,13 +86,28 @@ class HistoryReferenceProvider:
             mask_path = self.root / analysis.id / "mask.tif"
             if not mask_path.is_file():
                 continue
-            candidates.append(analysis)
+            scored.append((iou, analysis))
+
+        if len(scored) < self.min_scenes:
+            return None
+
+        # Mejor solape primero; a igualdad, cronológico (luego dedupe por fecha).
+        scored.sort(key=lambda pair: (-pair[0], pair[1].acquired_at or pair[1].created_at))
+        # Una máscara por fecha de adquisición: evita 6× el mismo día seca + 3× pico
+        # que diluyen la ocurrencia y dejan permanente ≈ 0.
+        by_date: dict[str, Analysis] = {}
+        for _iou, analysis in scored:
+            key = _date_key(analysis.acquired_at or analysis.created_at) or analysis.id
+            # scored ya prioriza IoU; el primero por fecha es el de mejor solape.
+            if key not in by_date:
+                by_date[key] = analysis
+        candidates = sorted(
+            by_date.values(),
+            key=lambda a: a.acquired_at or a.created_at,
+        )
 
         if len(candidates) < self.min_scenes:
             return None
-
-        # Cronológico: para línea base de 1 fecha usamos la más reciente *anterior*.
-        candidates.sort(key=lambda a: a.acquired_at or a.created_at)
 
         stack = []
         valid_stack = []
@@ -129,6 +154,46 @@ class HistoryReferenceProvider:
             source=source,
             reference_id=reference_id,
             reference_dates=tuple(dates) if source == "history_baseline" else tuple(sorted(dates)),
+        )
+
+    def pinned(
+        self,
+        analysis_id: str,
+        grid: RasterGrid,
+        *,
+        task: HazardTask | None = None,
+    ) -> ReferenceLayer | None:
+        """Línea base forzada a un análisis concreto (par Antes/Después del MapApp)."""
+        try:
+            analysis = self.repo.get(analysis_id)
+        except KeyError:
+            log.warning("Pin de referencia %s: no existe", analysis_id)
+            return None
+        if task is not None and analysis.task is not task:
+            log.warning(
+                "Pin de referencia %s: tarea %s ≠ %s",
+                analysis_id,
+                analysis.task,
+                task,
+            )
+            return None
+        mask_path = self.root / analysis.id / "mask.tif"
+        if not mask_path.is_file():
+            log.warning("Pin de referencia %s: falta mask.tif", analysis_id)
+            return None
+        try:
+            mask, valid = reproject_mask(mask_path, grid)
+        except Exception as exc:
+            log.warning("Pin de referencia %s: reproyección falló: %s", analysis_id, exc)
+            return None
+        water = (mask == self.positive_class) & valid
+        stamp = analysis.acquired_at or analysis.created_at
+        return ReferenceLayer(
+            mask=water,
+            valid=valid,
+            source="history_baseline",
+            reference_id=analysis.id,
+            reference_dates=(stamp,),
         )
 
 
