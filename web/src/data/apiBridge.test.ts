@@ -121,6 +121,70 @@ describe("mapeo CatalogScene / Analysis → UI", () => {
     expect(result.metrics?.fusionIou).toBe(0.61);
     expect(result.metrics?.fusionSources).toEqual(["gfm"]);
     expect(result.metrics?.observation).toBe("ok");
+    expect(result.overlays?.beforePreview).toBe("/api/a1/preview.png");
+    expect(result.overlays?.afterPreview).toBe("/api/a2/preview.png");
+  });
+
+  it("analysesToResult prefiere mapPreviewUrl STAC sobre preview_png del modelo", () => {
+    const aoi: [number, number, number, number] = [67.65, 26.8, 68.25, 27.4];
+    const bounds: [number, number, number, number] = [67.7, 26.9, 68.2, 27.3];
+    const before = {
+      ...catalogSceneToUi(catalog),
+      mapPreviewUrl: "/api/catalog/previews/before.png",
+      mapPreviewBounds: bounds,
+      previewStatus: "ready" as const,
+    };
+    const after = {
+      ...catalogSceneToUi({
+        ...catalog,
+        id: "S2A_20220905",
+        datetime: "2022-09-05T10:30:00Z",
+      }),
+      mapPreviewUrl: "/api/catalog/previews/after.png",
+      mapPreviewBounds: bounds,
+      previewStatus: "ready" as const,
+    };
+    const beforeAnalysis = {
+      id: "a1",
+      created_at: "2022-05-18T12:00:00Z",
+      change: null,
+      affected_area_km2: 1,
+      artifacts: { preview_png: "/api/a1/preview.png", mask_png: "/api/a1/mask.png" },
+    } as unknown as Analysis;
+    const afterAnalysis = {
+      id: "a2",
+      created_at: "2022-09-05T12:00:00Z",
+      model_id: "ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11",
+      change: { new_area_km2: 12.5 },
+      affected_area_km2: 20,
+      artifacts: {
+        preview_png: "/api/a2/preview.png",
+        mask_png: "/api/a2/mask.png",
+        change_png: "/api/a2/change.png",
+      },
+    } as unknown as Analysis;
+
+    const result = analysesToResult(
+      aoi,
+      before,
+      after,
+      beforeAnalysis,
+      afterAnalysis,
+    );
+    expect(result.overlays?.beforePreview).toBe(
+      "/api/catalog/previews/before.png",
+    );
+    expect(result.overlays?.afterPreview).toBe(
+      "/api/catalog/previews/after.png",
+    );
+    expect(result.before.mapPreviewUrl).toBe(
+      "/api/catalog/previews/before.png",
+    );
+    expect(result.after.mapPreviewUrl).toBe("/api/catalog/previews/after.png");
+    expect(result.before.previewStatus).toBe("ready");
+    expect(result.after.previewStatus).toBe("ready");
+    expect(result.before.image).toBe("/api/catalog/previews/before.png");
+    expect(result.after.image).toBe("/api/catalog/previews/after.png");
   });
 
   it("analysesToResult deja fusión vacía si no hubo GFM", () => {

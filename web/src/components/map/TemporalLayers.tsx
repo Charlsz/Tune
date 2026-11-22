@@ -62,6 +62,25 @@ function maskUrl(url: string) {
   return `${url}${url.includes("?") ? "&" : "?"}v=water2`;
 }
 
+/** Base satelital: STAC del preview elegido si existe; si no, artefactos del análisis. */
+function satelliteBase(
+  scene: Scene | null | undefined,
+  fallbackUrl: string | undefined,
+  fallbackBounds: BBox | null,
+): { url: string; bounds: BBox } | null {
+  if (
+    scene?.previewStatus === "ready" &&
+    scene.mapPreviewUrl &&
+    scene.mapPreviewBounds
+  ) {
+    return { url: scene.mapPreviewUrl, bounds: scene.mapPreviewBounds };
+  }
+  if (fallbackUrl && fallbackBounds) {
+    return { url: fallbackUrl, bounds: fallbackBounds };
+  }
+  return null;
+}
+
 /** Overlay de selección: preview AOI del servidor; fallback footprint sin estirar thumb. */
 function ScenePickOverlay({
   scene,
@@ -178,18 +197,24 @@ export function TemporalLayers({
     !state.slider &&
     state.mask &&
     overlays?.fusion;
+  const beforeBase = useApiOverlays
+    ? satelliteBase(before, overlays?.beforePreview, overlayBox)
+    : null;
+  const afterBase = useApiOverlays
+    ? satelliteBase(after, overlays?.afterPreview, overlayBox)
+    : null;
 
   return (
     <>
       <Pane name="before" style={{ zIndex: 410 }}>
         {useApiOverlays && overlayBox ? (
           <>
-            {showBefore && overlays?.beforePreview && overlayBox && (
+            {showBefore && beforeBase && (
               <ClippedImage
-                url={overlays.beforePreview}
-                bounds={overlayBox}
+                url={beforeBase.url}
+                bounds={beforeBase.bounds}
                 opacity={1}
-                clip={clipFor(overlayBox, "before")}
+                clip={clipFor(beforeBase.bounds, "before")}
               />
             )}
             {state.result &&
@@ -235,12 +260,12 @@ export function TemporalLayers({
       <Pane name="after" style={{ zIndex: 411 }}>
         {useApiOverlays && overlayBox ? (
           <>
-            {showAfterBase && overlays?.afterPreview && overlayBox && (
+            {showAfterBase && afterBase && (
               <ClippedImage
-                url={overlays.afterPreview}
-                bounds={overlayBox}
+                url={afterBase.url}
+                bounds={afterBase.bounds}
                 opacity={1}
-                clip={clipFor(overlayBox, "after")}
+                clip={clipFor(afterBase.bounds, "after")}
               />
             )}
             {/* Deslizador: Después = inundación (change). Modo Después: agua detectada. */}
