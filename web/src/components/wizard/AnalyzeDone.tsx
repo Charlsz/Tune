@@ -55,7 +55,9 @@ export default function AnalyzeDone() {
       <button
         type="button"
         className={btnText}
-        onClick={() => dispatch({ type: "step", step: "area" })}
+        onClick={() =>
+          dispatch({ type: "area", bbox: state.aoi, label: state.label })
+        }
       >
         Nuevo análisis
       </button>
