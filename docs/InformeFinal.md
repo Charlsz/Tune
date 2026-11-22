@@ -39,7 +39,7 @@ Disponer del modelo y del dataset no basta si el resultado no distingue cauce de
 
 ### 3.2 Restricciones y supuestos de diseño
 
-Prototipo académico (sin multi-tenancy, Open Authorization (OAuth) ni Service Level Agreement (SLA)). Un análisis a la vez en Central Processing Unit (CPU) tras cachear pesos. Datasets y productos públicos. Sin preentrenamiento de foundation models. Sin pronóstico hidrológico ni profundidad del agua. GFM y WorldCover pueden fallar sin tumbar el análisis.
+Prototipo académico (sin multi-tenancy, Open Authorization (OAuth) ni Service Level Agreement (SLA)). Un análisis a la vez; inferencia en Central Processing Unit (CPU) por defecto tras cachear pesos (`TUNE_DEVICE` puede usar GPU si hay). Datasets y productos públicos. Sin preentrenamiento de foundation models. Sin pronóstico hidrológico ni profundidad del agua. GFM y WorldCover pueden fallar sin tumbar el análisis.
 
 ### 3.3 Alcance
 
@@ -74,12 +74,12 @@ Prototipado iterativo: cada ciclo dejó contrato, puerto, prueba o Architecture 
 - Aceptar un GeoTIFF de seis bandas Prithvi (pestaña GeoTIFF o desde Área) y rechazar un archivo que no lo sea, o que supere el tamaño máximo.
 - Persistir el análisis con máscara, áreas, sistema de referencia y el identificador del modelo.
 - Incluir agua nueva, permanente y retirada cuando hay referencia, y el acuerdo cuando GFM responde.
-- MapApp: pestañas Mapa, GeoTIFF, Resultados e Historial; modos Antes, Después, Cambio y Acuerdo, con las áreas en km².
+- MapApp: pestañas Mapa, GeoTIFF, Resultados, Historial y Docs; modos Antes, Después, Cambio y Acuerdo, con las áreas en km².
 - No publicar un acuerdo si GFM no cubre la zona y la fecha. El recorte que supera el máximo no se analiza.
 
 ### 8.2 No funcionales
 
-Docker Compose; pesos en volumen; CPU; dominio sin torch/rasterio; un análisis a la vez; sin autenticación; degradación parcial; suite automática sin red ni GPU.
+Docker Compose; pesos en volumen; inferencia en CPU por defecto (`TUNE_DEVICE` puede usar GPU si hay); dominio sin torch/rasterio; un análisis a la vez; sin autenticación; degradación parcial; suite automática sin red ni GPU.
 
 ## 9. Evaluación de alternativas
 
@@ -107,12 +107,12 @@ Un solo `AnalyzeUseCase` sirve API y MapApp. Inferencia en proceso (sin cola). P
 
 | Componente | Responsabilidad |
 |---|---|
-| MapApp | Flujo área→fechas→escenas; pestaña GeoTIFF; overlays; métricas; historial de sesión |
+| MapApp | Flujo área→fechas→escenas; pestañas GeoTIFF y Docs; overlays Leaflet; métricas; historial de sesión |
 | eo-api | Validación Hypertext Transfer Protocol (HTTP), catálogo, orquestación |
 | PrithviSegmenter | Ventanas 512×512, máscara |
 | ReferenceProvider | Historial antes que JRC (Joint Research Centre) |
 | ObservationProvider | GFM (Global Flood Monitoring); OPERA (Observational Products for End-Users from Remote Sensing Analysis) opcional |
-| ExposureProvider | Cobertura del suelo (WorldCover) sobre el agua nueva |
+| ExposureProvider | Cobertura del suelo (WorldCover) y población (GHSL) sobre el agua nueva |
 | AnalysisRepository | JSON + PNG/TIF |
 
 Fuentes editables: [arquitectura](./assets/diagramas/arquitectura.md), [interacción](./assets/diagramas/interaccion-modulos.md), [secuencia análisis](./assets/diagramas/secuencia-analisis.md), [secuencia rechazo](./assets/diagramas/secuencia-rechazo.md), [secuencia fusión](./assets/diagramas/secuencia-fusion.md), [despliegue](./assets/diagramas/despliegue.md).
@@ -132,7 +132,7 @@ flowchart TB
     SEG["PrithviSegmenter<br/>TerraTorch"]
     REF["ReferenceProvider<br/>historial → JRC"]
     OBS["ObservationProvider<br/>GFM ±10 d"]
-    EXP["ExposureProvider<br/>WorldCover"]
+    EXP["ExposureProvider<br/>WorldCover / GHSL"]
     CAT["SceneCatalog<br/>Earth Search L2A"]
     REPO["AnalysisRepository<br/>filesystem"]
   end
@@ -338,7 +338,7 @@ Python 3.11, FastAPI, TerraTorch/PyTorch, rasterio, pystac-client; TypeScript, R
 
 ### 11.2 Componentes
 
-Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker sobre CPU. La SPA anterior con router quedó fuera del árbol activo: MapApp es la única interfaz montada. El laboratorio de entrenamiento quedó en `lab/`, fuera de Tune.
+Implementamos el dominio de observación, el análisis, el cambio y el acuerdo, los adaptadores de Prithvi, JRC, historial, GFM, WorldCover/GHSL y el catálogo STAC, la API y MapApp. El acuerdo se ve cuando hay capa. La aplicación corre en Docker; la inferencia usa CPU por defecto y puede tomar GPU si `TUNE_DEVICE` lo permite. MapApp es la única interfaz montada. El laboratorio de entrenamiento quedó en `lab/`, fuera de Tune.
 
 ### 11.3 Integraciones
 
@@ -384,7 +384,7 @@ flowchart TB
 
 ## 13. Validación
 
-La validación de Tune combina la suite automática del repositorio con la lectura de sitios específicos. Sindh, el Bajo Magdalena y el Mississippi se usaron como casos de prueba de la medición de inundación en km². Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta **158** pruebas de backend (`pytest -m "not gpu"`) y **36** de la interfaz (`vitest`). Lo que sostiene las conclusiones son los kilómetros cuadrados medidos en esas pruebas.
+La validación de Tune combina la suite automática del repositorio con corridas documentadas en sitios específicos. Sindh, el Bajo Magdalena y el Mississippi se usaron como casos de prueba de la medición de inundación en km². Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta **164** pruebas de backend (`pytest -m "not gpu"`) y **55** de la interfaz (`vitest`). Lo que sostiene las conclusiones son los kilómetros cuadrados medidos en esas corridas.
 
 ### 13.1 Pruebas por componentes
 
@@ -392,7 +392,7 @@ Las pruebas unitarias revisan el cambio hídrico, el IoU y la cobertura del suel
 
 ### 13.2 Pruebas de integración
 
-MapApp busca el lugar, lista las escenas Sentinel-2 de las dos fechas y guarda el análisis: máscara, agua nueva y, cuando GFM cubre la zona, el acuerdo. Como casos de prueba de integración de punta a punta, Sindh, el Bajo Magdalena y el Mississippi recorrieron ese camino. Los valores están en [sitios-resultados.json](./validation/sitios-resultados.json).
+La suite de integración de la API cubre contratos HTTP, catálogo y persistencia sin red ni GPU. Los tres sitios (Sindh, Bajo Magdalena y Mississippi) no forman parte de esa suite: se midieron con pesos reales mediante `scripts/validate_sites.py` y el resultado quedó en [sitios-resultados.json](./validation/sitios-resultados.json) y [sitios-resultados.md](./validation/sitios-resultados.md). Ese flujo equivale al de MapApp (lugar, fechas, escenas, máscara, agua nueva y acuerdo cuando GFM cubre la zona).
 
 ### 13.3 Pruebas de usabilidad
 
@@ -436,7 +436,7 @@ En el pico de Sindh el acuerdo es 0,20: las dos capas coinciden en una parte de 
 
 Se cumplió el objetivo de distinguir inundación (agua nueva) de agua permanente con un checkpoint publicado, API, MapApp y medición en sitios específicos. Esa medición se demostró con tres casos de prueba (Sindh, Bajo Magdalena y Mississippi), con pesos reales y tabla documentada. Las tres lecturas están implementadas: agua detectada, agua nueva y acuerdo externo. GFM se consulta en cada análisis y se muestra cuando existe capa.
 
-**Limitaciones.** El acuerdo con GFM es condicional: depende de la cobertura, la fecha y el catálogo, y no sustituye al agua nueva. Hay desfase entre la escena óptica y el radar (Synthetic Aperture Radar, SAR). La población expuesta quedó en 0 en los recortes medidos, así que no forma parte del resultado. El historial de MapApp es de la sesión y no lista aún `GET /api/analyses`. No hay autenticación ni escala multi-usuario.
+**Limitaciones.** El acuerdo con GFM es condicional: depende de la cobertura, la fecha y el catálogo, y no sustituye al agua nueva. Hay desfase entre la escena óptica y el radar (Synthetic Aperture Radar, SAR). La exposición calcula cobertura (WorldCover) y población (GHSL) sobre el agua nueva; en los tres recortes medidos la población quedó en 0, así que no aporta cifra en esa evidencia. El historial de MapApp es de la sesión y no lista aún `GET /api/analyses`. No hay autenticación ni escala multi-usuario.
 
 **Conclusión.** Tune demuestra que un checkpoint publicado, interpretado con una referencia permanente y un contraste opcional con GFM, produce una lectura defendible de inundación. Es un prototipo reproducible, distinto de un laboratorio de entrenamiento y de un Geographic Information System (GIS) operativo completo.
 
@@ -444,10 +444,9 @@ Se cumplió el objetivo de distinguir inundación (agua nueva) de agua permanent
 
 1. Enlazar el historial de MapApp con los análisis ya guardados.  
 2. Avisar, antes de analizar, si GFM tiene capa para esa fecha.  
-3. Retirar la interfaz anterior que quedó sin montar.  
-4. Publicar la aplicación con HTTPS y el acceso a la API restringido al servidor.  
-5. Sumar otros sitios o eventos de prueba en los que GFM sí cubra la grilla, para ampliar la tabla de acuerdo.  
-6. Volver a la población afectada solo con un método que no cuente personas únicamente sobre el píxel de agua.
+3. Publicar la aplicación con HTTPS y el acceso a la API restringido al servidor.  
+4. Sumar otros sitios o eventos de prueba en los que GFM sí cubra la grilla, para ampliar la tabla de acuerdo.  
+5. Mejorar la estimación de población afectada para que no cuente personas únicamente sobre el píxel de agua.
 
 ## 16. Referencias
 

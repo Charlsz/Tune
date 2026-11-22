@@ -10,7 +10,7 @@ Empieza por la **[Guía de uso](./GuiaDeUso.md)** si quieres saber qué hace la 
 | [Instalación.md](./Instalación.md) | Requisitos, desarrollo, Compose, despliegue, troubleshooting |
 | [Desarrollo.md](./Desarrollo.md) | Manual técnico (capas, contenedores, env, deuda) |
 | [architecture/v2.md](./architecture/v2.md) | Arquitectura actual (puertos, inferencia, web) |
-| [assets/diagramas/](./assets/diagramas/) | Mermaid: arquitectura, módulos, secuencia, despliegue |
+| [assets/diagramas/](./assets/diagramas/) | Mermaid: arquitectura, módulos, secuencia, despliegue (fuente del informe) |
 
 ## Validación y evidencia
 

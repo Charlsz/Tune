@@ -192,7 +192,7 @@ Rebuild de imágenes tras `git pull`; no borrará pesos ni análisis si se conse
 
 - No versionar `artifacts/`, pesos ni `.env`.  
 - Tras cambios de API, rebuild `eo-api`; tras cambios de UI, rebuild `web`.  
-- ADRs en `docs/decisions/`. Deuda conocida: SPA legacy no montada; historial MapApp solo de sesión.
+- ADRs en `docs/decisions/`. Deuda conocida: historial MapApp solo de sesión.
 
 ## 8. Referencias relacionadas
 

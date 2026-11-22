@@ -35,7 +35,7 @@ opcional → exposición → MapApp.
 
 ```text
 Tune/
-├── web/                 # MapApp (+ SPA legacy no montada)
+├── web/                 # MapApp (Vite + React + Leaflet)
 ├── src/tune/            # dominio, aplicación, infraestructura, API, CLI
 ├── tests/               # unit + integration
 ├── docker/eo/           # imagen PyTorch + TerraTorch
@@ -55,8 +55,7 @@ Tune/
 | `src/tune/infrastructure/` | Prithvi, STAC, JRC, GFM, filesystem, `container.py` |
 | `src/tune/interfaces/api/` | FastAPI |
 | `web/src/MapApp.tsx` | UI producción |
-| `web/src/legacy/README.md` | SPA antigua no montada |
-| `docs/assets/diagramas/` | Mermaid de arquitectura / despliegue |
+| `docs/assets/diagramas/` | Mermaid de arquitectura / secuencias / despliegue (fuente del informe) |
 | `docs/decisions/` | Architecture Decision Records (ADRs) |
 
 Código Python: [src/README.md](../src/README.md). Dependencias: `interfaces → application → domain ← infrastructure`.
@@ -125,7 +124,7 @@ Cambios de deps torch → rebuild completo de `eo-api` (lento la primera vez).
 
 ### 6.2 Scripts auxiliares
 
-`scripts/`, `docs/diagrams/render_diagrams.py`, ejemplos en `examples/`.
+`scripts/`, ejemplos en `examples/`. Diagramas del curso en `docs/assets/diagramas/`.
 
 ### 6.3 Consideraciones
 
@@ -213,14 +212,13 @@ Puertos ocupados; WSL/Docker en Windows; primera descarga HF; EODC 502 → `fusi
 
 ### 11.2 Deuda técnica conocida
 
-- SPA router (`HomeScreen`, etc.) no montada.  
 - Historial MapApp ≠ `GET /api/analyses`.  
 - `domain/lab.ts` nombre confuso respecto a `lab/`.  
 - Informe de usabilidad interno (equipo), no estudio externo.
 
 ### 11.3 Continuidad
 
-Priorizar cablear historial API y limpiar legacy. Mantener ADR 010 (inundación = agua nueva).
+Priorizar cablear historial API en la UI. Mantener ADR 010 (inundación = agua nueva).
 
 ## 12. Historial de decisiones técnicas relevantes
 
