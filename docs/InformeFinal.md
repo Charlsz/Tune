@@ -83,9 +83,15 @@ Docker Compose; pesos en volumen; CPU; dominio sin torch/rasterio; un análisis 
 
 ## 9. Evaluación de alternativas
 
-Se consideraron: (1) fine-tuning como núcleo, (2) solo cambiar dataset y seguir entrenando, (3) clasificador pequeño ajeno al dominio, (4) **checkpoints publicados + app de cambio/fusión/exposición** (seleccionada).
+Se consideraron cuatro caminos bajo la carga de un operador y un análisis: (1) fine-tuning propio como núcleo, (2) solo cambiar el dataset y seguir entrenando, (3) clasificador pequeño en CPU ajeno al dominio satelital de seis bandas, (4) **checkpoints publicados + aplicación de cambio, fusión y exposición** (seleccionada).
 
-La opción 4 ofrece resultado demostrable en el calendario del curso, acoplamiento acotado por puertos y tolerancia a fallos parciales (análisis sin fusión/exposición). Detalle de criterios en el [Segundo Informe](./SegundoInforme.md#9-evaluación-de-alternativas).
+El primero no entrega análisis si la corrida no cierra. El segundo mejora la pertinencia de los datos y conserva la dependencia de GPU. El tercero es rápido y no resuelve georreferencia, catálogo ni referencia permanente. El cuarto compromete tarea, dataset y modelo, corre en CPU tras cachear pesos y entrega agua nueva, acuerdo y exposición cuando los proveedores responden. El laboratorio de entrenamiento permanece como anexo; el entregable demostrable es la aplicación de análisis.
+
+**Desempeño bajo carga esperada.** La operación crítica es el análisis por API o desde catálogo. Las alternativas de entrenamiento no sirven inferencia si el entrenamiento no terminó. El clasificador pequeño responde rápido a otro problema. En la opción seleccionada la latencia la dominan la primera descarga de pesos y las ventanas 512×512; JRC, GFM y WorldCover leen ventanas remotas, no tiles completos. Se acepta un análisis a la vez, con el modelo cacheado en proceso. El criterio decisivo es el tiempo hasta un análisis visible con agua nueva cuando la referencia responde: la opción 4 produce resultado demostrable en el calendario del curso.
+
+**Acoplamiento.** La opción seleccionada depende de Hugging Face, TerraTorch, JRC, Earth Search, GFM y, si se enciende, Earthdata; cada dependencia queda detrás de un puerto, así que un fallo externo no tumba el resto del análisis. El acoplamiento interno es bajo: en pruebas, dobles sustituyen los adaptadores reales. El camino de entrenamiento acopla el entregable al hardware y al tiempo de corrida; el clasificador pequeño abandona el dominio satelital. Sustituir el frontend o el repositorio en disco no exige tocar Prithvi; sustituir Prithvi exige respetar el puerto y el contrato de seis bandas. La frontera hexagonal limita el radio de cambio.
+
+**Disponibilidad y tolerancia a fallos.** Ninguna alternativa ofrece disponibilidad contractual: el prototipo corre en local mientras Docker está levantado. En la opción seleccionada, si Hugging Face no responde en la primera corrida no hay inferencia nueva y el historial previo sigue; si JRC o GFM fallan, el análisis se guarda sin cambio o sin fusión; si WorldCover falla, sin exposición. Entradas inválidas se rechazan con códigos HTTP explícitos. En el camino de entrenamiento, un fallo de memoria o de corrida deja cero producto de análisis. Por eso se selecciona la opción 4: análisis verificable con las tres lecturas y degradación parcial acotada a la capa que falló.
 
 ## 10. Diseño y arquitectura
 
