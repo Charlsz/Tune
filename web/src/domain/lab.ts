@@ -114,7 +114,7 @@ export const initialState: State = {
   step: "area",
   mode: "change",
   mask: true,
-  opacity: 0.5,
+  opacity: 0.7,
   slider: false,
   split: 50,
   variant: "floating",

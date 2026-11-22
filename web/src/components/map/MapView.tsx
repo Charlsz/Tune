@@ -333,7 +333,7 @@ export default function MapView({
           pulsing={previewLoading || analyzing}
           slow={analyzing}
         />
-        <AoiScan active={analyzing} aoi={state.aoi} />
+        <AoiScan active={previewLoading || analyzing} aoi={state.aoi} />
       </Pane>
       <Controls
         state={state}

@@ -72,10 +72,15 @@ export function analysesToResult(
   const newKm2 = afterAnalysis.change?.new_area_km2 ?? null;
   const areaKm2 = newKm2 ?? afterAnalysis.affected_area_km2 ?? 0;
   const bounds = boundsFromAnalysis(afterAnalysis, aoi);
+  // Preferir el preview STAC que el usuario ya vio; preview_png del modelo solo fallback.
+  const beforePreview =
+    before.mapPreviewUrl ?? beforeAnalysis.artifacts.preview_png;
+  const afterPreview =
+    after.mapPreviewUrl ?? afterAnalysis.artifacts.preview_png;
   const overlays: ResultOverlays = {
     bounds,
-    beforePreview: beforeAnalysis.artifacts.preview_png,
-    afterPreview: afterAnalysis.artifacts.preview_png,
+    beforePreview,
+    afterPreview,
     beforeMask: beforeAnalysis.artifacts.mask_png,
     afterMask: afterAnalysis.artifacts.mask_png,
     change: afterAnalysis.artifacts.change_png,
@@ -98,7 +103,9 @@ export function analysesToResult(
     key: selectionKey(aoi, before, after),
     before: {
       ...before,
+      previewStatus: before.mapPreviewUrl ? "ready" : before.previewStatus,
       image:
+        before.mapPreviewUrl ||
         beforeAnalysis.artifacts.preview_png ||
         before.image ||
         before.thumbnail ||
@@ -106,7 +113,9 @@ export function analysesToResult(
     },
     after: {
       ...after,
+      previewStatus: after.mapPreviewUrl ? "ready" : after.previewStatus,
       image:
+        after.mapPreviewUrl ||
         afterAnalysis.artifacts.preview_png ||
         after.image ||
         after.thumbnail ||
