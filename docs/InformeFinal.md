@@ -7,7 +7,7 @@ Informe final, noviembre de 2026. Repositorio: https://github.com/Charlsz/Tune.
 
 Tune distingue el agua permanente de la inundación. El operador busca un nombre, pega coordenadas, marca un rectángulo o sube un GeoTIFF de seis bandas. Sobre esa escena, o sobre las escenas Sentinel-2 de dos fechas, el checkpoint `ibm-nasa-geospatial/Prithvi-EO-2.0-300M-TL-Sen1Floods11` clasifica agua. La inundación es el agua nueva frente a la escena anterior del mismo lugar o, si no hay historia, frente a Global Surface Water del Joint Research Centre (JRC). Cuando Copernicus Global Flood Monitoring (GFM) cubre esa zona y fecha, Tune calcula el acuerdo (Intersection over Union, IoU).
 
-La aplicación es cliente-servidor (FastAPI y MapApp en React/Leaflet) y se despliega con Docker Compose. La medición de inundación en sitios específicos se demostró con tres casos de prueba —no como fin geográfico del producto—: en Sindh (Pakistán), entre mayo y septiembre de 2022, el agua pasó de 10,34 km² a 60,22 km² y la inundación fue 49,56 km²; en el Bajo Magdalena la inundación fue 38,25 km²; y en el Mississippi, 10,26 km² sobre un río que ya ocupaba 65,85 km². El acuerdo con GFM fue 0,20 en el pico de Sindh y 0,32 en el pico del Mississippi.
+La aplicación es cliente-servidor (FastAPI y MapApp en React/Leaflet) y se despliega con Docker Compose. La medición de inundación en sitios específicos se demostró con tres casos de prueba: en Sindh (Pakistán), entre mayo y septiembre de 2022, el agua pasó de 10,34 km² a 60,22 km² y la inundación fue 49,56 km²; en el Bajo Magdalena la inundación fue 38,25 km²; y en el Mississippi, 10,26 km² sobre un río que ya ocupaba 65,85 km². El acuerdo con GFM fue 0,20 en el pico de Sindh y 0,32 en el pico del Mississippi.
 
 ---
 
@@ -45,13 +45,13 @@ Prototipo académico (sin multi-tenancy, Open Authorization (OAuth) ni Service L
 
 **Incluye:** búsqueda por lugar, coordenadas o rectángulo; subida de un GeoTIFF de seis bandas (pestaña dedicada `/geotiff` o desde el paso Área del mapa); escenas Sentinel-2; inferencia Prithvi de agua; cambio frente al historial o al JRC; acuerdo con GFM; cobertura del suelo; Application Programming Interface (API); MapApp (área, fechas, escenas, Antes/Después/Cambio/Acuerdo); Docker; medición de inundación en sitios específicos, demostrada con casos de prueba (Sindh, Bajo Magdalena y Mississippi). Cicatriz de incendio como tarea auxiliar.
 
-**Excluye:** reentrenamiento como entregable, autenticación, colas, PostGIS (extensión espacial de PostgreSQL), anclar el producto a un solo territorio o a esos tres sitios de prueba, la SPA anterior con router (sustituida por MapApp).
+**Excluye:** reentrenamiento como entregable, autenticación, colas, PostGIS (extensión espacial de PostgreSQL), anclar el producto a un solo territorio, la SPA anterior con router (sustituida por MapApp).
 
 ## 4. Objetivos
 
-**General.** Ejecutar el checkpoint Sen1Floods11 sobre una escena Sentinel-2 localizada por el operador o sobre un GeoTIFF de seis bandas; guardar el análisis con el identificador del modelo; calcular el agua nueva frente al historial del lugar o al JRC; y registrar el acuerdo con GFM cuando exista capa.
+**General.** Desarrollar un sistema de análisis satelital que distinga la inundación (agua nueva) del agua permanente a partir del checkpoint Sen1Floods11 de Prithvi-EO 2.0, sobre escenas Sentinel-2 o GeoTIFF localizados por el operador, y registre el acuerdo con GFM cuando exista capa.
 
-**Específicos.** (1) Buscar por nombre, coordenadas o rectángulo, y aceptar también un GeoTIFF válido. (2) Integrar Prithvi con TerraTorch sin reentrenar. (3) Persistir agua detectada, agua nueva, agua permanente y acuerdo. (4) Mostrar Antes, Después, Cambio y Acuerdo en MapApp. (5) Medir la inundación, en km², en sitios específicos que el operador elija. Sindh, el Bajo Magdalena y el Mississippi no son el objetivo en sí: son casos de prueba usados en la validación (sección 13) para demostrar ese objetivo.
+**Específicos.** (1) Integrar el checkpoint Sen1Floods11 con TerraTorch, sin reentrenamiento, sobre entrada Sentinel-2 o GeoTIFF válido. (2) Calcular agua detectada, agua nueva e inundación en km² frente al historial del sitio o al JRC. (3) Registrar el acuerdo (IoU) con GFM cuando haya cobertura. (4) Exponer el análisis mediante API y MapApp (Antes, Después, Cambio y Acuerdo). (5) Validar la medición de inundación en sitios específicos elegidos por el operador.
 
 ## 5. Estado del arte / soluciones relacionadas
 
@@ -290,7 +290,7 @@ flowchart TB
 
 ## 13. Validación
 
-La validación de Tune combina la suite automática del repositorio con la lectura de sitios específicos. Sindh, el Bajo Magdalena y el Mississippi son casos de prueba —no el alcance geográfico del producto— elegidos para demostrar el objetivo de medir inundación en km² donde el operador indique. Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta **158** pruebas de backend (`pytest -m "not gpu"`) y **36** de la interfaz (`vitest`). Lo que sostiene las conclusiones son los kilómetros cuadrados medidos en esas pruebas.
+La validación de Tune combina la suite automática del repositorio con la lectura de sitios específicos. Sindh, el Bajo Magdalena y el Mississippi se usaron como casos de prueba de la medición de inundación en km². Las pruebas de dominio cubren el cálculo de agua nueva y el acuerdo, y corren en integración continua sin GPU. El registro de noviembre de 2026 cuenta **158** pruebas de backend (`pytest -m "not gpu"`) y **36** de la interfaz (`vitest`). Lo que sostiene las conclusiones son los kilómetros cuadrados medidos en esas pruebas.
 
 ### 13.1 Pruebas por componentes
 
@@ -304,9 +304,9 @@ MapApp busca el lugar, lista las escenas Sentinel-2 de las dos fechas y guarda e
 
 El guion de uso cubre los dos caminos de entrada sin autenticación. **Mapa:** abrir la web, buscar un lugar o pegar coordenadas, dibujar el AOI si hace falta, elegir fechas y escenas, lanzar el análisis y leer Antes/Después/Cambio/Acuerdo en Resultados. **GeoTIFF:** abrir la pestaña GeoTIFF (`/geotiff`), subir uno o dos `.tif`/`.tiff` de seis bandas (mismo lugar si son dos), validar bandas, analizar y abrir Resultados; no hace falta dibujar área ni consultar el catálogo. Criterios de aceptación: el operador completa el flujo sin salir de MapApp; un archivo inválido o demasiado grande se rechaza con mensaje claro; tras un análisis correcto se ven las áreas en km². La evidencia de recorrido está en las capturas de [assets/proof/](./assets/proof/) y en la [Guía de uso](./GuiaDeUso.md).
 
-### 13.4 Resultados por territorio (casos de prueba)
+### 13.4 Resultados por territorio
 
-Los tres lugares siguientes son sitios de demostración del objetivo «medir inundación en sitios específicos», no un catálogo cerrado de territorios del producto. En cada uno el recorte mide 12 km de lado. El agua detectada es la máscara del modelo. La inundación es el agua nueva respecto a la fecha anterior del mismo lugar. El agua permanente es la que ya estaba en esa fecha anterior.
+En los tres casos de prueba el recorte mide 12 km de lado. El agua detectada es la máscara del modelo. La inundación es el agua nueva respecto a la fecha anterior del mismo lugar. El agua permanente es la que ya estaba en esa fecha anterior.
 
 | Lugar | Fechas | Agua detectada (km²) | Inundación (km²) | Agua que ya estaba (km²) |
 |---|---|---:|---:|---:|
@@ -340,7 +340,7 @@ En el pico de Sindh el acuerdo es 0,20: las dos capas coinciden en una parte de 
 
 ## 14. Resultados, discusión y conclusiones
 
-Se cumplió el objetivo de servir un análisis de inundación como agua nueva, con API, MapApp, degradación parcial y la capacidad de medir inundación en sitios específicos. Esa capacidad se demostró con tres casos de prueba (Sindh, Bajo Magdalena y Mississippi), con pesos reales y tabla documentada; esos lugares no agotan ni definen el alcance geográfico del sistema. Las tres lecturas están implementadas: agua detectada, agua nueva y acuerdo externo. GFM se consulta en cada análisis y se muestra cuando existe capa.
+Se cumplió el objetivo de distinguir inundación (agua nueva) de agua permanente con un checkpoint publicado, API, MapApp y medición en sitios específicos. Esa medición se demostró con tres casos de prueba (Sindh, Bajo Magdalena y Mississippi), con pesos reales y tabla documentada. Las tres lecturas están implementadas: agua detectada, agua nueva y acuerdo externo. GFM se consulta en cada análisis y se muestra cuando existe capa.
 
 **Limitaciones.** El acuerdo con GFM es condicional: depende de la cobertura, la fecha y el catálogo, y no sustituye al agua nueva. Hay desfase entre la escena óptica y el radar (Synthetic Aperture Radar, SAR). La población expuesta quedó en 0 en los recortes medidos, así que no forma parte del resultado. El historial de MapApp es de la sesión y no lista aún `GET /api/analyses`. No hay autenticación ni escala multi-usuario.
 
@@ -352,7 +352,7 @@ Se cumplió el objetivo de servir un análisis de inundación como agua nueva, c
 2. Avisar, antes de analizar, si GFM tiene capa para esa fecha.  
 3. Retirar la interfaz anterior que quedó sin montar.  
 4. Publicar la aplicación con HTTPS y el acceso a la API restringido al servidor.  
-5. Sumar otros sitios o eventos de prueba en los que GFM sí cubra la grilla, para ampliar la tabla de acuerdo sin fijar el producto a un territorio.  
+5. Sumar otros sitios o eventos de prueba en los que GFM sí cubra la grilla, para ampliar la tabla de acuerdo.  
 6. Volver a la población afectada solo con un método que no cuente personas únicamente sobre el píxel de agua.
 
 ## 16. Referencias
