@@ -115,117 +115,183 @@ Un solo `AnalyzeUseCase` sirve API y MapApp. Inferencia en proceso (sin cola). P
 | ExposureProvider | Cobertura del suelo (WorldCover) sobre el agua nueva |
 | AnalysisRepository | JSON + PNG/TIF |
 
-Fuentes editables: [arquitectura](./assets/diagramas/arquitectura.md), [interacción](./assets/diagramas/interaccion-modulos.md), [secuencias](./assets/diagramas/secuencia-analisis.md), [despliegue](./assets/diagramas/despliegue.md).
+Fuentes editables: [arquitectura](./assets/diagramas/arquitectura.md), [interacción](./assets/diagramas/interaccion-modulos.md), [secuencia análisis](./assets/diagramas/secuencia-analisis.md), [secuencia rechazo](./assets/diagramas/secuencia-rechazo.md), [secuencia fusión](./assets/diagramas/secuencia-fusion.md), [despliegue](./assets/diagramas/despliegue.md).
 
-**Figura 1. Arquitectura de Tune.** Cliente, API, caso de uso, proveedores externos y disco. No describe módulos internos ni el nodo Docker.
+**Figura 1. Arquitectura de Tune.** Cliente MapApp, contenedor eo-api con caso de uso y proveedores, servicios externos y persistencia en disco.
 
 ```mermaid
 flowchart TB
   subgraph Cliente
     U[Operador]
-    W["MapApp :8080"]
+    W["MapApp<br/>Vite/React + Leaflet<br/>:8080 nginx"]
   end
-  subgraph API["eo-api :8000"]
-    HTTP["FastAPI /api"]
+
+  subgraph Contenedor_API["Contenedor eo-api :8000"]
+    API["FastAPI /api"]
     UC["AnalyzeUseCase"]
+    SEG["PrithviSegmenter<br/>TerraTorch"]
+    REF["ReferenceProvider<br/>historial → JRC"]
+    OBS["ObservationProvider<br/>GFM ±10 d"]
+    EXP["ExposureProvider<br/>WorldCover"]
+    CAT["SceneCatalog<br/>Earth Search L2A"]
+    REPO["AnalysisRepository<br/>filesystem"]
   end
+
   subgraph Externos
-    HF[Hugging Face]
-    ES[Earth Search]
-    JRC[JRC GSW]
-    GFM[EODC GFM]
-    WC[WorldCover]
+    HF[Hugging Face pesos]
+    ES[Earth Search STAC]
+    JRC["JRC GSW"]
+    GFM["EODC GFM"]
+    WC["WorldCover"]
   end
-  ART["artifacts/"]
+
+  subgraph Disco
+    ART["artifacts/analyses/"]
+    CACHE["volumen hf-cache"]
+  end
+
   U --> W
-  W -->|"HTTP /api"| HTTP
-  HTTP --> UC
-  UC --> HF
-  UC --> ES
-  UC --> JRC
-  UC --> GFM
-  UC --> WC
-  UC --> ART
+  W -->|"HTTP /api"| API
+  API --> UC
+  API --> CAT
+  UC --> SEG
+  UC --> REF
+  UC --> OBS
+  UC --> EXP
+  UC --> REPO
+  CAT --> ES
+  SEG --> HF
+  SEG --> CACHE
+  REF --> JRC
+  REF --> ART
+  OBS --> GFM
+  EXP --> WC
+  REPO --> ART
 ```
 
-**Figura 2. Interacción entre módulos.** Abre el backend en capas hexagonal. Las dependencias apuntan al dominio; TerraTorch, STAC y rasterio quedan en infraestructura.
+**Figura 2. Interacción entre módulos.** Capas hexagonal: las dependencias apuntan al dominio; TerraTorch, STAC y rasterio quedan en infraestructura e implementan los puertos.
 
 ```mermaid
 flowchart LR
   subgraph interfaces
     WEB[MapApp]
     API[analyses router]
+    CLI[tune CLI]
   end
+
   subgraph application
     AN[analyze]
     CH[change]
     FU[fusion]
     EX[exposure]
   end
+
   subgraph domain
-    PORTS[Puertos]
+    ENT[Analysis / Change / Fusion / Exposure]
+    PORTS["Puertos:<br/>HazardSegmenter<br/>ReferenceProvider<br/>ObservationProvider<br/>ExposureProvider<br/>SceneCatalog<br/>AnalysisRepository"]
   end
+
   subgraph infrastructure
     PR[prithvi]
-    JRC[historial / JRC]
-    OBS[GFM]
-    WC[WorldCover]
-    FS[filesystem]
+    STAC_O[observation/stac]
+    STAC_C[catalog/stac]
+    JRC[reference/jrc + history]
+    WC[exposure]
+    FS[analyses/filesystem]
+    CTR[container.py]
   end
-  WEB --> API --> AN
+
+  WEB --> API
+  CLI --> AN
+  API --> AN
   AN --> CH
   AN --> FU
   AN --> EX
+  AN --> ENT
   AN --> PORTS
-  PR -.-> PORTS
-  JRC -.-> PORTS
-  OBS -.-> PORTS
-  WC -.-> PORTS
-  FS -.-> PORTS
+  CTR --> PR
+  CTR --> STAC_O
+  CTR --> STAC_C
+  CTR --> JRC
+  CTR --> WC
+  CTR --> FS
+  PR -.->|implementa| PORTS
+  STAC_O -.->|implementa| PORTS
+  STAC_C -.->|implementa| PORTS
+  JRC -.->|implementa| PORTS
+  WC -.->|implementa| PORTS
+  FS -.->|implementa| PORTS
 ```
 
 #### 10.1.3 Comportamiento
 
 El paso lento es la inferencia de la escena. La primera vez, la aplicación descarga los pesos (del orden de 1,2 GB) y los deja en caché. Si GFM no cubre la fecha, el análisis se guarda igual y el acuerdo queda vacío. Si no hay escena en esas fechas, o el rectángulo supera el máximo, no se produce un resultado.
 
-**Figura 3. Secuencia del par Antes/Después.** La segunda escena usa la máscara anterior como `history_baseline`. GFM se consulta después de segmentar.
+**Figura 3. Secuencia del par Antes/Después.** El operador fija el área y dos fechas, elige escenas y analiza. La segunda corrida usa la máscara previa como `history_baseline` cuando aplica. GFM se consulta tras la segmentación; WorldCover aporta exposición.
 
 ```mermaid
 sequenceDiagram
   actor Op as Operador
   participant UI as MapApp
   participant API as eo-api
+  participant ES as Earth Search
   participant UC as AnalyzeUseCase
   participant P as Prithvi
   participant R as Historial/JRC
   participant G as GFM
-  Op->>UI: Área y dos fechas
-  UI->>API: POST analyze Antes
-  API->>UC: execute
+  participant X as WorldCover
+  participant D as artifacts/
+
+  Op->>UI: Área + fechas Antes/Después
+  UI->>API: GET catalog/search Antes
+  API->>ES: sentinel-2-l2a
+  ES-->>API: escenas
+  API-->>UI: lista
+  UI->>API: GET catalog/search Después
+  API-->>UI: lista
+  Op->>UI: Elegir escenas + Analizar
+
+  UI->>API: POST catalog/idAntes/analyze
+  API->>ES: fetch 6 bandas
+  API->>UC: execute flood
   UC->>P: segment
+  P-->>UC: máscara W_antes
   UC->>R: reference
-  R-->>UC: JRC
-  UC->>G: observe
-  API-->>UI: análisis base
-  UI->>API: POST analyze Después
+  R-->>UC: JRC frío
+  UC->>G: observe ±10 d
+  G-->>UC: capa o vacío
+  UC->>X: expose
+  UC->>D: analysis.json + png
+  API-->>UI: Analysis Antes
+
+  UI->>API: POST catalog/idDespues/analyze
+  API->>UC: execute flood
+  UC->>P: segment
+  P-->>UC: máscara W_pico
   UC->>R: reference
   R-->>UC: history_baseline
-  API-->>UI: agua nueva y IoU si hay capa
+  UC->>G: observe
+  G-->>UC: capa o vacío
+  UC->>X: expose
+  UC->>D: change.png
+  API-->>UI: Analysis Después
+  UI-->>Op: Cambio / Acuerdo / métricas
 ```
 
-**Figura 4. Secuencia cuando la entrada no llega a análisis.** La búsqueda sin escena, un rectángulo demasiado grande, un archivo que no es GeoTIFF de seis bandas o un modelo no disponible no guardan un resultado.
+**Figura 4. Secuencia cuando la entrada no llega a análisis.** La búsqueda sin escena, un rectángulo demasiado grande o un archivo que no es GeoTIFF de seis bandas no guardan un resultado.
 
 ```mermaid
 sequenceDiagram
   actor Op as Operador
   participant UI as MapApp
   participant API as eo-api
+
   alt busca un lugar
     Op->>UI: Lugar, coordenadas o rectángulo
-    UI->>API: Buscar escenas
-    alt sin escenas
+    UI->>API: Buscar escenas Sentinel-2
+    alt no hay escena en esas fechas
       API-->>UI: lista vacía
-    else área mayor que el máximo
+    else el recorte supera el máximo
       API-->>UI: 422
     end
   else sube un archivo
@@ -238,20 +304,29 @@ sequenceDiagram
   end
 ```
 
-**Figura 5. Secuencia del acuerdo con GFM.** Si la capa cubre la grilla, el análisis guarda el IoU. Si no la cubre, el agua nueva se conserva y el acuerdo queda vacío.
+**Figura 5. Secuencia del acuerdo con GFM.** Tras segmentar, Tune consulta GFM (±10 días). Si hay capa alineable, guarda el IoU; si no, el análisis se guarda igual sin tumbar el flujo.
 
 ```mermaid
 sequenceDiagram
+  participant API as eo-api
   participant UC as AnalyzeUseCase
+  participant P as Prithvi
   participant G as GFM
   participant D as artifacts/
+
+  API->>UC: execute flood
+  UC->>P: segment
+  P-->>UC: máscara de agua
   UC->>G: observe ±10 días
-  alt compared_pixels mayor que 0
-    G-->>UC: capa alineada
-    UC->>D: fusion con IoU
-  else sin solape
-    G-->>UC: vacío o todo desconocido
-    UC->>D: análisis sin IoU
+  alt hay capa alineable
+    G-->>UC: máscara externa
+    UC->>UC: IoU y residuales
+    UC->>D: analysis.json + fusion.png
+    UC-->>API: fusion.iou numérico
+  else catálogo vacío o sin solape
+    G-->>UC: vacío
+    UC->>D: analysis.json sin fusion
+    UC-->>API: fusion null
   end
 ```
 
@@ -283,15 +358,28 @@ make app-up    # o: docker compose up -d --build
 
 Volumen `hf-cache` y carpeta `artifacts/` persisten pesos y análisis. Detalle: [Instalación.md](./Instalación.md).
 
-**Figura 6. Despliegue local.** Dos contenedores en el host, volumen de pesos y salida hacia los catálogos. MapApp queda en el puerto 8080 y la API en el 8000.
+**Figura 6. Despliegue local.** Docker Compose en el host: MapApp (:8080), eo-api (:8000), volumen de pesos, `artifacts/` y salida HTTPS a los catálogos externos.
 
 ```mermaid
 flowchart TB
-  Op[Navegador] -->|"localhost:8080"| WEB[tune-web nginx]
-  WEB -->|"proxy /api"| API[tune-eo-api :8000]
-  API --- HF[("volumen hf-cache")]
-  API --- ART[("bind ./artifacts")]
-  API --> NET["HF, Earth Search, JRC, EODC, WorldCover"]
+  subgraph Host["Host / VM"]
+    subgraph Compose["docker compose"]
+      WEB["tune-web<br/>nginx<br/>host :8080 → 80"]
+      API["tune-eo-api<br/>uvicorn FastAPI<br/>host :8000 → 8000"]
+    end
+    VOL_HF[("volumen hf-cache<br/>pesos HF ~1,2 GB")]
+    DIR_ART[("bind ./artifacts<br/>análisis + cachés")]
+    ENV[".env / .env.example"]
+  end
+
+  Op[Operador navegador] -->|"http://localhost:8080"| WEB
+  WEB -->|"proxy /api"| API
+  Op -.->|"opcional Swagger"| API
+  API --- VOL_HF
+  API --- DIR_ART
+  ENV -.-> WEB
+  ENV -.-> API
+  API -->|"HTTPS salida"| NET["Internet:<br/>HF · Earth Search · JRC · EODC/GFM · WorldCover"]
 ```
 
 ## 13. Validación
